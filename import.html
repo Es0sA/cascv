@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <link rel="icon" type="image/x-icon" href="assets/favicon.ico">
+  <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="assets/favicon-16.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="assets/apple-touch-icon.png">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CAS CV Builder — Import CV</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/main.css">
+</head>
+<body class="page-import">
+
+  <!-- Header -->
+  <header class="dash-header">
+    <div class="dash-header-inner">
+      <div class="header-brand">
+        <button class="btn-back" id="backBtn">
+          <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+          Dashboard
+        </button>
+        <span class="header-sep"></span>
+        <span class="brand-cas">CAS</span>
+        <span class="brand-divider"></span>
+        <span class="brand-sub">CV Builder</span>
+      </div>
+      <button class="btn-logout" id="logoutBtn">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+        Sign Out
+      </button>
+    </div>
+  </header>
+
+  <!-- Main -->
+  <main class="import-main">
+    <div class="import-container">
+
+      <!-- Page title -->
+      <div class="import-top">
+        <h1 class="import-title">Import CV</h1>
+        <p class="import-subtitle">Paste the cleaned CV text from Claude, name it, and the builder will structure it automatically.</p>
+      </div>
+
+      <!-- Import form -->
+      <div class="import-card" id="importCard">
+
+        <div class="field-group">
+          <label class="field-label" for="cvName">Client Name <span class="field-required">*</span></label>
+          <input class="field-input" type="text" id="cvName" placeholder="e.g. Omowunmi Julius-Olise">
+        </div>
+
+        <div class="field-group">
+          <label class="field-label" for="cvText">Paste CV Text <span class="field-required">*</span></label>
+          <textarea class="field-textarea" id="cvText" placeholder="Paste the full CV text from Claude here..."></textarea>
+        </div>
+
+        <p class="error-msg" id="importError" aria-live="polite"></p>
+
+        <div class="import-actions">
+          <button class="btn-parse" id="parseBtn">
+            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 7 4 4 20 4 20 7"/><line x1="9" y1="20" x2="15" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/></svg>
+            Parse CV
+          </button>
+        </div>
+
+      </div>
+
+      <!-- Preview (shown after parsing) -->
+      <div class="preview-card" id="previewCard">
+
+        <div class="preview-header">
+          <div class="preview-header-left">
+            <div class="preview-badge" id="sectionCount">0 sections detected</div>
+            <h2 class="preview-title">Parsed Structure</h2>
+            <p class="preview-caption">Review the detected sections below. If anything looks wrong, edit the CV text and re-parse.</p>
+          </div>
+          <button class="btn-reparse" id="reparseBtn">
+            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+            Re-parse
+          </button>
+        </div>
+
+        <!-- Parsed sections list -->
+        <div class="section-list" id="sectionList"></div>
+
+        <!-- Save button -->
+        <div class="preview-footer">
+          <button class="btn-save" id="saveBtn">
+            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+            Save to Dashboard
+          </button>
+          <p class="save-caption">You can edit and manage this CV from your dashboard.</p>
+        </div>
+
+      </div>
+
+    </div>
+  </main>
+
+  <script src="js/auth-guard.js"></script>
+  <script src="js/parser.js"></script>
+  <script src="js/import.js"></script>
+</body>
+</html>

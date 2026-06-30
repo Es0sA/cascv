@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <link rel="icon" type="image/x-icon" href="assets/favicon.ico">
+  <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="assets/favicon-16.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="assets/apple-touch-icon.png">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Free ATS CV Checker — CAS Writing Services</title>
+  <meta name="description" content="Check how well your CV matches a job description. Get an instant ATS score, keyword analysis and recommendations. Free tool by CAS Writing Services.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/main.css">
+  <link rel="stylesheet" href="css/ats.css">
+</head>
+<body class="page-ats">
+
+  <!-- Nav -->
+  <nav class="ats-nav">
+    <div class="ats-nav-brand">
+      <span class="brand-cas">CAS</span>
+      <span class="ats-nav-divider"></span>
+      <span class="ats-nav-name">Writing Services</span>
+    </div>
+    <a href="login.html" class="ats-login-btn">CV Builder Login</a>
+  </nav>
+
+  <!-- Hero -->
+  <section class="ats-hero">
+    <div class="ats-hero-inner">
+      <span class="ats-badge">Free Tool · No Sign-up Required</span>
+      <h1 class="ats-title">Is Your CV Getting Past<br>the ATS Filter?</h1>
+      <p class="ats-subtitle">Paste any job description and your CV below. Get an instant ATS match score, see exactly which keywords you're missing, and know what to fix — before you apply.</p>
+    </div>
+  </section>
+
+  <!-- Checker -->
+  <section class="ats-section">
+    <div class="ats-container">
+
+      <div class="ats-title-row">
+        <div class="ats-input-label">
+          <span class="ats-step">1</span>
+          <span>Target Job Title / Role</span>
+        </div>
+        <input class="ats-title-input" type="text" id="jobTitleInput"
+               placeholder="e.g. Sales Executive, Accountant, HR Manager, Software Developer…"
+               autocomplete="off">
+      </div>
+
+      <div class="ats-inputs">
+        <div class="ats-input-col">
+          <div class="ats-input-label">
+            <span class="ats-step">2</span>
+            <span>Job Description</span>
+          </div>
+          <textarea class="ats-textarea" id="jdText" placeholder="Copy and paste the full job description here, including requirements, responsibilities and qualifications..."></textarea>
+        </div>
+        <div class="ats-input-col">
+          <div class="ats-input-label-row">
+            <div class="ats-input-label">
+              <span class="ats-step">3</span>
+              <span>Your CV</span>
+            </div>
+            <label class="ats-upload-btn" for="cvFile" title="Upload .pdf or .docx">
+              <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+              Upload File
+            </label>
+            <input type="file" id="cvFile" accept=".pdf,.docx" style="display:none">
+          </div>
+          <div class="upload-status" id="uploadStatus"></div>
+          <textarea class="ats-textarea" id="cvText" placeholder="Paste your CV text here — or upload a .pdf or .docx file above..."></textarea>
+        </div>
+      </div>
+
+      <div class="ats-submit-row">
+        <p class="error-msg" id="atsError"></p>
+        <button class="ats-check-btn" id="checkBtn" type="button">
+          Check My ATS Score
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+        </button>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- Results -->
+  <section class="ats-results" id="atsResults">
+    <div class="ats-container">
+      <div id="detectedBadge" style="display:none; margin-bottom:20px"></div>
+
+      <!-- Score -->
+      <div class="ats-score-row">
+        <div class="ats-score-card">
+          <div class="ats-score-wrap">
+            <svg class="ats-score-ring" viewBox="0 0 120 120">
+              <circle class="ats-ring-bg" cx="60" cy="60" r="52"/>
+              <circle class="ats-ring-bar" id="scoreRing" cx="60" cy="60" r="52"
+                stroke-dasharray="327" stroke-dashoffset="327"/>
+            </svg>
+            <div class="ats-score-inner">
+              <div class="ats-score-num" id="scoreNum">0%</div>
+              <div class="ats-score-tag" id="scoreTag">Checking...</div>
+            </div>
+          </div>
+          <div class="ats-score-label" id="scoreLabel"></div>
+        </div>
+
+        <div class="ats-recs-card">
+          <div class="ats-card-title">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            Recommendations
+          </div>
+          <ul class="ats-rec-list" id="recList"></ul>
+        </div>
+      </div>
+
+      <!-- Keywords -->
+      <div class="ats-keywords-row">
+        <div class="ats-kw-card ats-kw-found">
+          <div class="ats-card-title">
+            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            Keywords Found in Your CV
+          </div>
+          <div class="ats-chips" id="foundChips"></div>
+        </div>
+        <div class="ats-kw-card ats-kw-missing">
+          <div class="ats-card-title">
+            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Keywords to Add
+          </div>
+          <div class="ats-chips" id="missingChips"></div>
+        </div>
+      </div>
+
+      <!-- Role request (shown only when role not detected) -->
+      <div class="role-request-panel" id="roleRequestPanel" style="display:none">
+        <div class="role-request-inner">
+          <div class="role-request-icon">🔍</div>
+          <div class="role-request-text">
+            <strong>This job role isn't in our database yet.</strong>
+            <p>Tell us what role this is and we'll add tailored keywords so future checks are more accurate.</p>
+          </div>
+          <form class="role-request-form" id="requestForm">
+            <input type="text" class="role-request-input" id="requestedRole" placeholder="e.g. Petroleum Engineer" required>
+            <button type="submit" class="role-request-btn">Submit Role</button>
+          </form>
+          <p class="role-request-status" id="requestStatus" style="display:none"></p>
+        </div>
+      </div>
+
+    </div>
+  </section>
+  <section class="ats-cta-section" id="atsCta">
+    <div class="ats-container">
+      <div class="ats-cta-card">
+        <div class="ats-cta-text">
+          <h2 class="ats-cta-title">Your CV needs work?</h2>
+          <p class="ats-cta-body">I write ATS-optimised CVs that get shortlisted. Based in Nigeria, serving clients across Africa and the UK. Delivery in 24–48 hours.</p>
+        </div>
+        <div class="ats-cta-actions">
+          <a href="https://www.linkedin.com/services/page/a80bb4336b664308b5/" 
+             target="_blank" rel="noopener" class="ats-cta-btn" id="linkedinBtn">
+            View My CV Writing Services
+            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+          </a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="ats-footer">
+    <p>CAS Writing Services &copy; 2026 &nbsp;·&nbsp; Built for job seekers across Nigeria and Africa</p>
+  </footer>
+
+  <!-- Netlify form detection — do not remove -->
+  <form name="role-request" netlify netlify-honeypot="bot-field" hidden>
+    <input name="bot-field">
+    <input name="job-title" type="text">
+    <input name="jd-preview" type="text">
+  </form>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script src="js/keywords.js"></script>
+  <script src="js/ats.js"></script>
+</body>
+</html>

@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <link rel="icon" type="image/x-icon" href="assets/favicon.ico">
+  <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="assets/favicon-16.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="assets/apple-touch-icon.png">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CAS CV Builder — Editor</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&family=EB+Garamond:wght@400;600&family=Lato:wght@300;400;700&family=Lora:wght@400;600;700&family=Aleo:wght@400;700&family=Comfortaa:wght@300;400;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/main.css">
+  <!-- PDF generation library (replaces window.print — creates actual PDF file) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+</head>
+<body class="page-editor">
+
+  <!-- Editor Header -->
+  <header class="editor-header">
+    <div class="editor-header-left">
+      <button class="btn-back" id="backBtn">
+        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+        Dashboard
+      </button>
+      <span class="header-sep"></span>
+      <div class="editor-cv-name" id="cvNameDisplay">Loading...</div>
+    </div>
+    <div class="editor-header-right">
+      <button class="btn-reimport" id="reimportBtn">
+        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+        Reimport
+      </button>
+      <span class="save-indicator" id="saveIndicator">Saved</span>
+      <button class="btn-download-pdf" id="downloadBtn">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Download PDF
+      </button>
+    </div>
+  </header>
+
+  <!-- Split Body -->
+  <div class="editor-body">
+
+    <!-- Left Panel -->
+    <div class="editor-left">
+
+      <!-- Tabs -->
+      <div class="editor-tabs">
+        <button class="editor-tab active" id="tabEdit" onclick="switchTab('edit')" type="button">
+          <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+          Edit
+        </button>
+        <button class="editor-tab" id="tabCustomize" onclick="switchTab('customize')" type="button">
+          <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+          Customize
+        </button>
+      </div>
+
+      <!-- Scrollable content -->
+      <div class="editor-left-scroll">
+        <div id="editPanel">
+          <div class="editor-left-inner" id="sectionsContainer"></div>
+        </div>
+        <div id="customizePanel" style="display:none"></div>
+      </div>
+
+    </div>
+
+    <!-- Resize Handle -->
+    <div class="panel-resize-handle" id="panelResizeHandle" title="Drag to resize panel">
+      <span class="panel-resize-grip"></span>
+    </div>
+
+    <!-- Right: Live Preview -->
+    <div class="editor-right" id="editorRight">
+      <div class="cv-paper-wrap" id="cvPaperWrap">
+        <div class="cv-paper t-classic hs-underline hc-upper" id="cvPaper"></div>
+        <div id="pageBreakOverlay" aria-hidden="true"></div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Reimport Modal -->
+  <div class="modal-overlay" id="reimportOverlay">
+    <div class="modal" id="reimportModal">
+      <div class="modal-header">
+        <h2 class="modal-title">Reimport CV</h2>
+        <button class="modal-close" id="reimportClose">
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <div class="modal-body">
+        <p class="modal-caption">Paste updated CV text from Claude. The content will be replaced but your Customize settings will be preserved.</p>
+        <div class="field-group">
+          <label class="field-label">Updated CV Text</label>
+          <textarea class="field-textarea" id="reimportText" placeholder="Paste the updated CV text here..." style="min-height: 220px"></textarea>
+        </div>
+        <p class="error-msg" id="reimportError"></p>
+        <div class="import-actions" style="margin-top: 8px">
+          <button class="btn-parse" id="reimportConfirm" type="button">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+            Reimport CV
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== ADD CONTENT MODAL ===================== -->
+  <div class="modal-overlay" id="addContentOverlay">
+    <div class="modal-box modal-wide">
+      <div class="modal-header">
+        <span class="modal-title">Add Content</span>
+        <button class="modal-close" onclick="closeAddContent()" type="button">✕</button>
+      </div>
+      <div class="add-content-grid" id="addContentGrid"></div>
+    </div>
+  </div>
+
+  <!-- ===================== ENTRY EDITOR MODAL ===================== -->
+  <div class="modal-overlay" id="entryEditorOverlay">
+    <div class="modal-box">
+      <div class="modal-header">
+        <span class="modal-title" id="entryEditorTitle">Edit Entry</span>
+        <div style="display:flex;gap:8px;align-items:center">
+          <button class="entry-delete-btn" id="entryVisBtn" onclick="toggleCurrentEntryVisibility()" type="button" title="Hide/show this entry">👁</button>
+          <button class="entry-delete-btn" id="entryDeleteBtn" onclick="deleteCurrentEntry()" type="button" title="Delete entry">🗑</button>
+          <button class="modal-close" onclick="closeEntryEditor()" type="button">✕</button>
+        </div>
+      </div>
+      <div id="entryEditorBody"></div>
+      <div class="modal-footer">
+        <button class="modal-done-btn" onclick="saveEntryAndClose()" type="button">✓ Done</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/auth-guard.js"></script>
+  <script src="js/parser.js"></script>
+  <script src="js/editor.js"></script>
+</body>
+</html>
