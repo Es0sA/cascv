@@ -196,22 +196,40 @@ backBtn.addEventListener('click', () => window.location.href = 'dashboard.html')
 
 /* ============================================================
    PDF DOWNLOAD — html2pdf.js (creates actual PDF file)
+
+   Captures an off-screen clone of cvPaper rendered at TRUE A4/Letter
+   mm dimensions (matching dashboard.js's approach), instead of
+   capturing the live on-screen preview directly. The on-screen
+   preview is a fixed-px (660px-wide) scaled-down box for editing
+   convenience — capturing it directly caused a width/page-height
+   mismatch against html2pdf's mm-based page slicing, which is what
+   produced spurious blank second pages. Cloning into a true-size
+   off-screen container also avoids any interference from the
+   editor's zoom transform, resize handle, or page-break overlay.
    ============================================================ */
 downloadBtn.addEventListener('click', async () => {
   if (typeof html2pdf === 'undefined') { window.print(); return; }
 
-  const isLetter   = cvSettings.paperFormat === 'Letter';
-  const [pw, ph]   = isLetter ? [215.9, 279.4] : [210, 297];
+  const isLetter = cvSettings.paperFormat === 'Letter';
+  const [pw, ph] = isLetter ? [215.9, 279.4] : [210, 297];
 
   downloadBtn.textContent = '⏳ Generating…';
   downloadBtn.disabled    = true;
 
-  // Reset on-screen zoom to 1 before capture — otherwise html2canvas
-  // would snapshot the shrunk-down preview instead of full resolution.
-  const wrapEl = document.getElementById('cvPaperWrap');
-  const prevZoom = wrapEl ? wrapEl.style.zoom : '';
-  if (wrapEl) wrapEl.style.zoom = 1;
-  await new Promise(r => requestAnimationFrame(r)); // let layout settle
+  // Build an off-screen, full-size (mm) clone of the live preview.
+  const wrap = document.createElement('div');
+  wrap.style.cssText = `position:fixed;top:0;left:0;width:${pw}mm;z-index:-9999;opacity:0;pointer-events:none;`;
+  const clone = cvPaper.cloneNode(true);
+  clone.removeAttribute('id');
+  clone.style.width      = `${pw}mm`;
+  clone.style.maxWidth   = `${pw}mm`;
+  clone.style.minHeight  = `${ph}mm`;
+  clone.style.boxShadow  = 'none';
+  wrap.appendChild(clone);
+  document.body.appendChild(wrap);
+
+  // Let the browser lay out the clone at full size before capture.
+  await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
 
   try {
     const opt = {
@@ -220,14 +238,16 @@ downloadBtn.addEventListener('click', async () => {
       image:      { type: 'jpeg', quality: 0.98 },
       html2canvas:{ scale: 2, useCORS: true, allowTaint: true, logging: false,
                     x: 0, y: 0, scrollX: 0, scrollY: 0,
-                    windowWidth: cvPaper.scrollWidth },
+                    windowWidth: clone.scrollWidth },
       jsPDF:      { unit: 'mm', format: isLetter ? [pw, ph] : 'a4', orientation: 'portrait' },
       pagebreak:  { mode: ['css'], avoid: '.cvp-bullet,.cvp-entry-title,.cvp-entry-meta' }
     };
-    await html2pdf().set(opt).from(cvPaper).save();
+    await html2pdf().set(opt).from(clone).save();
+  } catch (err) {
+    console.error('PDF generation failed:', err);
+    alert('PDF generation failed. Please try again — if this keeps happening, let Cas know.');
   } finally {
-    if (wrapEl) wrapEl.style.zoom = prevZoom || '';
-    scheduleFitZoom();
+    document.body.removeChild(wrap);
     downloadBtn.textContent = '⬇ Download PDF';
     downloadBtn.disabled    = false;
   }
