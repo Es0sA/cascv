@@ -294,3 +294,7 @@ git push
 Pushing to `main` deploys automatically via GitHub Pages within about a
 minute. There is no staging environment and no CI/CD pipeline beyond
 that. What's on `main` is what's live.
+
+`CHANGELOG.md` logs changes made by Claude Code sessions, newest first,
+with commit hashes. Add an entry there after committing, instead of
+turning this file into a running log.
