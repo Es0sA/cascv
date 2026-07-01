@@ -1641,22 +1641,31 @@ smartMigrate(cvData.parsed.sections);
    regardless of how wide the left panel is dragged. Uses CSS
    `zoom` (affects layout size, not just visual transform) so the
    container's scroll height shrinks proportionally too.
+
+   NOTE: browsers differ on whether `zoom` reflows the element's
+   own contribution to its flex parent's layout. To keep centering
+   correct either way, we explicitly set the wrap's inline width to
+   match its true post-zoom visual footprint — the flex parent's
+   justify-content:center then always centers the right amount of
+   space, regardless of zoom's reflow behavior in a given browser.
    ============================================================ */
 function fitPaperZoom() {
   const wrap  = document.getElementById('cvPaperWrap');
   const right = document.getElementById('editorRight');
   if (!wrap || !right) return;
 
-  wrap.style.zoom = 1; // reset first so we measure the true natural width
-  const PADDING = 48;  // .editor-right has 24px padding each side
-  const availW   = right.clientWidth - PADDING;
+  wrap.style.zoom  = 1;   // reset first so we measure the true natural width
+  wrap.style.width = '';  // fall back to CSS width: min(660px, 100%)
+  const availW   = right.clientWidth;   // .editor-right has no horizontal padding
   const naturalW = wrap.scrollWidth || wrap.offsetWidth;
 
   if (naturalW > availW && availW > 50) {
     const scale = Math.max(0.35, Math.min(1, availW / naturalW));
-    wrap.style.zoom = scale;
+    wrap.style.zoom  = scale;
+    wrap.style.width = Math.round(naturalW * scale) + 'px';
   } else {
-    wrap.style.zoom = 1;
+    wrap.style.zoom  = 1;
+    wrap.style.width = '';
   }
 }
 
