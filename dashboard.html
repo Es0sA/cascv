@@ -119,6 +119,11 @@
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
   <script type="module" src="js/auth-guard.js"></script>
+  <!-- cv-store.js is a module (deferred) but dashboard.js is a classic
+       script that runs immediately, so dashboard.js awaits this promise
+       instead of touching window.CVStore directly (see cv-store.js). -->
+  <script>window.cvStoreReady = new Promise(r => { window._resolveCVStoreReady = r; });</script>
+  <script type="module" src="js/cv-store.js"></script>
   <script src="js/parser.js"></script>
   <script src="js/dashboard.js"></script>
 </body>

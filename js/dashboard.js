@@ -1,12 +1,17 @@
 /* ============================================================
    CAS CV Builder — dashboard.js
    Handles gallery rendering, modal, and CV actions.
-   CV data stored in localStorage for now — Phase 3 moves
-   this to a real database.
+   CV data lives in Firestore (users/{uid}/cvs/{cvId}), reached
+   through window.CVStore (see js/cv-store.js). This file itself
+   stays a classic global-scope script; only the Firestore calls
+   are async.
    ============================================================ */
 
 // Auth is now handled by auth-guard.js (Firebase) — see js/auth-guard.js
-const CV_STORE = 'cas_cv_data';
+
+// In-memory copy of whatever CVStore.getAll() last returned, so
+// actions like download/delete don't need a fresh Firestore read.
+let cachedCVs = [];
 
 // Elements
 const logoutBtn     = document.getElementById('logoutBtn');
@@ -60,7 +65,7 @@ optionImport.addEventListener('click', () => {
   window.location.href = 'import.html';
 });
 
-optionScratch.addEventListener('click', () => {
+optionScratch.addEventListener('click', async () => {
   closeModal();
   const id = 'cv_' + Date.now();
   const blankCV = {
@@ -85,31 +90,17 @@ optionScratch.addEventListener('click', () => {
     settings: {}
   };
   try {
-    const cvs = JSON.parse(localStorage.getItem(CV_STORE)) || [];
-    cvs.unshift(blankCV);
-    localStorage.setItem(CV_STORE, JSON.stringify(cvs));
+    const CVStore = await window.cvStoreReady;
+    await CVStore.save(blankCV);
     window.location.href = `editor.html?id=${id}`;
   } catch {
     alert('Could not create a new CV. Please try again.');
   }
 });
 
-/* ---- CV Data (localStorage) ---- */
-function getCVs() {
-  try {
-    return JSON.parse(localStorage.getItem(CV_STORE)) || [];
-  } catch {
-    return [];
-  }
-}
-
-function saveCVs(cvs) {
-  localStorage.setItem(CV_STORE, JSON.stringify(cvs));
-}
-
 /* ---- Gallery render ---- */
 function renderGallery() {
-  const cvs = getCVs();
+  const cvs = cachedCVs;
 
   cvCountEl.textContent = cvs.length === 0
     ? '0 CVs saved'
@@ -164,8 +155,7 @@ function editCV(id) {
 }
 
 function downloadCV(id) {
-  const cvs = JSON.parse(localStorage.getItem('cas_cv_data')) || [];
-  const cv  = cvs.find(c => c.id === id);
+  const cv = cachedCVs.find(c => c.id === id);
   if (!cv) { alert('CV not found.'); return; }
 
   const settings = Object.assign({
@@ -279,11 +269,16 @@ function downloadCV(id) {
   }, 400);
 }
 
-function deleteCV(id) {
+async function deleteCV(id) {
   if (!confirm('Delete this CV? This cannot be undone.')) return;
-  const updated = getCVs().filter(cv => cv.id !== id);
-  saveCVs(updated);
-  renderGallery();
+  try {
+    const CVStore = await window.cvStoreReady;
+    await CVStore.remove(id);
+    cachedCVs = cachedCVs.filter(cv => cv.id !== id);
+    renderGallery();
+  } catch {
+    alert('Could not delete this CV. Please try again.');
+  }
 }
 
 /* ---- Helpers ---- */
@@ -301,4 +296,23 @@ function escapeHtml(str) {
 }
 
 /* ---- Init ---- */
-renderGallery();
+async function boot() {
+  cvCountEl.textContent = 'Loading…';
+  emptyState.style.display = 'none';
+  cvGrid.style.display     = 'block';
+  cvGrid.innerHTML = '<p class="cv-loading-text">Loading your CVs…</p>';
+
+  try {
+    const CVStore = await window.cvStoreReady;
+    await CVStore.migrateIfNeeded();
+    cachedCVs = await CVStore.getAll();
+  } catch {
+    cvCountEl.textContent = '';
+    cvGrid.innerHTML = '<p class="cv-loading-text">Could not load your CVs. Please refresh the page.</p>';
+    return;
+  }
+
+  renderGallery();
+}
+
+boot();

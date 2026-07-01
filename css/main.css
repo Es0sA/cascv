@@ -408,6 +408,13 @@ input {
   margin-bottom: 28px;
 }
 
+.cv-loading-text {
+  text-align: center;
+  padding: 80px 24px;
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+}
+
 /* CV grid */
 .cv-grid {
   display: grid;

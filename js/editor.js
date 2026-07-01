@@ -3,23 +3,16 @@
    Structured entry system + html2pdf PDF generation
    ============================================================ */
 
-const CV_STORE = 'cas_cv_data';
 const params   = new URLSearchParams(window.location.search);
 const cvId     = params.get('id');
 if (!cvId) window.location.replace('dashboard.html');
 
+// Populated asynchronously by initEditor() once the Firestore read
+// resolves (see the BOOT section at the bottom of this file). Every
+// function below that reads cvData is only ever called after that
+// has happened, since rendering itself is kicked off from
+// initEditor() too.
 let cvData = null;
-try {
-  const cvs = JSON.parse(localStorage.getItem(CV_STORE)) || [];
-  cvData = cvs.find(cv => cv.id === cvId) || null;
-} catch {}
-if (!cvData) window.location.replace('dashboard.html');
-
-cvData.columnAssign = cvData.columnAssign || {};
-cvData.hiddenFields = cvData.hiddenFields || {};
-cvData.sectionNames = cvData.sectionNames || {};
-cvData.sectionWidth = cvData.sectionWidth || {};
-cvData.headerFieldOrder = cvData.headerFieldOrder || ['email','phone','location','linkedin'];
 
 /* ============================================================
    SECTION TYPE DEFINITIONS
@@ -173,7 +166,10 @@ const DEFAULTS = {
   accentSubtitle:false, showPageNums:false, linkStyle:'underline',
 };
 
-let cvSettings = Object.assign({}, DEFAULTS, cvData.settings || {});
+// Real values get merged in with cvData.settings once initEditor()
+// has fetched the CV; DEFAULTS alone is just a safe placeholder for
+// the brief window before that.
+let cvSettings = Object.assign({}, DEFAULTS);
 
 /* ---- Elements ---- */
 const backBtn           = document.getElementById('backBtn');
@@ -190,9 +186,16 @@ const reimportConfirm   = document.getElementById('reimportConfirm');
 const reimportError     = document.getElementById('reimportError');
 const cvPaper           = document.getElementById('cvPaper');
 
-document.title = `CAS CV Builder — ${cvData.name}`;
-cvNameDisplay.textContent = cvData.name;
+// document.title and cvNameDisplay get the real CV name once
+// initEditor() has fetched it; both already show sensible
+// placeholders ("CAS CV Builder — Editor" / "Loading...") until then.
 backBtn.addEventListener('click', () => window.location.href = 'dashboard.html');
+
+// Disabled until initEditor() has actual CV data to act on.
+downloadBtn.disabled = true;
+reimportBtn.disabled = true;
+sectionsContainer.innerHTML = '<p class="cv-loading-text">Loading CV…</p>';
+cvPaper.innerHTML = '<p class="cv-loading-text">Loading CV…</p>';
 
 /* ============================================================
    PDF DOWNLOAD — html2pdf.js (creates actual PDF file)
@@ -1667,13 +1670,11 @@ reimportConfirm.addEventListener('click',()=>{
    ============================================================ */
 let saveTimeout=null;
 function scheduleSave(){ saveIndicator.textContent='Saving…'; saveIndicator.className='save-indicator saving'; clearTimeout(saveTimeout); saveTimeout=setTimeout(persistSave,800); }
-function persistSave(){
+async function persistSave(){
   cvData.settings=cvSettings; cvData.updatedAt=new Date().toISOString();
   try{
-    let cvs=JSON.parse(localStorage.getItem(CV_STORE))||[];
-    const idx=cvs.findIndex(cv=>cv.id===cvId);
-    if(idx!==-1)cvs[idx]=cvData; else cvs.unshift(cvData);
-    localStorage.setItem(CV_STORE,JSON.stringify(cvs));
+    const CVStore = await window.cvStoreReady;
+    await CVStore.save(cvData);
     saveIndicator.textContent='Saved'; saveIndicator.className='save-indicator saved';
   }catch{ saveIndicator.textContent='Save failed'; saveIndicator.className='save-indicator error'; }
 }
@@ -1687,8 +1688,7 @@ function escapeAttr(s){ return (s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot
 /* ============================================================
    BOOT
    ============================================================ */
-// Migrate existing header.contact into structured fields if not already done
-(function migrateHeader(){
+function migrateHeader(){
   const h = cvData.parsed.header;
   if (h.contact && !h.email && !h.phone && !h.location) {
     const parts = h.contact.split('|').map(p=>p.trim()).filter(Boolean);
@@ -1698,10 +1698,7 @@ function escapeAttr(s){ return (s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot
       else if (!h.location && !h.phone && !/@/.test(p)) h.location = p;
     });
   }
-})();
-
-// Auto-detect and migrate existing textarea sections to structured entries
-smartMigrate(cvData.parsed.sections);
+}
 
 /* ============================================================
    AUTO-FIT ZOOM — keeps the CV paper fully visible and centered
@@ -1790,8 +1787,39 @@ window.addEventListener('resize', scheduleFitZoom);
   });
 })();
 
-renderEditPanel();
-renderCustomizePanel();
-renderRightPanel();
-scheduleFitZoom();
+async function initEditor() {
+  try {
+    const CVStore = await window.cvStoreReady;
+    await CVStore.migrateIfNeeded();
+    cvData = await CVStore.getById(cvId);
+  } catch {
+    cvData = null;
+  }
+
+  if (!cvData) { window.location.replace('dashboard.html'); return; }
+
+  cvData.columnAssign = cvData.columnAssign || {};
+  cvData.hiddenFields = cvData.hiddenFields || {};
+  cvData.sectionNames = cvData.sectionNames || {};
+  cvData.sectionWidth = cvData.sectionWidth || {};
+  cvData.headerFieldOrder = cvData.headerFieldOrder || ['email','phone','location','linkedin'];
+
+  cvSettings = Object.assign({}, DEFAULTS, cvData.settings || {});
+
+  document.title = `CAS CV Builder — ${cvData.name}`;
+  cvNameDisplay.textContent = cvData.name;
+
+  migrateHeader();
+  smartMigrate(cvData.parsed.sections);
+
+  downloadBtn.disabled = false;
+  reimportBtn.disabled = false;
+
+  renderEditPanel();
+  renderCustomizePanel();
+  renderRightPanel();
+  scheduleFitZoom();
+}
+
+initEditor();
 

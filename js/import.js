@@ -3,9 +3,6 @@
    Handles the import page: parse, preview, save.
    ============================================================ */
 
-// SESSION_KEY is declared in auth-guard.js (loaded first)
-const CV_STORE = 'cas_cv_data';
-
 // Elements
 const backBtn     = document.getElementById('backBtn');
 const logoutBtn   = document.getElementById('logoutBtn');
@@ -28,8 +25,13 @@ backBtn.addEventListener('click', () => {
 });
 
 logoutBtn.addEventListener('click', () => {
-  sessionStorage.removeItem(SESSION_KEY);
-  window.location.href = 'login.html';
+  if (typeof window.casSignOut === 'function') {
+    window.casSignOut();
+  } else {
+    // Fallback, shouldn't normally happen since auth-guard.js
+    // always runs first and defines this.
+    window.location.href = 'index.html';
+  }
 });
 
 /* ---- Parse ---- */
@@ -127,7 +129,7 @@ function renderPreview(result) {
 /* ---- Save ---- */
 saveBtn.addEventListener('click', handleSave);
 
-function handleSave() {
+async function handleSave() {
   if (!parsedResult) return;
 
   const id  = Date.now().toString();
@@ -145,17 +147,16 @@ function handleSave() {
     }
   };
 
-  // Load existing CVs, add new one, save back
-  let cvs = [];
+  saveBtn.disabled = true;
+
   try {
-    cvs = JSON.parse(localStorage.getItem(CV_STORE)) || [];
-  } catch { cvs = []; }
-
-  cvs.unshift(cvRecord); // add to top of list
-  localStorage.setItem(CV_STORE, JSON.stringify(cvs));
-
-  // Redirect to dashboard
-  window.location.href = 'dashboard.html';
+    const CVStore = await window.cvStoreReady;
+    await CVStore.save(cvRecord);
+    window.location.href = 'dashboard.html';
+  } catch {
+    importError.textContent = 'Could not save this CV. Please try again.';
+    saveBtn.disabled = false;
+  }
 }
 
 /* ---- Helpers ---- */
