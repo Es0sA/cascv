@@ -1,21 +1,18 @@
 /* ============================================================
    CAS CV Builder — auth.js (Login Page)
-   NOTE: Client-side auth for now. Will upgrade to
-   Firebase/Supabase auth in Phase 3.
+   Real Firebase email/password auth, replacing the old
+   hardcoded username/password check.
    ============================================================ */
+import { auth } from "./firebase-init.js";
+import {
+  signInWithEmailAndPassword,
+  onAuthStateChanged
+} from "https://www.gstatic.com/firebasejs/12.15.0/firebase-auth.js";
 
-// ⚠️ Your login credentials — change password after first login
-const AUTH = {
-  username: 'cas_admin',
-  password: 'CASbuild2026!'
-};
-
-const SESSION_KEY = 'cas_cv_session';
-
-// If already logged in, skip straight to dashboard
-if (sessionStorage.getItem(SESSION_KEY) === 'active') {
-  window.location.href = 'dashboard.html';
-}
+// If already signed in, skip straight to dashboard.
+onAuthStateChanged(auth, (user) => {
+  if (user) window.location.href = "dashboard.html";
+});
 
 // Elements
 const signinBtn   = document.getElementById('signinBtn');
@@ -37,29 +34,32 @@ togglePwd.addEventListener('click', () => {
 
 // Sign in logic
 function handleSignIn() {
-  const username = usernameInp.value.trim();
+  const email    = usernameInp.value.trim();
   const password = passwordInp.value;
 
   errorMsg.textContent = '';
 
-  if (!username || !password) {
+  if (!email || !password) {
     errorMsg.textContent = 'Please fill in both fields.';
     return;
   }
 
-  if (username === AUTH.username && password === AUTH.password) {
-    // Set session and redirect
-    sessionStorage.setItem(SESSION_KEY, 'active');
-    signinBtn.disabled = true;
-    btnText.textContent = 'Signing in...';
-    setTimeout(() => {
+  signinBtn.disabled = true;
+  btnText.textContent = 'Signing in...';
+
+  signInWithEmailAndPassword(auth, email, password)
+    .then(() => {
       window.location.href = 'dashboard.html';
-    }, 500);
-  } else {
-    errorMsg.textContent = 'Incorrect username or password.';
-    passwordInp.value = '';
-    passwordInp.focus();
-  }
+    })
+    .catch((err) => {
+      // Firebase error codes: auth/invalid-email, auth/user-not-found,
+      // auth/wrong-password, auth/invalid-credential, auth/too-many-requests
+      errorMsg.textContent = 'Incorrect email or password.';
+      passwordInp.value = '';
+      passwordInp.focus();
+      signinBtn.disabled = false;
+      btnText.textContent = 'Sign In';
+    });
 }
 
 signinBtn.addEventListener('click', handleSignIn);

@@ -5,7 +5,7 @@
    this to a real database.
    ============================================================ */
 
-// SESSION_KEY is declared in auth-guard.js (loaded first)
+// Auth is now handled by auth-guard.js (Firebase) — see js/auth-guard.js
 const CV_STORE = 'cas_cv_data';
 
 // Elements
@@ -22,8 +22,13 @@ const cvGrid        = document.getElementById('cvGrid');
 
 /* ---- Logout ---- */
 logoutBtn.addEventListener('click', () => {
-  sessionStorage.removeItem(SESSION_KEY);
-  window.location.href = 'index.html';
+  if (typeof window.casSignOut === 'function') {
+    window.casSignOut();
+  } else {
+    // Fallback, shouldn't normally happen since auth-guard.js
+    // always runs first and defines this.
+    window.location.href = 'index.html';
+  }
 });
 
 /* ---- Modal ---- */

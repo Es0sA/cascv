@@ -296,6 +296,14 @@ function switchTab(tab) {
    EDIT PANEL
    ============================================================ */
 function renderEditPanel() {
+  // innerHTML replacement below destroys and recreates every child
+  // node, which resets the scroll position of the ancestor
+  // scrollable panel — save it here and restore it after, so
+  // editing/reordering/adding sections doesn't jump you back to
+  // the top of the list.
+  const scrollEl  = document.querySelector('.editor-left-scroll');
+  const savedTop  = scrollEl ? scrollEl.scrollTop : 0;
+
   const { header, sections } = cvData.parsed;
   let html = '';
 
@@ -367,6 +375,7 @@ function renderEditPanel() {
 
   sectionsContainer.innerHTML = html;
   requestAnimationFrame(() => document.querySelectorAll('.acc-textarea').forEach(autoResize));
+  if (scrollEl) scrollEl.scrollTop = savedTop;
 }
 
 function renderTextareaSection(section, i) {
@@ -810,41 +819,95 @@ const ACCENT_COLORS = [
   { label:'Slate',    value:'#4A4E69' }, { label:'Brown',   value:'#5C3D2E' },
 ];
 const ALL_TEMPLATES = [
-  { value:'classic',         label:'Classic',         img:null,                              accent:'#1a1a1a' },
-  { value:'modern',          label:'Modern',          img:null,                              accent:'#1B3A6B' },
-  { value:'minimal',         label:'Minimal',         img:null,                              accent:'#1a1a1a' },
-  { value:'executive',       label:'Executive',       img:'assets/templates/1280_006.webp',  accent:'#1a1a1a' },
-  { value:'refined',         label:'Refined',         img:'assets/templates/1280_011.webp',  accent:'#1B3A6B' },
-  { value:'precision-line',  label:'Precision Line',  img:'assets/templates/1280_008.webp',  accent:'#1B3A6B' },
-  { value:'classic-serif',   label:'Classic Serif',   img:'assets/templates/1280_004.webp',  accent:'#1a1a1a' },
-  { value:'condensed-rule',  label:'Condensed Rule',  img:'assets/templates/1280_013.webp',  accent:'#1a1a1a' },
-  { value:'split-rule',      label:'Split Rule',      img:'assets/templates/1280_016.webp',  accent:'#1B3A6B' },
-  { value:'clean-slate',     label:'Clean Slate',     img:'assets/templates/1280_020.webp',  accent:'#1a1a1a' },
-  { value:'editorial-rule',  label:'Editorial Rule',  img:'assets/templates/1280_009.webp',  accent:'#1B3A6B' },
-  { value:'sage-line',       label:'Sage Line',       img:'assets/templates/1280_032.webp',  accent:'#2d5a4a' },
-  { value:'saffron-line',    label:'Saffron Line',    img:'assets/templates/1280_036.webp',  accent:'#c08020' },
-  { value:'silver-banner',   label:'Silver Banner',   img:'assets/templates/1280_012.webp',  accent:'#4A4E69' },
-  { value:'true-blue',       label:'True Blue',       img:'assets/templates/1280_010.webp',  accent:'#1B3A6B' },
-  { value:'corporate',       label:'Corporate',       img:'assets/templates/1280_014.webp',  accent:'#1B3A6B' },
-  { value:'blue-steel',      label:'Blue Steel',      img:'assets/templates/1280_046.webp',  accent:'#2C3E50' },
-  { value:'clear-banner',    label:'Clear Banner',    img:'assets/templates/1280_021.webp',  accent:'#5C3D2E' },
-  { value:'hunter-green',    label:'Hunter Green',    img:'assets/templates/1280_038.webp',  accent:'#1B4D3E' },
-  { value:'atlantic-blue',   label:'Atlantic Blue',   img:'assets/templates/1280.webp',      accent:'#1B3A6B' },
-  { value:'corporate-panel', label:'Corporate Panel', img:'assets/templates/1280_024.webp',  accent:'#2a2a2a' },
-  { value:'cobalt-edge',     label:'Cobalt Edge',     img:'assets/templates/1280_039.webp',  accent:'#1a4d8f' },
-  { value:'obsidian-edge',   label:'Obsidian Edge',   img:'assets/templates/1280_041.webp',  accent:'#12121a' },
-  { value:'neutral-gray',    label:'Neutral Gray',    img:'assets/templates/1280_022.webp',  accent:'#6b7280' },
+  { value:'classic',         label:'Classic',         accent:'#1a1a1a' },
+  { value:'modern',          label:'Modern',          accent:'#1B3A6B' },
+  { value:'minimal',         label:'Minimal',         accent:'#1a1a1a' },
+  { value:'executive',       label:'Executive',       accent:'#1a1a1a' },
+  { value:'refined',         label:'Refined',         accent:'#1B3A6B' },
+  { value:'precision-line',  label:'Precision Line',  accent:'#1B3A6B' },
+  { value:'classic-serif',   label:'Classic Serif',   accent:'#1a1a1a' },
+  { value:'condensed-rule',  label:'Condensed Rule',  accent:'#1a1a1a' },
+  { value:'split-rule',      label:'Split Rule',      accent:'#1B3A6B' },
+  { value:'clean-slate',     label:'Clean Slate',     accent:'#1a1a1a' },
+  { value:'editorial-rule',  label:'Editorial Rule',  accent:'#1B3A6B' },
+  { value:'sage-line',       label:'Sage Line',       accent:'#2d5a4a' },
+  { value:'saffron-line',    label:'Saffron Line',    accent:'#c08020' },
+  { value:'silver-banner',   label:'Silver Banner',   accent:'#4A4E69' },
+  { value:'true-blue',       label:'True Blue',       accent:'#1B3A6B' },
+  { value:'corporate',       label:'Corporate',       accent:'#1B3A6B' },
+  { value:'blue-steel',      label:'Blue Steel',      accent:'#2C3E50' },
+  { value:'clear-banner',    label:'Clear Banner',    accent:'#5C3D2E' },
+  { value:'hunter-green',    label:'Hunter Green',    accent:'#1B4D3E' },
+  { value:'atlantic-blue',   label:'Atlantic Blue',   accent:'#1B3A6B' },
+  { value:'corporate-panel', label:'Corporate Panel', accent:'#2a2a2a' },
+  { value:'cobalt-edge',     label:'Cobalt Edge',     accent:'#1a4d8f' },
+  { value:'obsidian-edge',   label:'Obsidian Edge',   accent:'#12121a' },
+  { value:'neutral-gray',    label:'Neutral Gray',    accent:'#6b7280' },
 ];
 
+/* ============================================================
+   TEMPLATE THUMBNAILS — real live-rendered miniatures.
+
+   Each thumbnail is an actual `.cv-paper` element carrying the
+   SAME template class (t-classic, t-executive, etc.) and the
+   same CSS the real editor preview uses, filled with short
+   placeholder content, then scaled down with a CSS transform.
+   Because it's the real markup/CSS — not a separate photo — the
+   thumbnail can never drift out of sync with what clicking it
+   actually produces. To add a new template: add one entry above
+   and write matching `.cv-paper.t-yourvalue` rules in main.css —
+   the thumbnail picks it up automatically, no image asset needed.
+   ============================================================ */
 function templateThumb(tpl) {
-  if (tpl.img) return `<div class="template-thumb template-thumb-img"><img src="${tpl.img}" alt="${tpl.label}" loading="lazy"></div>`;
-  const ac = cvSettings.accentColor;
-  if (tpl.value==='modern') return `<div class="template-thumb tt-modern"><div class="tt-name"></div><div class="tt-title"></div><div class="tt-line" style="background:${ac};height:1.5px"></div><div class="tt-section-label" style="background:${ac};opacity:0.7"></div><div class="tt-block"></div><div class="tt-block2"></div></div>`;
-  if (tpl.value==='minimal') return `<div class="template-thumb tt-minimal"><div class="tt-name" style="background:#333;width:80%"></div><div class="tt-title" style="background:#bbb;width:55%"></div><div class="tt-line" style="background:#f0f0f0"></div><div class="tt-section-label" style="background:#ccc;width:35%"></div><div class="tt-block" style="background:#ebebeb"></div><div class="tt-block2" style="background:#ebebeb"></div></div>`;
-  return `<div class="template-thumb"><div class="tt-name"></div><div class="tt-title"></div><div class="tt-line"></div><div class="tt-section-label"></div><div class="tt-block"></div><div class="tt-block2"></div><div class="tt-block3"></div></div>`;
+  const hs = cvSettings.headingStyle || 'underline';
+  const hc = cvSettings.headingCase  || 'upper';
+  const acHead = cvSettings.accentHeadings ? 'ac-headings' : '';
+  const acLine = cvSettings.accentLine ? 'ac-line' : '';
+  const cls = ['cv-paper', `t-${tpl.value}`, `hs-${hs}`, `hc-${hc}`, acHead, acLine]
+    .filter(Boolean).join(' ');
+  return `<div class="template-thumb template-thumb-live">
+    <div class="${cls}" style="--cv-accent:${tpl.accent || '#1a1a1a'}">
+      <div class="cvp-header">
+        <div class="cvp-name">Jordan Blake</div>
+        <div class="cvp-jobtitle">Marketing Manager</div>
+        <div class="cvp-contact">jordan@email.com | City, Country</div>
+      </div>
+      <hr class="cvp-divider">
+      <div class="cvp-section">
+        <div class="cvp-sec-heading">Experience</div>
+        <div class="cvp-sec-content">
+          <p class="cvp-entry-title">Senior Marketing Lead</p>
+          <p class="cvp-entry-meta">Acme Co. | 2021 – Present</p>
+          <p class="cvp-bullet">• Grew engagement 40% year over year</p>
+          <p class="cvp-bullet">• Led a team of five specialists</p>
+        </div>
+      </div>
+      <div class="cvp-section">
+        <div class="cvp-sec-heading">Education</div>
+        <div class="cvp-sec-content">
+          <p class="cvp-entry-title">B.Sc. Business</p>
+          <p class="cvp-entry-meta">State University | 2016 – 2020</p>
+        </div>
+      </div>
+      <div class="cvp-section">
+        <div class="cvp-sec-heading">Skills</div>
+        <div class="cvp-sec-content">
+          <p class="cvp-line">Strategy | Communication | Analytics</p>
+        </div>
+      </div>
+    </div>
+  </div>`;
 }
 
 function renderCustomizePanel() {
+  // Same innerHTML-reset issue as renderEditPanel — preserve the
+  // panel's vertical scroll AND the template carousel's horizontal
+  // scroll (its own independent scroll axis) across re-render.
+  const scrollEl    = document.querySelector('.editor-left-scroll');
+  const savedTop    = scrollEl ? scrollEl.scrollTop : 0;
+  const tplScrollEl = document.querySelector('.template-grid-2col');
+  const savedTplLeft = tplScrollEl ? tplScrollEl.scrollLeft : 0;
+
   const ac = cvSettings.accentColor;
   const colMode = String(cvSettings.columns);
   const isTwoCol = colMode === '2';
@@ -933,6 +996,10 @@ function renderCustomizePanel() {
     section('Font', fontHtml) + section('Font Size', fontSizeHtml) +
     section('Spacing', spacingHtml) + section('Style', styleHtml) +
     section('Colours', colorHtml) + section('Footer & Links', footerHtml);
+
+  if (scrollEl) scrollEl.scrollTop = savedTop;
+  const newTplScrollEl = document.querySelector('.template-grid-2col');
+  if (newTplScrollEl) newTplScrollEl.scrollLeft = savedTplLeft;
 }
 
 function custRow(label, controlHtml) {

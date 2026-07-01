@@ -1110,6 +1110,24 @@ input {
   width: min(660px, 100%);
 }
 
+/* Pin the live on-screen preview back to the intended 660px
+   screen-friendly size. A later, equal-specificity `.cv-paper`
+   rule (used for the true-mm PDF export clone and thumbnails)
+   sets `min-width: var(--cv-paper-w, 210mm)` — since applySettings
+   sets that custom property inline on the live #cvPaper element,
+   min-width silently overrode this file's own `max-width: 660px`
+   (min-width always wins that conflict), making the real paper
+   render ~794px wide and overflow out of its 660px wrap — which is
+   what caused it to render visibly off-center. This selector has
+   higher specificity (two classes) so it wins regardless of source
+   order, without needing to touch the export/thumbnail rules that
+   correctly rely on true mm sizing. */
+.cv-paper-wrap .cv-paper {
+  width: 100%;
+  max-width: 660px;
+  min-width: 0;
+}
+
 /* Page break overlay — sits on top of cv-paper, pointer-events:none */
 #pageBreakOverlay {
   position: absolute;
@@ -1695,6 +1713,27 @@ input {
   object-fit: cover;
   object-position: top;
   display: block;
+}
+
+/* Live-rendered template thumbnail — a real .cv-paper element,
+   scaled down. Card is fixed at 88px wide (see .template-grid-2col
+   .template-card), so the scale factor below is tuned to that:
+   design width 640px -> ~74px visible thumb width -> scale ~0.115 */
+.template-thumb-live {
+  padding: 0;
+  background: #fff;
+}
+.template-thumb-live .cv-paper {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 640px;
+  min-width: 640px;
+  min-height: 900px;
+  transform: scale(0.115);
+  transform-origin: top left;
+  box-shadow: none;
+  pointer-events: none;
 }
 
 .tt-name   { height: 5px; border-radius: 2px; background: #111; width: 70%; }
