@@ -2384,7 +2384,8 @@ input {
 .cv-paper.t-editorial-rule .cvp-section  { margin-top: 12px !important; }
 
 /* ---- SILVER BANNER ---- */
-.cv-paper.t-silver-banner .cvp-header { background: #f2f2f2; margin: -40px calc(var(--cv-margin-lr, 50px) * -1) 16px; padding: 28px var(--cv-margin-lr, 50px) 22px; border-bottom: 2px solid #ddd; }
+.cv-paper.t-silver-banner { padding-top: 0 !important; }
+.cv-paper.t-silver-banner .cvp-header { background: #f2f2f2; margin: calc(var(--cv-margin-tb, 44px) * -1) calc(var(--cv-margin-lr, 50px) * -1) 16px; padding: 28px var(--cv-margin-lr, 50px) 22px; border-bottom: 2px solid #ddd; }
 .cv-paper.t-silver-banner .cvp-name    { font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: #222; }
 .cv-paper.t-silver-banner .cvp-jobtitle { color: var(--cv-accent); }
 .cv-paper.t-silver-banner .cvp-contact  { color: #666; }
@@ -2420,7 +2421,8 @@ input {
 .cv-paper.t-blue-steel .cvp-sec-heading { color: #2C3E50 !important; font-weight: 700; border-bottom: 2px solid #2C3E50 !important; padding-bottom: 2px; }
 
 /* ---- CLEAR BANNER ---- */
-.cv-paper.t-clear-banner .cvp-header { background: #fdf6ec; margin: -40px calc(var(--cv-margin-lr, 50px) * -1) 16px; padding: 28px var(--cv-margin-lr, 50px) 22px; border-bottom: 1px solid #e8d8b8; }
+.cv-paper.t-clear-banner { padding-top: 0 !important; }
+.cv-paper.t-clear-banner .cvp-header { background: #fdf6ec; margin: calc(var(--cv-margin-tb, 44px) * -1) calc(var(--cv-margin-lr, 50px) * -1) 16px; padding: 28px var(--cv-margin-lr, 50px) 22px; border-bottom: 1px solid #e8d8b8; }
 .cv-paper.t-clear-banner .cvp-name    { font-weight: 700; color: #5C3D2E !important; text-transform: uppercase; letter-spacing: 0.04em; }
 .cv-paper.t-clear-banner .cvp-jobtitle { color: #8a6a4a; }
 .cv-paper.t-clear-banner .cvp-contact  { color: #aaa; }
