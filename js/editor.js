@@ -199,13 +199,21 @@ backBtn.addEventListener('click', () => window.location.href = 'dashboard.html')
 
    Captures an off-screen clone of cvPaper rendered at TRUE A4/Letter
    mm dimensions (matching dashboard.js's approach), instead of
-   capturing the live on-screen preview directly. The on-screen
+   capturing the live on-screen preview directly — the on-screen
    preview is a fixed-px (660px-wide) scaled-down box for editing
-   convenience — capturing it directly caused a width/page-height
-   mismatch against html2pdf's mm-based page slicing, which is what
-   produced spurious blank second pages. Cloning into a true-size
-   off-screen container also avoids any interference from the
-   editor's zoom transform, resize handle, or page-break overlay.
+   convenience, and capturing it directly caused a width/page-height
+   mismatch against html2pdf's mm-based page slicing.
+
+   To avoid a spurious near-blank trailing page (rounding between
+   the browser's mm→px layout and html2canvas's own pixel math can
+   push captured height a hair past an exact page boundary), we:
+   1. Measure the clone's TRUE natural content height first (no
+      forced page height yet).
+   2. Compute exactly how many pages that content needs.
+   3. Size the clone to that exact multiple of page height, so the
+      capture always lands precisely on a page boundary.
+   4. As a safety net, trim any stray trailing page from the
+      generated PDF if rounding still produced one extra.
    ============================================================ */
 downloadBtn.addEventListener('click', async () => {
   if (typeof html2pdf === 'undefined') { window.print(); return; }
@@ -216,19 +224,31 @@ downloadBtn.addEventListener('click', async () => {
   downloadBtn.textContent = '⏳ Generating…';
   downloadBtn.disabled    = true;
 
-  // Build an off-screen, full-size (mm) clone of the live preview.
+  // Build an off-screen, full-width (mm) clone of the live preview —
+  // height left natural for now so we can measure true content extent.
   const wrap = document.createElement('div');
   wrap.style.cssText = `position:fixed;top:0;left:0;width:${pw}mm;z-index:-9999;opacity:0;pointer-events:none;`;
   const clone = cvPaper.cloneNode(true);
   clone.removeAttribute('id');
-  clone.style.width      = `${pw}mm`;
-  clone.style.maxWidth   = `${pw}mm`;
-  clone.style.minHeight  = `${ph}mm`;
-  clone.style.boxShadow  = 'none';
+  clone.style.width     = `${pw}mm`;
+  clone.style.maxWidth  = `${pw}mm`;
+  clone.style.minHeight = '0';
+  clone.style.height    = 'auto';
+  clone.style.boxShadow = 'none';
   wrap.appendChild(clone);
   document.body.appendChild(wrap);
 
-  // Let the browser lay out the clone at full size before capture.
+  // Let the browser lay out the clone at full width before measuring.
+  await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+
+  // Measure true content height in mm, then snap the clone's height
+  // to an exact multiple of one page — this is what actually
+  // prevents the phantom trailing page.
+  const pxPerMm       = clone.clientWidth / pw;
+  const contentHeightMm = clone.scrollHeight / pxPerMm;
+  const pageCount     = Math.max(1, Math.ceil(contentHeightMm / ph - 0.001));
+  clone.style.minHeight = `${pageCount * ph}mm`;
+
   await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
 
   try {
@@ -238,11 +258,20 @@ downloadBtn.addEventListener('click', async () => {
       image:      { type: 'jpeg', quality: 0.98 },
       html2canvas:{ scale: 2, useCORS: true, allowTaint: true, logging: false,
                     x: 0, y: 0, scrollX: 0, scrollY: 0,
-                    windowWidth: clone.scrollWidth },
+                    windowWidth: clone.scrollWidth, windowHeight: clone.scrollHeight },
       jsPDF:      { unit: 'mm', format: isLetter ? [pw, ph] : 'a4', orientation: 'portrait' },
       pagebreak:  { mode: ['css'], avoid: '.cvp-bullet,.cvp-entry-title,.cvp-entry-meta' }
     };
-    await html2pdf().set(opt).from(clone).save();
+
+    const worker = html2pdf().set(opt).from(clone);
+    await worker.toPdf();
+    await worker.get('pdf').then((pdf) => {
+      // Safety net: if rounding still produced extra trailing
+      // page(s) beyond what the content actually needs, drop them.
+      const total = pdf.internal.getNumberOfPages();
+      for (let p = total; p > pageCount; p--) pdf.deletePage(p);
+    });
+    await worker.save();
   } catch (err) {
     console.error('PDF generation failed:', err);
     alert('PDF generation failed. Please try again — if this keeps happening, let Cas know.');

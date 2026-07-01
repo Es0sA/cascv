@@ -1087,11 +1087,10 @@ input {
 /* Right preview panel */
 .editor-right {
   flex: 1;
-  overflow-y: auto;
+  overflow-y: scroll;          /* always-on scrollbar = no layout shift */
   overflow-x: hidden;
-  scrollbar-gutter: stable;
   background: #c8c8c8;
-  padding: 32px 24px;
+  padding: 32px 0;             /* vertical only — horizontal centering via flex */
   display: flex;
   justify-content: center;
   align-items: flex-start;
@@ -1101,12 +1100,14 @@ input {
    CV PAPER — Live Preview Document
    ============================================================ */
 
-/* CV paper wrapper — needed for page break overlay positioning */
+/* CV paper wrapper — needed for page break overlay positioning.
+   Sizing/centering is handled entirely by the .editor-right flex
+   parent (justify-content: center) — no competing width/margin
+   rules here, which is what caused uneven left/right gaps. */
 .cv-paper-wrap {
   position: relative;
-  width: 100%;
-  max-width: 660px;
-  margin: 0 auto;
+  flex-shrink: 0;
+  width: min(660px, 100%);
 }
 
 /* Page break overlay — sits on top of cv-paper, pointer-events:none */
