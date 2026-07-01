@@ -5,6 +5,47 @@ Commit hashes refer to `main`.
 
 ## 2026-07-01
 
+- Removed Netlify leftovers now that the project is fully on GitHub
+  Pages: `netlify.toml` (GitHub Pages never read it), the "Job Role
+  Requests" feature on `index.html`/`dashboard.html`/`js/ats.js` (a
+  hidden form plus a handler that posted to Netlify's form backend,
+  which no longer exists now the site isn't hosted there, so it was
+  silently discarding visitor submissions while showing a fake success
+  message), the unused `assets/templates/` stock-photo folder (5.7MB,
+  superseded by live-rendered template thumbnails), and an unreferenced
+  duplicate `assets/favicon.png`. Files changed: `index.html`,
+  `dashboard.html`, `js/ats.js`, `css/main.css`, `css/ats.css`, deleted
+  `netlify.toml`, `assets/favicon.png`, `assets/templates/*`.
+- `9b7dfdf` Migrate CV data storage from localStorage to Firestore. CVs
+  now live at `users/{uid}/cvs/{cvId}`, one document per CV, so they
+  sync across any browser or device the account signs into instead of
+  being stuck on one machine. Added `js/cv-store.js` (a module exposing
+  `window.CVStore`, since `dashboard.js`/`editor.js`/`import.js` are
+  classic scripts that can't import it directly) with a
+  `window.cvStoreReady` promise pattern so those classic scripts can
+  safely await it despite module scripts loading later. Every
+  `localStorage.getItem('cas_cv_data')`/`setItem(...)` call site was
+  replaced with the matching async `CVStore` call (gallery load,
+  create, download, delete, the import-flow save, loading a CV by id,
+  and the debounced autosave). A one-time `migrateIfNeeded()` pushes
+  existing localStorage data to Firestore on first load, guarded by a
+  flag so it only runs once, leaving the local copy in place as a
+  backup. Also fixed a pre-existing bug in `import.js` where the Sign
+  Out button called `sessionStorage.removeItem(SESSION_KEY)`, a
+  leftover from the old hardcoded-password auth system where
+  `SESSION_KEY` no longer exists, so it threw an error instead of
+  signing out; it now calls `window.casSignOut()` like `dashboard.js`
+  does. Tested end to end locally and on the live site with Playwright.
+  Files changed: `js/firebase-init.js`, `js/dashboard.js`, `js/editor.js`,
+  `js/import.js`, `dashboard.html`, `editor.html`, `import.html`,
+  `css/main.css`; added `js/cv-store.js`.
+- `c218acd` Fix stale README. Replaced hardcoded `cas_admin`/
+  `CASbuild2026!` credentials (gone since Firebase auth was added) and
+  Netlify deploy instructions (project moved to GitHub Pages) with what
+  is actually true today, and replaced the generic 10-phase checklist
+  with a status list matching current reality. File changed: `README.md`.
+- `81c1abb` Add `CHANGELOG.md` logging recent fixes, and point
+  `CLAUDE.md`'s Git workflow section at it for future sessions.
 - `aba9f42` Fix import.html auth bypass. `import.html` loaded
   `auth-guard.js` as a classic script (missing `type="module"`), which
   threw a syntax error and skipped the auth check entirely, leaving the

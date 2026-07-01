@@ -93,6 +93,12 @@ js/
   auth.js             Module. Login page logic. Real
                      signInWithEmailAndPassword call. Auto-redirects
                      to dashboard.html if already signed in.
+  cv-store.js          Module. Wraps every Firestore read/write for CV
+                     data (users/{uid}/cvs/{cvId}) and exposes them as
+                     window.CVStore so the classic scripts below can
+                     call them like plain global functions. See "Data
+                     storage" section above for the window.cvStoreReady
+                     synchronization pattern this depends on.
   dashboard.js         Classic script. Gallery rendering, CV
                      create/delete/download, "Sign Out" button (calls
                      window.casSignOut from auth-guard.js).
@@ -106,14 +112,20 @@ js/
   import.js            Resume document import/parsing flow logic.
   keywords.js, ats.js    ATS keyword-checking feature logic.
 
-assets/               Icons, favicons, template thumbnail images
-                     (mostly unused now, see template thumbnails
-                     section below).
-
-netlify.toml           Leftover from before the project moved to
-                     GitHub Pages. Not used by GitHub Pages at all.
-                     Safe to ignore or remove; harmless either way.
+assets/               Favicons and the apple touch icon, referenced by
+                     every page's <head>. Nothing else lives here;
+                     template thumbnails are live-rendered in CSS/JS,
+                     not image files (see "Known gotchas" below).
 ```
+
+Note: this project used to be hosted on Netlify before moving to
+GitHub Pages. `netlify.toml` and a Netlify Forms-based "Job Role
+Requests" feature (a hidden form on `index.html` plus a handler in
+`ats.js` that posted to Netlify's form backend) were both removed since
+neither works on GitHub Pages (no build-time form detection, no
+backend to receive submissions). If a similar visitor-submission
+feature is wanted again, it needs a real backend (a free third-party
+form service, or a mailto: link), not anything Netlify-specific.
 
 ## Auth system: what's real and what's not
 
@@ -150,36 +162,34 @@ hardcoded username/password string sitting in plain text in `auth.js`
   under their own UID path. Nobody else can touch it, even if they found
   the project.
 
-## Data storage: IMPORTANT, READ BEFORE TOUCHING CV DATA
+## Data storage: CV data lives in Firestore
 
-CV data itself is still stored in `localStorage`, NOT Firestore.
+CV data is stored in Firestore, at `users/{uid}/cvs/{cvId}`, one document
+per CV (same shape the old `cas_cv_data` localStorage array used: `id`,
+`name`, `parsed` content structure, `settings`, etc; read `dashboard.js`
+and `editor.js` to see the exact shape, it's easier than describing it
+here). This means CVs sync across any browser or device the account
+signs into.
 
-Only auth was migrated to Firebase so far. The actual CVs Cas builds are
-still saved to the browser's `localStorage` under the key `cas_cv_data`
-(an array of CV objects, each with an `id`, `name`, `parsed` content
-structure, `settings`, etc.; read `dashboard.js` and `editor.js` to see
-the exact shape, it's easier than describing it here).
+None of the classic scripts (`dashboard.js`, `editor.js`, `import.js`)
+talk to Firestore directly. They all call `window.CVStore` (defined in
+`js/cv-store.js`, a module), which wraps every Firestore read/write:
+`getAll`, `getById`, `save`, `remove`, `migrateIfNeeded`. Since
+`cv-store.js` is a module (deferred) and the classic scripts run
+immediately, each HTML page sets up a small `window.cvStoreReady`
+promise inline (before the `cv-store.js` script tag) that the classic
+scripts `await` instead of touching `window.CVStore` directly. If you
+add a new page that needs CVStore, copy that same inline-promise +
+module-script-tag pattern, don't just add the module tag alone.
 
-This means CVs do not currently sync across browsers or devices. Cas is
-aware of this and it's the next planned phase (sometimes referred to as
-"Phase 3" or "Phase 4" in past conversations; the numbering isn't
-consistent across sessions, don't rely on a phase number, just know: auth
-is done, data migration to Firestore is not done yet).
-
-If asked to build the Firestore data migration:
-- Planned structure: `users/{uid}/cvs/{cvId}`, one Firestore document per
-  CV, mirroring the shape currently used in the `cas_cv_data` localStorage
-  array.
-- Every `localStorage.getItem('cas_cv_data')` / `setItem(...)` call in
-  `dashboard.js` and `editor.js` needs to become an async Firestore call
-  instead. This touches autosave-while-typing, CV creation, deletion,
-  duplication, and loading a CV into the editor. This is a substantial
-  rewrite, not a small patch. Budget real time for it, and test
-  thoroughly (ideally with Playwright MCP, see below) before considering
-  it done.
-- A one-time migration step should read whatever's currently in
-  `localStorage` on first login post-migration and push it up to
-  Firestore, so Cas doesn't lose CVs he's already built.
+A one-time migration (`CVStore.migrateIfNeeded()`, called from both
+`dashboard.js`'s and `editor.js`'s boot sequences) pushes whatever's
+sitting in a browser's `localStorage` under `cas_cv_data` up to
+Firestore on first load after this shipped, guarded by a
+`cas_cv_migrated_to_firestore` flag so it only runs once per browser.
+The original localStorage data is left in place as a backup, not
+deleted, so don't write code that assumes `cas_cv_data` is empty or
+absent.
 
 ## Known gotchas (learned the hard way this session, don't repeat these)
 

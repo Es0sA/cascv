@@ -135,22 +135,6 @@
         </div>
       </div>
 
-      <!-- Role request (shown only when role not detected) -->
-      <div class="role-request-panel" id="roleRequestPanel" style="display:none">
-        <div class="role-request-inner">
-          <div class="role-request-icon">🔍</div>
-          <div class="role-request-text">
-            <strong>This job role isn't in our database yet.</strong>
-            <p>Tell us what role this is and we'll add tailored keywords so future checks are more accurate.</p>
-          </div>
-          <form class="role-request-form" id="requestForm">
-            <input type="text" class="role-request-input" id="requestedRole" placeholder="e.g. Petroleum Engineer" required>
-            <button type="submit" class="role-request-btn">Submit Role</button>
-          </form>
-          <p class="role-request-status" id="requestStatus" style="display:none"></p>
-        </div>
-      </div>
-
     </div>
   </section>
   <section class="ats-cta-section" id="atsCta">
@@ -175,13 +159,6 @@
   <footer class="ats-footer">
     <p>CAS Writing Services &copy; 2026 &nbsp;·&nbsp; Built for job seekers across Nigeria and Africa</p>
   </footer>
-
-  <!-- Netlify form detection — do not remove -->
-  <form name="role-request" netlify netlify-honeypot="bot-field" hidden>
-    <input name="bot-field">
-    <input name="job-title" type="text">
-    <input name="jd-preview" type="text">
-  </form>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>

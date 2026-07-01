@@ -18,7 +18,6 @@ const scoreRing     = document.getElementById('scoreRing');
 const recList       = document.getElementById('recList');
 const foundChips    = document.getElementById('foundChips');
 const missingChips  = document.getElementById('missingChips');
-const roleRequest   = document.getElementById('roleRequestPanel');
 const detectedBadge = document.getElementById('detectedBadge');
 
 const TIER_WEIGHTS = { critical: 5, certifications: 4, technical: 2 };
@@ -175,11 +174,6 @@ function renderResults(result) {
       }).join('')
     : '<span class="ats-empty">No major keyword gaps — great!</span>';
 
-  // Role request panel
-  if (roleRequest) {
-    roleRequest.style.display = result.roleDetected ? 'none' : 'block';
-  }
-
   atsResults.classList.add('visible');
   atsCta.classList.add('visible');
   atsResults.scrollIntoView({ behavior:'smooth', block:'start' });
@@ -188,7 +182,7 @@ function renderResults(result) {
 /* ---- Recommendations ---- */
 function buildRecs(result) {
   const recs = [];
-  const { score, missing, criticalMissing, roleDetected } = result;
+  const { score, missing, criticalMissing } = result;
 
   if      (score >= 80) recs.push('Excellent — your CV is well-targeted for this role. Focus on polishing your Professional Summary.');
   else if (score >= 60) recs.push('Good match. Adding a few more specific keywords will push your ranking higher and reduce the chance of being filtered.');
@@ -207,10 +201,6 @@ function buildRecs(result) {
 
   recs.push('Mirror the exact phrasing from the job description — ATS systems do literal keyword matching, not concept matching. "Revenue generation" ≠ "generating revenue".');
 
-  if (!roleDetected) {
-    recs.push('This role is not yet in our database. Submit it below so future results are more accurate.');
-  }
-
   return recs;
 }
 
@@ -218,36 +208,6 @@ function escapeHtml(s) {
   const d=document.createElement('div');
   d.appendChild(document.createTextNode(s||''));
   return d.innerHTML;
-}
-
-/* ============================================================
-   ROLE REQUEST FORM — Netlify Forms
-   ============================================================ */
-
-const requestForm   = document.getElementById('requestForm');
-const requestStatus = document.getElementById('requestStatus');
-
-if (requestForm) {
-  requestForm.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const jobTitle = document.getElementById('requestedRole').value.trim();
-    if (!jobTitle) return;
-    try {
-      await fetch('/', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: new URLSearchParams({
-          'form-name':  'role-request',
-          'job-title':  jobTitle,
-          'jd-preview': jdText.value.slice(0, 300)
-        }).toString()
-      });
-      requestForm.style.display = 'none';
-      if (requestStatus) { requestStatus.textContent = '✓ Request sent — we\'ll add this role soon.'; requestStatus.style.display = 'block'; }
-    } catch {
-      if (requestStatus) { requestStatus.textContent = 'Could not send. Please try again.'; requestStatus.style.display = 'block'; }
-    }
-  });
 }
 
 /* ============================================================
