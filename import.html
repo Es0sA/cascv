@@ -12,6 +12,9 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/main.css">
+  <!-- Hidden until auth-guard.js confirms sign-in (prevents a
+       flash of import content before the async auth check resolves) -->
+  <style>body{visibility:hidden}</style>
 </head>
 <body class="page-import">
 
@@ -101,7 +104,7 @@
     </div>
   </main>
 
-  <script src="js/auth-guard.js"></script>
+  <script type="module" src="js/auth-guard.js"></script>
   <script src="js/parser.js"></script>
   <script src="js/import.js"></script>
 </body>
