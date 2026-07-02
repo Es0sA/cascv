@@ -1502,6 +1502,27 @@ input {
   border-bottom-color: var(--gold);
 }
 
+/* Undo / Redo buttons */
+.btn-undo-redo {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  color: var(--text-secondary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  transition: color var(--transition), border-color var(--transition), opacity var(--transition);
+}
+.btn-undo-redo:hover:not(:disabled) {
+  color: var(--text-primary);
+  border-color: var(--border-input);
+}
+.btn-undo-redo:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
 /* Reimport button */
 .btn-reimport {
   display: inline-flex;
@@ -2249,6 +2270,7 @@ input {
 .cv-paper.ac-line.hs-underline .cvp-sec-heading { border-color: var(--cv-accent) !important; }
 .cv-paper.ac-line.hs-line      .cvp-sec-heading { border-color: var(--cv-accent) !important; }
 .cv-paper.ac-line.hs-bar       .cvp-sec-heading { border-left-color: var(--cv-accent) !important; }
+.cv-paper.ac-dates    .cvp-entry-date,
 .cv-paper.ac-dates    .cvp-entry-meta  { color: var(--cv-accent) !important; }
 .cv-paper.ac-subtitle .cvp-entry-title { color: var(--cv-accent) !important; }
 
@@ -2261,16 +2283,16 @@ input {
 
 /* ============================================================
    SUBTITLE LINE — Same Line layout
+   (markup handled in editor.js's renderEntryHTML: employer sits
+   in row 1 next to the title instead of row 2, with location
+   dropping to a lone row 2. This just styles that inline pairing.)
    ============================================================ */
-.cv-paper.sl-same .cvp-entry-title,
-.cv-paper.sl-same .cvp-entry-meta {
-  display: inline;
-  margin-right: 4px;
+.cvp-entry-employer-inline {
+  margin-left: 6px;
 }
-.cv-paper.sl-same .cvp-entry-title::after {
-  content: ' ·';
+.cvp-entry-employer-inline::before {
+  content: '· ';
   opacity: 0.45;
-  margin-right: 4px;
 }
 
 /* ============================================================
@@ -2508,6 +2530,15 @@ input {
 .cv-paper.t-obsidian-edge .cvp-section:first-of-type,
 .cv-paper.t-neutral-gray .cvp-section:first-of-type { padding-top: 26px; }
 
+/* Sections the user assigns to the sidebar render inside the header
+   itself (see buildCVHTML's isSidebarTemplate branch in editor.js), so
+   they inherit the header's own background instead of getting a
+   separate flat-colored box. This just adds spacing/width; the color
+   overrides below make the text readable against each header's bg. */
+.cvp-header-sections { margin-top: 14px; width: 100%; }
+.cvp-header-sections .cvp-section { padding: 0 0 10px !important; }
+.cvp-header-sections .cvp-section:first-of-type { padding-top: 0 !important; }
+
 /* ---- ATLANTIC BLUE sidebar ---- */
 .cv-paper.t-atlantic-blue .cvp-header { background: #1B3A6B; }
 .cv-paper.t-atlantic-blue .cvp-name    { color: white !important; font-weight: 700; font-size: calc(var(--cv-name-size) * 0.85) !important; letter-spacing: 0.04em; text-transform: uppercase; }
@@ -2515,6 +2546,14 @@ input {
 .cv-paper.t-atlantic-blue .cvp-contact  { color: rgba(255,255,255,0.60) !important; font-size: calc(var(--cv-base) * 0.9) !important; margin-top: 8px; }
 .cv-paper.t-atlantic-blue .cvp-sec-heading { color: #1B3A6B !important; font-weight: 700; border-bottom: 1.5px solid #1B3A6B !important; text-transform: uppercase; letter-spacing: 0.05em; }
 .cv-paper.t-atlantic-blue .cvp-entry-title { color: #1B3A6B; }
+.cv-paper.t-atlantic-blue .cvp-header-sections .cvp-sec-heading { color: #fff !important; border-bottom-color: rgba(255,255,255,0.4) !important; }
+.cv-paper.t-atlantic-blue .cvp-header-sections .cvp-entry-title { color: #fff !important; }
+.cv-paper.t-atlantic-blue .cvp-header-sections .cvp-entry-employer,
+.cv-paper.t-atlantic-blue .cvp-header-sections .cvp-entry-date,
+.cv-paper.t-atlantic-blue .cvp-header-sections .cvp-entry-location,
+.cv-paper.t-atlantic-blue .cvp-header-sections .cvp-entry-meta,
+.cv-paper.t-atlantic-blue .cvp-header-sections .cvp-bullet,
+.cv-paper.t-atlantic-blue .cvp-header-sections .cvp-line { color: rgba(255,255,255,0.78) !important; }
 
 /* ---- CORPORATE PANEL sidebar ---- */
 .cv-paper.t-corporate-panel .cvp-header { background: #2a2a2a; }
@@ -2522,6 +2561,14 @@ input {
 .cv-paper.t-corporate-panel .cvp-jobtitle { color: rgba(255,255,255,0.75) !important; font-style: italic; font-size: calc(var(--cv-base) * 0.95) !important; }
 .cv-paper.t-corporate-panel .cvp-contact  { color: rgba(255,255,255,0.55) !important; font-size: calc(var(--cv-base) * 0.88) !important; margin-top: 8px; }
 .cv-paper.t-corporate-panel .cvp-sec-heading { color: #2a2a2a !important; font-weight: 700; border-bottom: 1.5px solid #2a2a2a !important; text-transform: uppercase; }
+.cv-paper.t-corporate-panel .cvp-header-sections .cvp-sec-heading { color: #fff !important; border-bottom-color: rgba(255,255,255,0.4) !important; }
+.cv-paper.t-corporate-panel .cvp-header-sections .cvp-entry-title { color: #fff !important; }
+.cv-paper.t-corporate-panel .cvp-header-sections .cvp-entry-employer,
+.cv-paper.t-corporate-panel .cvp-header-sections .cvp-entry-date,
+.cv-paper.t-corporate-panel .cvp-header-sections .cvp-entry-location,
+.cv-paper.t-corporate-panel .cvp-header-sections .cvp-entry-meta,
+.cv-paper.t-corporate-panel .cvp-header-sections .cvp-bullet,
+.cv-paper.t-corporate-panel .cvp-header-sections .cvp-line { color: rgba(255,255,255,0.75) !important; }
 
 /* ---- COBALT EDGE sidebar ---- */
 .cv-paper.t-cobalt-edge .cvp-header { background: #1a4d8f; }
@@ -2529,6 +2576,14 @@ input {
 .cv-paper.t-cobalt-edge .cvp-jobtitle { color: rgba(255,255,255,0.80) !important; letter-spacing: 0.04em; }
 .cv-paper.t-cobalt-edge .cvp-contact  { color: rgba(255,255,255,0.60) !important; margin-top: 8px; font-size: calc(var(--cv-base) * 0.88) !important; }
 .cv-paper.t-cobalt-edge .cvp-sec-heading { color: #1a4d8f !important; font-weight: 700; border-bottom: 2px solid #1a4d8f !important; }
+.cv-paper.t-cobalt-edge .cvp-header-sections .cvp-sec-heading { color: #fff !important; border-bottom-color: rgba(255,255,255,0.4) !important; }
+.cv-paper.t-cobalt-edge .cvp-header-sections .cvp-entry-title { color: #fff !important; }
+.cv-paper.t-cobalt-edge .cvp-header-sections .cvp-entry-employer,
+.cv-paper.t-cobalt-edge .cvp-header-sections .cvp-entry-date,
+.cv-paper.t-cobalt-edge .cvp-header-sections .cvp-entry-location,
+.cv-paper.t-cobalt-edge .cvp-header-sections .cvp-entry-meta,
+.cv-paper.t-cobalt-edge .cvp-header-sections .cvp-bullet,
+.cv-paper.t-cobalt-edge .cvp-header-sections .cvp-line { color: rgba(255,255,255,0.80) !important; }
 
 /* ---- OBSIDIAN EDGE sidebar ---- */
 .cv-paper.t-obsidian-edge .cvp-header { background: #12121a; }
@@ -2536,6 +2591,14 @@ input {
 .cv-paper.t-obsidian-edge .cvp-jobtitle { color: rgba(255,255,255,0.70) !important; font-style: italic; }
 .cv-paper.t-obsidian-edge .cvp-contact  { color: rgba(255,255,255,0.50) !important; margin-top: 8px; font-size: calc(var(--cv-base) * 0.9) !important; }
 .cv-paper.t-obsidian-edge .cvp-sec-heading { color: #12121a !important; font-weight: 700; border-left: 3px solid #12121a !important; padding-left: 6px !important; text-transform: uppercase; }
+.cv-paper.t-obsidian-edge .cvp-header-sections .cvp-sec-heading { color: #fff !important; border-left-color: rgba(255,255,255,0.5) !important; }
+.cv-paper.t-obsidian-edge .cvp-header-sections .cvp-entry-title { color: #fff !important; }
+.cv-paper.t-obsidian-edge .cvp-header-sections .cvp-entry-employer,
+.cv-paper.t-obsidian-edge .cvp-header-sections .cvp-entry-date,
+.cv-paper.t-obsidian-edge .cvp-header-sections .cvp-entry-location,
+.cv-paper.t-obsidian-edge .cvp-header-sections .cvp-entry-meta,
+.cv-paper.t-obsidian-edge .cvp-header-sections .cvp-bullet,
+.cv-paper.t-obsidian-edge .cvp-header-sections .cvp-line { color: rgba(255,255,255,0.65) !important; }
 
 /* ---- NEUTRAL GRAY sidebar ---- */
 .cv-paper.t-neutral-gray .cvp-header { background: #6b7280; }
@@ -2543,6 +2606,14 @@ input {
 .cv-paper.t-neutral-gray .cvp-jobtitle { color: rgba(255,255,255,0.80) !important; font-style: italic; }
 .cv-paper.t-neutral-gray .cvp-contact  { color: rgba(255,255,255,0.65) !important; margin-top: 8px; font-size: calc(var(--cv-base) * 0.9) !important; }
 .cv-paper.t-neutral-gray .cvp-sec-heading { color: #4a5263 !important; font-weight: 700; border-bottom: 1.5px solid #9aa3b0 !important; }
+.cv-paper.t-neutral-gray .cvp-header-sections .cvp-sec-heading { color: #fff !important; border-bottom-color: rgba(255,255,255,0.45) !important; }
+.cv-paper.t-neutral-gray .cvp-header-sections .cvp-entry-title { color: #fff !important; }
+.cv-paper.t-neutral-gray .cvp-header-sections .cvp-entry-employer,
+.cv-paper.t-neutral-gray .cvp-header-sections .cvp-entry-date,
+.cv-paper.t-neutral-gray .cvp-header-sections .cvp-entry-location,
+.cv-paper.t-neutral-gray .cvp-header-sections .cvp-entry-meta,
+.cv-paper.t-neutral-gray .cvp-header-sections .cvp-bullet,
+.cv-paper.t-neutral-gray .cvp-header-sections .cvp-line { color: rgba(255,255,255,0.80) !important; }
 
 /* ============================================================
    CV ENTRY FORMATTING — Job title + Company/Date detection
@@ -2550,23 +2621,40 @@ input {
 
 .cvp-entry-title {
   font-weight: 700;
-  font-size: var(--cv-base) !important;
-  margin: 6px 0 1px;
   color: #0a0a0a;
   line-height: 1.3;
 }
 
+/* Row 1 (title + date) and row 2 (employer + location): title/employer
+   sit on the left and grow, date/location stay put on the right. Kept
+   as two flex rows rather than one flowing paragraph so long company
+   names or job titles never crowd the date/location off the edge. */
+.cvp-entry-row1, .cvp-entry-row2 {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 10px;
+}
+.cvp-entry-row1 { margin: 6px 0 1px; }
+.cvp-entry-row2 { margin: 0 0 3px; }
+
+.cvp-entry-date, .cvp-entry-employer, .cvp-entry-location,
 .cvp-entry-meta {
-  font-size: calc(var(--cv-base) * 0.95) !important;
+  font-size: calc(var(--cv-entry-size) * 0.95) !important;
   color: #555;
   font-style: italic;
-  margin: 0 0 3px;
   line-height: 1.4;
 }
+.cvp-entry-meta { margin: 0 0 3px; }
+.cvp-entry-date, .cvp-entry-location { flex: 0 0 auto; white-space: nowrap; }
+.cvp-entry-employer { flex: 1 1 auto; }
 
 /* Template-specific entry colouring */
 .t-modern .cvp-entry-title           { color: var(--cv-accent, #1B3A6B); }
 .t-minimal .cvp-entry-title          { font-weight: 600; color: #111; }
+.t-minimal .cvp-entry-employer,
+.t-minimal .cvp-entry-date,
+.t-minimal .cvp-entry-location,
 .t-minimal .cvp-entry-meta           { color: #888; }
 .t-corporate .cvp-entry-title        { color: var(--cv-accent); }
 .t-refined .cvp-entry-title          { color: var(--cv-accent); font-style: italic; }
@@ -2598,6 +2686,8 @@ input {
    across pages so the on-screen page-break overlay matches the PDF.
    Only small atomic units (bullets, entry titles) avoid splitting. */
 .cvp-entry-title   { break-inside: avoid; page-break-inside: avoid; }
+.cvp-entry-row1    { break-inside: avoid; page-break-inside: avoid; }
+.cvp-entry-row2    { break-inside: avoid; page-break-inside: avoid; }
 .cvp-bullet        { break-inside: avoid; page-break-inside: avoid; }
 .cvp-skill-bar-row { break-inside: avoid; page-break-inside: avoid; }
 .cvp-skill-dot-row { break-inside: avoid; page-break-inside: avoid; }

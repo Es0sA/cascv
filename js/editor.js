@@ -177,6 +177,8 @@ const cvNameDisplay     = document.getElementById('cvNameDisplay');
 const saveIndicator     = document.getElementById('saveIndicator');
 const downloadBtn       = document.getElementById('downloadBtn');
 const reimportBtn       = document.getElementById('reimportBtn');
+const undoBtn           = document.getElementById('undoBtn');
+const redoBtn           = document.getElementById('redoBtn');
 const sectionsContainer = document.getElementById('sectionsContainer');
 const customizePanel    = document.getElementById('customizePanel');
 const reimportOverlay   = document.getElementById('reimportOverlay');
@@ -263,7 +265,7 @@ downloadBtn.addEventListener('click', async () => {
                     x: 0, y: 0, scrollX: 0, scrollY: 0,
                     windowWidth: clone.scrollWidth, windowHeight: clone.scrollHeight },
       jsPDF:      { unit: 'mm', format: isLetter ? [pw, ph] : 'a4', orientation: 'portrait' },
-      pagebreak:  { mode: ['css'], avoid: '.cvp-bullet,.cvp-entry-title,.cvp-entry-meta' }
+      pagebreak:  { mode: ['css'], avoid: '.cvp-bullet,.cvp-entry-title,.cvp-entry-meta,.cvp-entry-row1,.cvp-entry-row2' }
     };
 
     const worker = html2pdf().set(opt).from(clone);
@@ -848,6 +850,12 @@ const ALL_TEMPLATES = [
   { value:'neutral-gray',    label:'Neutral Gray',    accent:'#6b7280' },
 ];
 
+// Templates whose CSS already renders a permanent colored side panel
+// (see the "Shared sidebar base" rule in main.css). These are inherently
+// two-column, so picking one should switch Columns to "2" automatically
+// instead of leaving the user with a mismatched single-column layout.
+const SIDEBAR_TEMPLATES = ['atlantic-blue', 'corporate-panel', 'cobalt-edge', 'obsidian-edge', 'neutral-gray'];
+
 /* ============================================================
    TEMPLATE THUMBNAILS — real live-rendered miniatures.
 
@@ -879,8 +887,8 @@ function templateThumb(tpl) {
       <div class="cvp-section">
         <div class="cvp-sec-heading">Experience</div>
         <div class="cvp-sec-content">
-          <p class="cvp-entry-title">Senior Marketing Lead</p>
-          <p class="cvp-entry-meta">Acme Co. | 2021 – Present</p>
+          <div class="cvp-entry-row1"><span class="cvp-entry-title">Senior Marketing Lead</span><span class="cvp-entry-date">2021 – Present</span></div>
+          <div class="cvp-entry-row2"><span class="cvp-entry-employer">Acme Co.</span></div>
           <p class="cvp-bullet">• Grew engagement 40% year over year</p>
           <p class="cvp-bullet">• Led a team of five specialists</p>
         </div>
@@ -888,8 +896,8 @@ function templateThumb(tpl) {
       <div class="cvp-section">
         <div class="cvp-sec-heading">Education</div>
         <div class="cvp-sec-content">
-          <p class="cvp-entry-title">B.Sc. Business</p>
-          <p class="cvp-entry-meta">State University | 2016 – 2020</p>
+          <div class="cvp-entry-row1"><span class="cvp-entry-title">B.Sc. Business</span><span class="cvp-entry-date">2016 – 2020</span></div>
+          <div class="cvp-entry-row2"><span class="cvp-entry-employer">State University</span></div>
         </div>
       </div>
       <div class="cvp-section">
@@ -1165,10 +1173,18 @@ function perColorRow(label,key,value) {
 }
 
 function setSetting(key, value) {
+  const prevTemplate = cvSettings.template;
   cvSettings[key] = value;
-  if (key==='template') { const t=ALL_TEMPLATES.find(t=>t.value===value); if(t&&t.accent) cvSettings.accentColor=t.accent; }
+  if (key==='template') {
+    const t=ALL_TEMPLATES.find(t=>t.value===value); if(t&&t.accent) cvSettings.accentColor=t.accent;
+    // These templates already have a permanent colored side panel baked
+    // into their CSS, so force the matching column mode automatically
+    // rather than leaving the layout mismatched until the user notices.
+    if (SIDEBAR_TEMPLATES.includes(value)) cvSettings.columns = '2';
+    else if (SIDEBAR_TEMPLATES.includes(prevTemplate)) cvSettings.columns = '1';
+  }
   renderCustomizePanel();
-  if (key==='listStyle'||key==='columns'||key==='dateFormat') { renderEditPanel(); renderRightPanel(); } else applySettings();
+  if (key==='listStyle'||key==='columns'||key==='dateFormat'||key==='template') { renderEditPanel(); renderRightPanel(); } else applySettings();
   scheduleSave();
 }
 function onSlider(key, value, suffix) {
@@ -1280,6 +1296,7 @@ function buildCVHTML(parsed) {
   const colMode  = String(cvSettings.columns);
   const isTwoCol = colMode === '2';
   const isMix    = colMode === 'mix';
+  const isSidebarTemplate = isTwoCol && SIDEBAR_TEMPLATES.includes(cvSettings.template);
 
   // Build header line from structured fields, in the user-defined order
   let contactLine = '';
@@ -1294,9 +1311,20 @@ function buildCVHTML(parsed) {
   if (!cvData.hiddenFields['name'])     html += `<div class="cvp-name">${mdLine(hf.name||'')}</div>`;
   if (!cvData.hiddenFields['jobTitle'] && hf.jobTitle) html += `<div class="cvp-jobtitle">${mdLine(hf.jobTitle)}</div>`;
   if (contactLine) html += `<div class="cvp-contact">${escapeHtml(contactLine)}</div>`;
+  if (isSidebarTemplate) {
+    // These templates' header IS the colored side panel (see main.css
+    // "Shared sidebar base"), so sections assigned to the sidebar render
+    // inside it directly and inherit its color, instead of spawning a
+    // separate flat-colored box elsewhere in the layout.
+    const sidebar = sections.map((s,i)=>({s,i})).filter(({i})=>cvData.columnAssign[i]==='sidebar');
+    html += '<div class="cvp-header-sections">' + sidebar.map(({s,i})=>renderSectionPreview(s,i)).join('') + '</div>';
+  }
   html += '</div><hr class="cvp-divider">';
 
-  if (isTwoCol) {
+  if (isSidebarTemplate) {
+    const main = sections.map((s,i)=>({s,i})).filter(({i})=>(cvData.columnAssign[i]||'main')==='main');
+    html += main.map(({s,i})=>renderSectionPreview(s,i)).join('');
+  } else if (isTwoCol) {
     const main    = sections.map((s,i)=>({s,i})).filter(({i})=>(cvData.columnAssign[i]||'main')==='main');
     const sidebar = sections.map((s,i)=>({s,i})).filter(({i})=>cvData.columnAssign[i]==='sidebar');
     html += '<div class="cv-two-col-wrap">';
@@ -1382,10 +1410,32 @@ function renderEntryHTML(entry, stype) {
         dateStr += ' ' + calcDuration(entry.startDate||entry.start||'', entry.endDate||entry.end||'');
       }
     }
-    const metaRight = [dateStr, loc].filter(Boolean).join(' | ');
     const subHtml   = subLink ? `<a href="${escapeAttr(subLink)}" target="_blank" rel="noopener">${escapeHtml(sub)}</a>` : escapeHtml(sub);
-    if (title) html += `<p class="cvp-entry-title">${mdLine(title,true)}</p>`;
-    if (sub||metaRight) html += `<p class="cvp-entry-meta">${[subHtml, escapeHtml(metaRight)].filter(Boolean).join(' | ')}</p>`;
+    // Row 1: job title left, date range right. Row 2: employer left, location right.
+    // Keeps company/date/location as distinct fields all the way to markup,
+    // instead of collapsing them into one pipe-joined flowing paragraph.
+    // "Subtitle: Same Line" folds employer into row 1 next to the title
+    // (its pre-existing meaning), leaving row 2 for location only.
+    if (cvSettings.subtitleLine === 'same') {
+      const titleHtml = [
+        title ? `<span class="cvp-entry-title">${mdLine(title,true)}</span>` : '',
+        sub   ? `<span class="cvp-entry-employer cvp-entry-employer-inline">${subHtml}</span>` : ''
+      ].filter(Boolean).join('');
+      if (titleHtml||dateStr) html += `<div class="cvp-entry-row1">
+        <span>${titleHtml}</span>
+        ${dateStr ? `<span class="cvp-entry-date">${escapeHtml(dateStr)}</span>` : ''}
+      </div>`;
+      if (loc) html += `<div class="cvp-entry-row2"><span></span><span class="cvp-entry-location">${escapeHtml(loc)}</span></div>`;
+    } else {
+      if (title||dateStr) html += `<div class="cvp-entry-row1">
+        ${title ? `<span class="cvp-entry-title">${mdLine(title,true)}</span>` : '<span></span>'}
+        ${dateStr ? `<span class="cvp-entry-date">${escapeHtml(dateStr)}</span>` : ''}
+      </div>`;
+      if (sub||loc) html += `<div class="cvp-entry-row2">
+        ${sub ? `<span class="cvp-entry-employer">${subHtml}</span>` : '<span></span>'}
+        ${loc ? `<span class="cvp-entry-location">${escapeHtml(loc)}</span>` : ''}
+      </div>`;
+    }
     if (desc) {
       desc.split('\n').forEach(line => {
         const t = line.trim();
@@ -1556,7 +1606,7 @@ function mdLine(text, force) {
    ============================================================ */
 function updateHeader(field, value) {
   cvData.parsed.header[field] = value;
-  if (field === 'name' && (cvData.name === 'Untitled CV' || !cvData.name) && value.trim()) {
+  if (field === 'name' && value.trim()) {
     cvData.name = value.trim();
     cvNameDisplay.textContent = cvData.name;
     document.title = `CAS CV Builder — ${cvData.name}`;
@@ -1669,7 +1719,7 @@ reimportConfirm.addEventListener('click',()=>{
    SAVE
    ============================================================ */
 let saveTimeout=null;
-function scheduleSave(){ saveIndicator.textContent='Saving…'; saveIndicator.className='save-indicator saving'; clearTimeout(saveTimeout); saveTimeout=setTimeout(persistSave,800); }
+function scheduleSave(){ saveIndicator.textContent='Saving…'; saveIndicator.className='save-indicator saving'; clearTimeout(saveTimeout); saveTimeout=setTimeout(persistSave,800); scheduleHistoryCheckpoint(); }
 async function persistSave(){
   cvData.settings=cvSettings; cvData.updatedAt=new Date().toISOString();
   try{
@@ -1678,6 +1728,80 @@ async function persistSave(){
     saveIndicator.textContent='Saved'; saveIndicator.className='save-indicator saved';
   }catch{ saveIndicator.textContent='Save failed'; saveIndicator.className='save-indicator error'; }
 }
+
+/* ============================================================
+   UNDO / REDO
+   Every mutation in the app already funnels through scheduleSave()
+   (called from every field edit, drag-reorder, setting change, etc.),
+   so that's the one place a history checkpoint needs to be hooked in,
+   rather than touching every individual mutation site. Checkpoints are
+   debounced the same way autosave is, so a burst of typing becomes one
+   undo step instead of one per keystroke.
+   ============================================================ */
+let undoStack = [];
+let redoStack = [];
+let historyTimeout = null;
+let restoringHistory = false;
+const MAX_HISTORY = 50;
+
+function snapshotState() {
+  // Exclude updatedAt and settings: persistSave() rewrites updatedAt on
+  // every autosave tick and copies the live cvSettings into cvData.settings
+  // (redundant here since cvSettings is already captured below), both
+  // asynchronously after a checkpoint is taken. Leaving them in would drift
+  // the live state away from an already-taken snapshot purely from a save
+  // completing in the background, defeating the no-op dedup check.
+  const { updatedAt, settings, ...cvDataForHistory } = cvData;
+  return JSON.stringify({ cvData: cvDataForHistory, cvSettings });
+}
+
+function pushHistoryCheckpoint() {
+  if (restoringHistory) return;
+  const snap = snapshotState();
+  if (undoStack.length && undoStack[undoStack.length - 1] === snap) return;
+  undoStack.push(snap);
+  if (undoStack.length > MAX_HISTORY) undoStack.shift();
+  redoStack = [];
+  updateUndoRedoButtons();
+}
+function scheduleHistoryCheckpoint() { clearTimeout(historyTimeout); historyTimeout = setTimeout(pushHistoryCheckpoint, 600); }
+function updateUndoRedoButtons() {
+  undoBtn.disabled = undoStack.length < 2;
+  redoBtn.disabled = redoStack.length === 0;
+}
+function restoreSnapshot(snap) {
+  const state = JSON.parse(snap);
+  restoringHistory = true;
+  cvData = state.cvData;
+  cvSettings = state.cvSettings;
+  renderEditPanel(); renderCustomizePanel(); renderRightPanel();
+  restoringHistory = false;
+  updateUndoRedoButtons();
+  scheduleSave();
+}
+function undo() {
+  clearTimeout(historyTimeout);
+  pushHistoryCheckpoint();
+  if (undoStack.length < 2) return;
+  redoStack.push(undoStack.pop());
+  restoreSnapshot(undoStack[undoStack.length - 1]);
+}
+function redo() {
+  if (!redoStack.length) return;
+  const snap = redoStack.pop();
+  undoStack.push(snap);
+  restoreSnapshot(snap);
+}
+undoBtn.addEventListener('click', undo);
+redoBtn.addEventListener('click', redo);
+document.addEventListener('keydown', (e) => {
+  const t = document.activeElement.tagName;
+  if (t === 'INPUT' || t === 'TEXTAREA' || document.activeElement.isContentEditable) return;
+  if (!(e.ctrlKey || e.metaKey)) return;
+  const key = e.key.toLowerCase();
+  if (key === 'z' && !e.shiftKey) { e.preventDefault(); undo(); }
+  else if (key === 'y' || (key === 'z' && e.shiftKey)) { e.preventDefault(); redo(); }
+});
 
 /* ============================================================
    HELPERS
@@ -1819,6 +1943,8 @@ async function initEditor() {
   renderCustomizePanel();
   renderRightPanel();
   scheduleFitZoom();
+
+  pushHistoryCheckpoint();
 }
 
 initEditor();

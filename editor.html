@@ -31,6 +31,13 @@
       <div class="editor-cv-name" id="cvNameDisplay">Loading...</div>
     </div>
     <div class="editor-header-right">
+      <button class="btn-undo-redo" id="undoBtn" title="Undo (Ctrl+Z)" disabled>
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-10 9 9 0 0 0-6 2.3L3 13"/></svg>
+      </button>
+      <button class="btn-undo-redo" id="redoBtn" title="Redo (Ctrl+Shift+Z)" disabled>
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 7v6h-6"/><path d="M3 17a9 9 0 0 1 9-10 9 9 0 0 1 6 2.3L21 13"/></svg>
+      </button>
+      <span class="header-sep"></span>
       <button class="btn-reimport" id="reimportBtn">
         <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
         Reimport
