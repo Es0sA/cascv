@@ -128,6 +128,7 @@ function renderGallery() {
         </div>
         <div class="cv-card-info">
           <div class="cv-card-name">${escapeHtml(cv.name)}</div>
+          ${cv.parsed?.header?.jobTitle ? `<div class="cv-card-jobtitle">${escapeHtml(cv.parsed.header.jobTitle)}</div>` : ''}
           <div class="cv-card-date">Last edited ${formatDate(cv.updatedAt || cv.createdAt)}</div>
         </div>
       </div>

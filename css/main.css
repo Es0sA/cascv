@@ -469,7 +469,16 @@ input {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  margin-bottom: 3px;
+  margin-bottom: 1px;
+}
+
+.cv-card-jobtitle {
+  font-size: 0.8125rem;
+  color: var(--gold);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-bottom: 4px;
 }
 
 .cv-card-date {
@@ -2493,7 +2502,7 @@ input {
 .cv-paper.t-obsidian-edge,
 .cv-paper.t-neutral-gray {
   display: grid;
-  grid-template-columns: 36% 64%;
+  grid-template-columns: var(--cv-col-width, 36%) 1fr;
   padding: 0 !important;
   min-height: 297mm;
   overflow: hidden;
@@ -2703,6 +2712,13 @@ input {
   background: var(--cv-sidebar-bg, #f0f4f8);
   padding: 16px 14px;
   min-height: 200px;
+}
+/* No sections assigned to the sidebar yet: don't paint an empty
+   colored box with no content in it, just collapse it away. */
+.cv-paper.cols-2 .cv-sidebar-col:empty {
+  background: none;
+  padding: 0;
+  min-height: 0;
 }
 .cv-paper.cols-2 .cv-main-col {
   padding: 0 0 0 18px;
@@ -2955,6 +2971,7 @@ input {
 /* ---- Print: hide editor chrome, show only cv-paper ---- */
 @media print {
   .cv-paper.cols-2 .cv-sidebar-col { background: var(--cv-sidebar-bg, #f0f4f8) !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .cv-paper.cols-2 .cv-sidebar-col:empty { background: none !important; }
   .cvp-skill-fill { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .cvp-dot.filled { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 }
