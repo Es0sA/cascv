@@ -166,6 +166,7 @@ const DEFAULTS = {
   colorSidebarBg:'#f0f4f8', colorText:'#1a1a1a', accentName:false,
   accentTitle:false, accentHeadings:true, accentLine:true, accentDates:false,
   accentSubtitle:false, showPageNums:false, linkStyle:'underline',
+  footerCustom:false, footerLeft:'', footerCenter:'', footerRight:'',
 };
 
 // Real values get merged in with cvData.settings once initEditor()
@@ -231,8 +232,80 @@ downloadBtn.addEventListener('click', async () => {
   downloadBtn.textContent = '⏳ Generating…';
   downloadBtn.disabled    = true;
 
-  // Build an off-screen, full-width (mm) clone of the live preview —
-  // height left natural for now so we can measure true content extent.
+  try {
+    if (isPaginatedLayout()) {
+      await exportPaginatedPdf(pw, ph, isLetter);
+    } else {
+      await exportFlowingPdf(pw, ph, isLetter);
+    }
+  } catch (err) {
+    console.error('PDF generation failed:', err);
+    alert('PDF generation failed. Please try again — if this keeps happening, let Cas know.');
+  } finally {
+    downloadBtn.textContent = '⬇ Download PDF';
+    downloadBtn.disabled    = false;
+  }
+});
+
+// Real-pagination export: each .cv-page is rendered to its own canvas
+// and assembled into the PDF explicitly via jsPDF's own addPage/
+// addImage, instead of handing html2pdf the whole document and hoping
+// its automatic CSS-pagebreak detection lines up with our own .cv-page
+// boundaries — that approach silently produced a phantom blank page
+// (html2pdf's own pixel-height-based pagination and our CSS `after`
+// hint don't reliably reconcile with each other). This has zero such
+// ambiguity: one canvas in, one page out, one at a time.
+async function exportPaginatedPdf(pw, ph, isLetter) {
+  const pageEls = Array.from(cvPaper.querySelectorAll('.cv-page'));
+  if (!pageEls.length) return;
+
+  let pdf = null;
+  for (let i = 0; i < pageEls.length; i++) {
+    const wrap = document.createElement('div');
+    wrap.style.cssText = `position:fixed;top:0;left:0;width:${pw}mm;z-index:-9999;opacity:0;pointer-events:none;`;
+    const pageClone = pageEls[i].cloneNode(true);
+    pageClone.style.boxShadow = 'none';
+    pageClone.style.width = pageClone.style.maxWidth = `${pw}mm`;
+    pageClone.style.minWidth = '0';
+    wrap.appendChild(pageClone);
+    document.body.appendChild(wrap);
+    await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+
+    const opt = {
+      margin: 0,
+      image: { type: 'jpeg', quality: 0.98 },
+      html2canvas: { scale: 2, useCORS: true, allowTaint: true, logging: false,
+                     x: 0, y: 0, scrollX: 0, scrollY: 0,
+                     windowWidth: pageClone.scrollWidth, windowHeight: pageClone.scrollHeight },
+      jsPDF: { unit: 'mm', format: isLetter ? [pw, ph] : 'a4', orientation: 'portrait' },
+    };
+    const worker = html2pdf().set(opt).from(pageClone);
+    const canvas = await worker.toCanvas().get('canvas');
+    document.body.removeChild(wrap);
+
+    if (!pdf) {
+      pdf = await worker.toPdf().get('pdf');
+      // Even a single .cv-page, run through html2pdf's own .toPdf()
+      // step, can land a hair over one physical page's worth of
+      // pixels (canvas-height rounding) and get a phantom near-blank
+      // 2nd page tacked on internally — trim it back to exactly 1,
+      // same safety net the fallback export already relies on.
+      const n = pdf.internal.getNumberOfPages();
+      for (let p = n; p > 1; p--) pdf.deletePage(p);
+    } else {
+      const imgData = canvas.toDataURL('image/jpeg', 0.98);
+      pdf.addPage([pw, ph], 'portrait');
+      pdf.addImage(imgData, 'JPEG', 0, 0, pw, ph);
+    }
+  }
+  pdf.save(`${cvData.name || 'CV'}.pdf`);
+}
+
+// Fallback (2-col/mix/sidebar-template) export: unchanged from before —
+// clones the whole flowing #cvPaper, snaps its height to an exact page
+// multiple to avoid html2canvas/jsPDF rounding producing a near-blank
+// trailing page, and trims any stray extra page as a safety net.
+async function exportFlowingPdf(pw, ph, isLetter) {
   const wrap = document.createElement('div');
   wrap.style.cssText = `position:fixed;top:0;left:0;width:${pw}mm;z-index:-9999;opacity:0;pointer-events:none;`;
   const clone = cvPaper.cloneNode(true);
@@ -251,9 +324,9 @@ downloadBtn.addEventListener('click', async () => {
   // Measure true content height in mm, then snap the clone's height
   // to an exact multiple of one page — this is what actually
   // prevents the phantom trailing page.
-  const pxPerMm       = clone.clientWidth / pw;
+  const pxPerMm         = clone.clientWidth / pw;
   const contentHeightMm = clone.scrollHeight / pxPerMm;
-  const pageCount     = Math.max(1, Math.ceil(contentHeightMm / ph - 0.001));
+  const pageCount       = Math.max(1, Math.ceil(contentHeightMm / ph - 0.001));
   clone.style.minHeight = `${pageCount * ph}mm`;
 
   await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
@@ -279,15 +352,10 @@ downloadBtn.addEventListener('click', async () => {
       for (let p = total; p > pageCount; p--) pdf.deletePage(p);
     });
     await worker.save();
-  } catch (err) {
-    console.error('PDF generation failed:', err);
-    alert('PDF generation failed. Please try again — if this keeps happening, let Cas know.');
   } finally {
     document.body.removeChild(wrap);
-    downloadBtn.textContent = '⬇ Download PDF';
-    downloadBtn.disabled    = false;
   }
-});
+}
 
 /* ============================================================
    TABS
@@ -1025,9 +1093,22 @@ function renderCustomizePanel() {
   const perColorHtml=`<div class="per-color-grid">${perColorRow('Canvas Background','colorBg',cvSettings.colorBg)}${perColorRow('Sidebar Background','colorSidebarBg',cvSettings.colorSidebarBg)}${perColorRow('Body Text','colorText',cvSettings.colorText)}</div>`;
   const colorHtml = colorGrid + targetsHtml + custRow('Element Colors', perColorHtml);
 
-  const footerHtml =
-    custRow('Page Numbers',`<label class="cust-toggle-row"><input type="checkbox" ${cvSettings.showPageNums?'checked':''} onchange="toggleBool('showPageNums',this.checked)"><span class="cust-toggle-slider"></span><span class="cust-toggle-label">Show page numbers</span></label>`) +
-    custRow('Link Style', toggleGroup([{label:'Underline',value:'underline'},{label:'Blue',value:'blue'},{label:'Plain',value:'plain'}],'linkStyle'));
+  const footerCustomFields = cvSettings.footerCustom ? `<div class="footer-zone-grid">
+      <div class="footer-zone-field"><label class="acc-label">Left</label><input class="acc-input" type="text" value="${escapeAttr(cvSettings.footerLeft)}" placeholder="e.g. {{name}}" oninput="onFooterZoneInput('footerLeft',this.value)"></div>
+      <div class="footer-zone-field"><label class="acc-label">Center</label><input class="acc-input" type="text" value="${escapeAttr(cvSettings.footerCenter)}" placeholder="e.g. {{email}} | {{phone}}" oninput="onFooterZoneInput('footerCenter',this.value)"></div>
+      <div class="footer-zone-field"><label class="acc-label">Right</label><input class="acc-input" type="text" value="${escapeAttr(cvSettings.footerRight)}" placeholder="e.g. Page {{pages}}" oninput="onFooterZoneInput('footerRight',this.value)"></div>
+      <p class="footer-zone-hint">Available tokens: {{name}} {{email}} {{phone}} {{pages}}</p>
+    </div>` : '';
+  // Footer / page-number controls don't apply to real multi-page CVs yet:
+  // a footer would need to repeat correctly on every generated page, which
+  // is explicitly out of scope for this pass (see plan). Hide them rather
+  // than leave controls that quietly do nothing.
+  const footerHtml = isPaginatedLayout()
+    ? `<p class="footer-zone-hint">Page footer / numbering isn't available yet for real multi-page CVs — coming in a future update.</p>` +
+      custRow('Link Style', toggleGroup([{label:'Underline',value:'underline'},{label:'Blue',value:'blue'},{label:'Plain',value:'plain'}],'linkStyle'))
+    : custRow('Page Numbers',`<label class="cust-toggle-row"><input type="checkbox" ${cvSettings.showPageNums?'checked':''} onchange="toggleBool('showPageNums',this.checked)"><span class="cust-toggle-slider"></span><span class="cust-toggle-label">Show page numbers</span></label>`) +
+      custRow('Custom Footer',`<label class="cust-toggle-row"><input type="checkbox" ${cvSettings.footerCustom?'checked':''} onchange="toggleBool('footerCustom',this.checked);renderCustomizePanel();renderRightPanel()"><span class="cust-toggle-slider"></span><span class="cust-toggle-label">Build a custom 3-zone footer</span></label>${footerCustomFields}`) +
+      custRow('Link Style', toggleGroup([{label:'Underline',value:'underline'},{label:'Blue',value:'blue'},{label:'Plain',value:'plain'}],'linkStyle'));
 
   customizePanel.innerHTML =
     section('Design Templates', templateHtml) + section('Layout', layoutHtml) +
@@ -1243,21 +1324,18 @@ function onFontChange(key,value){ cvSettings[key]=value; applySettings(); schedu
 function onColorPickerInput(hex){ cvSettings.accentColor=hex; const h=document.getElementById('colorHexInput'); if(h)h.value=hex; applySettings(); scheduleSave(); renderCustomizePanel(); }
 function onColorHexInput(val){ const c=val.trim(); if(/^#[0-9a-fA-F]{6}$/.test(c)){cvSettings.accentColor=c; const s=document.getElementById('colorPickerSwatch'); if(s)s.value=c; applySettings(); scheduleSave(); renderCustomizePanel();} }
 function onPerColorInput(key,hex){ cvSettings[key]=hex; applySettings(); scheduleSave(); }
+function onFooterZoneInput(key,value){ cvSettings[key]=value; renderRightPanel(); scheduleSave(); }
 
 function applySettings() {
-  const colMode = String(cvSettings.columns);
-  const colClass = colMode==='2' ? 'cols-2' : colMode==='mix' ? 'cols-mix' : 'cols-1';
-  const accentClasses = [
-    cvSettings.accentName     ?'ac-name':'', cvSettings.accentTitle    ?'ac-title':'',
-    cvSettings.accentHeadings ?'ac-headings':'', cvSettings.accentLine  ?'ac-line':'',
-    cvSettings.accentDates    ?'ac-dates':'', cvSettings.accentSubtitle ?'ac-subtitle':'',
-    cvSettings.showPageNums   ?'show-pagenum':'', colClass,
-  ].filter(Boolean).join(' ');
-
-  cvPaper.className = ['cv-paper',`t-${cvSettings.template}`,`hs-${cvSettings.headingStyle}`,
-    `hc-${cvSettings.headingCase}`,`ss-${cvSettings.subtitleStyle}`,`ds-${cvSettings.dateStyle}`,
-    `lc-${cvSettings.locationStyle}`,`sl-${cvSettings.subtitleLine}`,
-    `ls-${cvSettings.linkStyle}`,accentClasses].filter(Boolean).join(' ');
+  if (isPaginatedLayout()) {
+    // #cvPaper is a plain stacking wrapper here; each .cv-page carries
+    // the real theme/style class string instead (see computeCvPaperClassString).
+    cvPaper.className = 'cv-pages-holder';
+    const classString = computeCvPaperClassString(true);
+    cvPaper.querySelectorAll('.cv-page').forEach(p => { p.className = 'cv-page ' + classString; });
+  } else {
+    cvPaper.className = computeCvPaperClassString(false);
+  }
 
   const isLetter = cvSettings.paperFormat==='Letter';
   cvPaper.style.setProperty('--cv-paper-w',  isLetter?'215.9mm':'210mm');
@@ -1294,6 +1372,12 @@ function applySettings() {
 function updatePageBreaks() {
   const overlay = document.getElementById('pageBreakOverlay');
   if (!overlay || !cvPaper) return;
+  if (isPaginatedLayout()) {
+    // Real .cv-page boundaries exist now — the guessed-ratio overlay
+    // would be redundant at best and wrong at worst, so just clear it.
+    overlay.innerHTML = '';
+    return;
+  }
   // Use getBoundingClientRect for actual rendered width
   const rect   = cvPaper.getBoundingClientRect();
   const paperW = rect.width;
@@ -1309,13 +1393,29 @@ function updatePageBreaks() {
     html += `<div class="page-break-line" style="top:${top}px"><span class="page-break-label">↑ Page ${i} ends · Page ${i+1} starts ↓</span></div>`;
   }
   overlay.innerHTML = html;
+
+  // The {{pages}} footer token can't know the real total until the CV is
+  // actually laid out (page count depends on content length), so patch
+  // it in here alongside the page-break overlay, which already does the
+  // same measurement.
+  const pagesEl = cvPaper.querySelector('.cvp-footer-pages');
+  if (pagesEl) pagesEl.textContent = pages;
 }
 
 /* ============================================================
    RIGHT PANEL — Live CV Preview
    ============================================================ */
+let _paginationMultiPageSections = new Set();
+
 function renderRightPanel() {
-  cvPaper.innerHTML = buildCVHTML(cvData.parsed);
+  if (isPaginatedLayout()) {
+    const { pageHtmls, multiPageSections } = paginateSingleColumn(cvData.parsed);
+    _paginationMultiPageSections = multiPageSections;
+    cvPaper.innerHTML = pageHtmls.map(h => `<div class="cv-page">${h}</div>`).join('');
+  } else {
+    _paginationMultiPageSections = new Set();
+    cvPaper.innerHTML = buildCVHTML(cvData.parsed);
+  }
   applySettings();
 }
 
@@ -1390,8 +1490,265 @@ function buildCVHTML(parsed) {
     sections.forEach((sec,i) => { html += renderSectionPreview(sec, i); });
     html += '</div>';
   }
-  if (cvSettings.showPageNums) html += '<div class="cvp-footer"><span class="cvp-pagenum">Page 1</span></div>';
+  if (cvSettings.footerCustom) {
+    html += buildCustomFooterHTML(header);
+  } else if (cvSettings.showPageNums) {
+    html += '<div class="cvp-footer"><span class="cvp-pagenum">Page 1</span></div>';
+  }
   return html;
+}
+
+/* ============================================================
+   REAL A4/LETTER PAGINATION (single-column, non-sidebar-template)
+
+   Everything below builds the CV as genuinely separate `.cv-page`
+   containers that content actually flows across as you edit, instead
+   of one endlessly-tall flowing div with a decorative overlay line
+   guessing where a page would break. Deliberately scoped to the
+   common case (Columns: One, not one of the 5 sidebar templates) —
+   two-column/Mix layouts and sidebar templates keep the old flowing
+   + fake-overlay behavior unchanged; see the plan doc for why (they'd
+   need their own per-column/per-page-grid pagination logic, a
+   follow-up project of its own).
+
+   The entry-rendering internals (renderEntryHTML, formatLines) are
+   reused completely unchanged — only their *output* gets flattened
+   into top-level DOM nodes and treated as atomic layout units, rather
+   than duplicating any of that per-section-type logic here.
+   ============================================================ */
+function isPaginatedLayout() {
+  return String(cvSettings.columns) === '1' && !SIDEBAR_TEMPLATES.includes(cvSettings.template);
+}
+
+// Single source of truth for the class string that carries every
+// template/accent/style modifier — used both by applySettings() (for
+// the fallback path, applied straight to #cvPaper) and by the real
+// -pagination path (applied to each .cv-page instead, since #cvPaper
+// becomes a plain stacking wrapper there). excludePageNum drops the
+// 'show-pagenum' token: the hardcoded ::after page-number text isn't
+// meaningful once there are real repeated pages (see plan's footer
+// descope), so it's suppressed rather than shown wrong on every page.
+function computeCvPaperClassString(excludePageNum) {
+  const colMode = String(cvSettings.columns);
+  const colClass = colMode==='2' ? 'cols-2' : colMode==='mix' ? 'cols-mix' : 'cols-1';
+  const accentClasses = [
+    cvSettings.accentName     ?'ac-name':'', cvSettings.accentTitle    ?'ac-title':'',
+    cvSettings.accentHeadings ?'ac-headings':'', cvSettings.accentLine  ?'ac-line':'',
+    cvSettings.accentDates    ?'ac-dates':'', cvSettings.accentSubtitle ?'ac-subtitle':'',
+    (cvSettings.showPageNums && !excludePageNum) ?'show-pagenum':'', colClass,
+  ].filter(Boolean).join(' ');
+  return ['cv-paper',`t-${cvSettings.template}`,`hs-${cvSettings.headingStyle}`,
+    `hc-${cvSettings.headingCase}`,`ss-${cvSettings.subtitleStyle}`,`ds-${cvSettings.dateStyle}`,
+    `lc-${cvSettings.locationStyle}`,`sl-${cvSettings.subtitleLine}`,
+    `ls-${cvSettings.linkStyle}`,accentClasses].filter(Boolean).join(' ');
+}
+
+// Parses an HTML string and returns its top-level element nodes —
+// used to flatten renderEntryHTML()'s per-entry output (row1/row2/each
+// bullet/line) into individually-placeable atomic units, without
+// touching any of renderEntryHTML's own per-section-type logic.
+function htmlToTopLevelNodes(html) {
+  const tmp = document.createElement('div');
+  tmp.innerHTML = html;
+  return Array.from(tmp.children);
+}
+
+// Flat ordered array of atomic layout units for single-column
+// pagination: the header once (page-1 only), then per section a
+// heading unit followed by its entries' row1/row2/bullet/line units
+// (each individually placeable — a section's entries, and even a
+// single entry's bullets, can end up split across a page boundary,
+// matching the exact same atomic granularity already proven safe by
+// the PDF export's pagebreak-avoid list).
+function buildLayoutUnits(parsed) {
+  const { header, sections } = parsed;
+  const units = [];
+  const sectionMeta = [];
+
+  let contactLine = '';
+  const fieldParts = cvData.headerFieldOrder
+    .filter(key => !cvData.hiddenFields[key] && header[key])
+    .map(key => header[key]);
+  contactLine = fieldParts.join(' | ');
+  if (!contactLine && header.contact && !cvData.hiddenFields['contact']) contactLine = header.contact;
+
+  let headerHtml = '<div class="cvp-header">';
+  if (!cvData.hiddenFields['name'])     headerHtml += `<div class="cvp-name">${mdLine(header.name||'')}</div>`;
+  if (!cvData.hiddenFields['jobTitle'] && header.jobTitle) headerHtml += `<div class="cvp-jobtitle">${mdLine(header.jobTitle)}</div>`;
+  if (contactLine) headerHtml += `<div class="cvp-contact">${escapeHtml(contactLine)}</div>`;
+  headerHtml += '</div><hr class="cvp-divider">';
+  units.push({ html: headerHtml, sectionIndex: null, isHeading: false, isHeader: true });
+
+  sections.forEach((sec, i) => {
+    const name = cvData.sectionNames[i] !== undefined ? cvData.sectionNames[i] : sec.title;
+    sectionMeta[i] = { name };
+    units.push({ html: `<div class="cvp-sec-heading">${escapeHtml(name)}</div>`, sectionIndex: i, isHeading: true });
+
+    const stype = sec.type || 'custom';
+    const def   = SECTION_TYPES[stype];
+    if (def && !def.useTextarea && sec.entries && sec.entries.length) {
+      // Process per-entry (not the whole section's HTML flattened
+      // together) so a job title's row1 and its company/location row2
+      // can be paired into ONE atomic unit — splitting them across a
+      // page boundary would show a title with no company on one page
+      // and a company with no title on the next, which is worse than
+      // just keeping the pair together. Bullets/lines still flow
+      // independently, same as before.
+      sec.entries.filter(e=>e.visible!==false).forEach(entry => {
+        const nodes = htmlToTopLevelNodes(renderEntryHTML(entry, stype));
+        let j = 0;
+        while (j < nodes.length) {
+          const node = nodes[j];
+          const next = nodes[j+1];
+          if ((node.className||'').includes('cvp-entry-row1') && next && (next.className||'').includes('cvp-entry-row2')) {
+            units.push({ html: node.outerHTML + next.outerHTML, sectionIndex: i, isHeading: false });
+            j += 2;
+          } else {
+            units.push({ html: node.outerHTML, sectionIndex: i, isHeading: false });
+            j += 1;
+          }
+        }
+      });
+    } else {
+      htmlToTopLevelNodes(formatLines(sec.lines || [])).forEach(node => {
+        units.push({ html: node.outerHTML, sectionIndex: i, isHeading: false });
+      });
+    }
+  });
+
+  return { units, sectionMeta };
+}
+
+// Renders `units` into a hidden off-screen probe at the CV's true
+// content width, measures each unit's real rendered height (mirrors
+// the "measure, don't assume DPI" idiom already used for width by the
+// PDF export handler below), then walks them in order splitting into
+// a new page whenever the next unit would overflow the current page's
+// usable content height. Returns an array of page-sized unit arrays.
+function measureAndPaginate(units, pw, ph, marginLR, marginTB, classString, sectionMeta) {
+  const probe = document.createElement('div');
+  probe.className = classString;
+  probe.style.cssText = 'position:fixed;top:0;left:-99999px;visibility:hidden;box-shadow:none;';
+  probe.style.width = probe.style.maxWidth = `${pw}mm`;
+  probe.style.minWidth = probe.style.minHeight = '0';
+  probe.style.height = 'auto';
+  // CSS custom properties (--cv-base, --cv-margin-lr, etc.) are
+  // inherited, so copy them from the live #cvPaper for accurate
+  // font-size/spacing measurement.
+  Array.from(cvPaper.style).forEach(prop => {
+    if (prop.startsWith('--')) probe.style.setProperty(prop, cvPaper.style.getPropertyValue(prop));
+  });
+  probe.style.fontFamily    = cvPaper.style.fontFamily;
+  probe.style.lineHeight    = cvPaper.style.lineHeight;
+  probe.style.letterSpacing = cvPaper.style.letterSpacing;
+  document.body.appendChild(probe);
+
+  const pxPerMm = probe.clientWidth / pw;
+  const usablePageHeightPx = (ph - marginTB * 2) * pxPerMm;
+
+  // Measure by actually rendering each candidate page through
+  // unitsToPageHTML — the exact same .cvp-section/.cvp-sec-heading/
+  // .cvp-sec-content wrapper markup the final render uses — rather
+  // than summing bare unit heights in isolation. Summing individual
+  // units missed the wrapper elements' own margins/padding/section
+  // gaps, which under-predicted real height enough to let content
+  // silently overflow a page's true limit.
+  const pages = [[]];
+  units.forEach(u => {
+    const pageIdx = pages.length - 1;
+    const candidate = pages[pageIdx].concat([u]);
+    probe.innerHTML = unitsToPageHTML(candidate, sectionMeta, pageIdx);
+    const h = probe.getBoundingClientRect().height;
+    if (h > usablePageHeightPx && pages[pageIdx].length > 0) {
+      pages.push([u]);
+    } else {
+      pages[pageIdx] = candidate;
+    }
+  });
+  document.body.removeChild(probe);
+  return pages;
+}
+
+// Reassembles one page's unit array back into real HTML, reconstructing
+// the .cvp-section/.cvp-sec-heading/.cvp-sec-content wrapper structure
+// fresh per page. A section whose heading unit isn't among this page's
+// units (i.e. it started on an earlier page) gets a synthesized
+// "(cont'd)" heading instead of silently continuing headerless. IDs are
+// only kept unique-and-meaningful on a section's FIRST page — later
+// pages suffix the id, since updateSection()/renameSectionHandler()'s
+// fast-path deliberately avoids targeting multi-page sections at all
+// (see those functions) and duplicate ids would be invalid HTML.
+function unitsToPageHTML(pageUnits, sectionMeta, pageIdx) {
+  let html = '';
+  let i = 0;
+  while (i < pageUnits.length) {
+    const u = pageUnits[i];
+    if (u.isHeader) { html += u.html; i++; continue; }
+    const secIdx = u.sectionIndex;
+    let headingHtml = '';
+    let bodyHtml = '';
+    while (i < pageUnits.length && pageUnits[i].sectionIndex === secIdx) {
+      const gu = pageUnits[i];
+      if (gu.isHeading) headingHtml = gu.html;
+      else bodyHtml += gu.html;
+      i++;
+    }
+    const isContinuation = !headingHtml;
+    if (isContinuation) {
+      headingHtml = `<div class="cvp-sec-heading">${escapeHtml(sectionMeta[secIdx].name)} (cont'd)</div>`;
+    }
+    const idSuffix = isContinuation ? `-p${pageIdx}` : '';
+    html += `<div class="cvp-section" id="preview-sec-${secIdx}${idSuffix}">
+      ${headingHtml}
+      <div class="cvp-sec-content" id="preview-content-${secIdx}${idSuffix}">${bodyHtml}</div>
+    </div>`;
+  }
+  return html;
+}
+
+// Top-level entry point: builds the ordered units, paginates them, and
+// returns an array of per-page HTML strings ready to become `.cv-page`
+// divs. Also returns which section indices span more than one page, so
+// callers (updateSection/renameSectionHandler's fast-path) know when a
+// targeted single-node DOM patch is no longer safe.
+function paginateSingleColumn(parsed) {
+  const isLetter = cvSettings.paperFormat === 'Letter';
+  const [pw, ph] = isLetter ? [215.9, 279.4] : [210, 297];
+  const classString = computeCvPaperClassString(true);
+
+  const { units, sectionMeta } = buildLayoutUnits(parsed);
+  const pages = measureAndPaginate(units, pw, ph, cvSettings.marginLR, cvSettings.marginTB, classString, sectionMeta);
+
+  const sectionPageCount = {};
+  pages.forEach(pageUnits => {
+    const seen = new Set(pageUnits.map(u => u.sectionIndex).filter(idx => idx !== null));
+    seen.forEach(idx => { sectionPageCount[idx] = (sectionPageCount[idx] || 0) + 1; });
+  });
+  const multiPageSections = new Set(Object.keys(sectionPageCount).filter(k => sectionPageCount[k] > 1).map(Number));
+
+  const pageHtmls = pages.map((pageUnits, pageIdx) => unitsToPageHTML(pageUnits, sectionMeta, pageIdx));
+  return { pageHtmls, classString, multiPageSections };
+}
+
+// Substitutes {{name}}/{{email}}/{{phone}}/{{pages}} tokens in each footer
+// zone. {{pages}} is filled in after render by updatePageBreaks() (the
+// real total isn't knowable until the CV is actually laid out in the DOM),
+// via a placeholder span it can find and patch.
+function buildCustomFooterHTML(header) {
+  const fill = (text) => escapeHtml(text)
+    .replace(/\{\{name\}\}/gi,  escapeHtml(header.name||''))
+    .replace(/\{\{email\}\}/gi, escapeHtml(header.email||''))
+    .replace(/\{\{phone\}\}/gi, escapeHtml(header.phone||''))
+    .replace(/\{\{pages\}\}/gi, '<span class="cvp-footer-pages">1</span>');
+  const left   = fill(cvSettings.footerLeft);
+  const center = fill(cvSettings.footerCenter);
+  const right  = fill(cvSettings.footerRight);
+  if (!left && !center && !right) return '';
+  return `<div class="cvp-footer cvp-footer-custom">
+    <span class="cvp-footer-zone cvp-footer-left">${left}</span>
+    <span class="cvp-footer-zone cvp-footer-center">${center}</span>
+    <span class="cvp-footer-zone cvp-footer-right">${right}</span>
+  </div>`;
 }
 
 function renderSectionPreview(sec, i) {
@@ -1650,18 +2007,42 @@ function updateHeader(field, value) {
   scheduleSave();
 }
 
+// Under real pagination, a section's fast single-node preview patch
+// (targeting a specific preview-content-N element by id) is only safe
+// while that section fits on one page — once it spans pages, only one
+// of its page fragments can keep that id, so the other silently goes
+// stale. Debounced instead of instant: typing can also grow a
+// currently-single-page section past the boundary mid-keystroke, so
+// this reconciliation pass runs after every edit in paginated mode,
+// not just when a section is already known to span pages.
+let _repaginateTimeout = null;
+function scheduleRepaginate() {
+  clearTimeout(_repaginateTimeout);
+  _repaginateTimeout = setTimeout(renderRightPanel, 200);
+}
+
 function updateSection(index, value) {
   cvData.parsed.sections[index].lines = value.split('\n');
-  const el = document.getElementById(`preview-content-${index}`);
-  if (el) el.innerHTML = formatLines(cvData.parsed.sections[index].lines);
+  if (isPaginatedLayout() && _paginationMultiPageSections.has(index)) {
+    scheduleRepaginate();
+  } else {
+    const el = document.getElementById(`preview-content-${index}`);
+    if (el) el.innerHTML = formatLines(cvData.parsed.sections[index].lines);
+    if (isPaginatedLayout()) scheduleRepaginate();
+  }
   scheduleSave();
 }
 
 function renameSectionHandler(index, name) {
   cvData.sectionNames[index] = name;
   cvData.parsed.sections[index].title = name;
-  const h = document.getElementById(`preview-sec-${index}`)?.querySelector('.cvp-sec-heading');
-  if (h) h.textContent = name;
+  if (isPaginatedLayout() && _paginationMultiPageSections.has(index)) {
+    scheduleRepaginate();
+  } else {
+    const h = document.getElementById(`preview-sec-${index}`)?.querySelector('.cvp-sec-heading');
+    if (h) h.textContent = name;
+    if (isPaginatedLayout()) scheduleRepaginate();
+  }
   scheduleSave();
 }
 

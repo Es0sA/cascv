@@ -1144,6 +1144,23 @@ input {
   min-width: 0;
 }
 
+/* ---- Real pagination: #cvPaper becomes a plain stacking wrapper for
+   separate .cv-page sheets, instead of being the paper itself. Each
+   .cv-page carries the literal class `cv-paper` too (see
+   computeCvPaperClassString in editor.js), so it automatically picks
+   up the base paper look (background/shadow/width/padding) and every
+   existing `.cv-paper.xxx` theme rule via the override above — no
+   duplicated sizing rules needed here, just the vertical stacking. ---- */
+.cv-pages-holder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 24px;
+}
+.cv-page {
+  flex-shrink: 0;
+}
+
 /* Page break overlay — sits on top of cv-paper, pointer-events:none */
 #pageBreakOverlay {
   position: absolute;
@@ -2975,15 +2992,38 @@ input {
   margin-left: 4px;
 }
 
-/* ---- Page number footer ---- */
+/* ---- Page number footer ----
+   Sits directly after the last section, not pinned to the literal
+   bottom of the final printed page: .cv-paper isn't a flex container
+   (margin-top:auto here was a no-op), and true per-page pinning would
+   need the whole pagination system reworked, since page breaks are
+   just visual overlay guides on top of naturally-flowing content, not
+   real per-page containers. */
 .cvp-footer {
-  margin-top: auto;
+  margin-top: 24px;
   padding-top: 8px;
   border-top: 1px solid #eee;
   text-align: center;
   font-size: 0.75em;
   color: #aaa;
 }
+
+/* ---- Custom 3-zone footer ---- */
+.cvp-footer-custom {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 10px;
+  text-align: left;
+}
+.cvp-footer-zone { flex: 1 1 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cvp-footer-center { text-align: center; }
+.cvp-footer-right  { text-align: right; }
+
+/* ---- Customize panel: custom footer zone inputs ---- */
+.footer-zone-grid { margin-top: 10px; display: flex; flex-direction: column; gap: 8px; }
+.footer-zone-field { display: flex; flex-direction: column; gap: 3px; }
+.footer-zone-hint { font-size: 0.75rem; color: var(--text-muted); margin-top: 2px; }
 
 /* ---- Letter spacing applied to body text ---- */
 .cv-paper p, .cv-paper div, .cv-paper span {
