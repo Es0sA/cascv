@@ -2182,6 +2182,21 @@ input {
   padding-left: 7px !important;
 }
 
+.hs-overline .cvp-sec-heading {
+  border-top: 2px solid var(--cv-accent, #1a1a1a) !important;
+  padding-top: 4px;
+}
+
+.hs-double .cvp-sec-heading {
+  border-bottom: 3px double #999 !important;
+  padding-bottom: 3px;
+}
+
+.hs-dotted .cvp-sec-heading {
+  border-bottom: 1.5px dotted var(--cv-accent, #1a1a1a) !important;
+  padding-bottom: 2px;
+}
+
 /* ============================================================
    HEADING CASE
    ============================================================ */
@@ -2279,16 +2294,26 @@ input {
 .cv-paper.ac-line.hs-underline .cvp-sec-heading { border-color: var(--cv-accent) !important; }
 .cv-paper.ac-line.hs-line      .cvp-sec-heading { border-color: var(--cv-accent) !important; }
 .cv-paper.ac-line.hs-bar       .cvp-sec-heading { border-left-color: var(--cv-accent) !important; }
+.cv-paper.ac-line.hs-double    .cvp-sec-heading { border-color: var(--cv-accent) !important; }
+.cv-paper.ac-line.hs-dotted    .cvp-sec-heading { border-color: var(--cv-accent) !important; }
 .cv-paper.ac-dates    .cvp-entry-date,
 .cv-paper.ac-dates    .cvp-entry-meta  { color: var(--cv-accent) !important; }
-.cv-paper.ac-subtitle .cvp-entry-title { color: var(--cv-accent) !important; }
+.cv-paper.ac-subtitle .cvp-entry-employer { color: var(--cv-accent) !important; }
 
 /* ============================================================
-   SUBTITLE STYLE
+   SUBTITLE / DATE / LOCATION STYLE — independently stylable
    ============================================================ */
-.cv-paper.ss-normal .cvp-entry-title { font-weight: 600; font-style: normal; }
-.cv-paper.ss-bold   .cvp-entry-title { font-weight: 900 !important; font-style: normal !important; }
-.cv-paper.ss-italic .cvp-entry-title { font-style: italic !important; font-weight: 400 !important; }
+.cv-paper.ss-normal .cvp-entry-employer { font-weight: 400; font-style: italic; }
+.cv-paper.ss-bold   .cvp-entry-employer { font-weight: 700 !important; font-style: normal !important; }
+.cv-paper.ss-italic .cvp-entry-employer { font-style: italic !important; font-weight: 400 !important; }
+
+.cv-paper.ds-normal .cvp-entry-date { font-weight: 400; font-style: italic; }
+.cv-paper.ds-bold   .cvp-entry-date { font-weight: 700 !important; font-style: normal !important; }
+.cv-paper.ds-italic .cvp-entry-date { font-style: italic !important; font-weight: 400 !important; }
+
+.cv-paper.lc-normal .cvp-entry-location { font-weight: 400; font-style: italic; }
+.cv-paper.lc-bold   .cvp-entry-location { font-weight: 700 !important; font-style: normal !important; }
+.cv-paper.lc-italic .cvp-entry-location { font-style: italic !important; font-weight: 400 !important; }
 
 /* ============================================================
    SUBTITLE LINE — Same Line layout

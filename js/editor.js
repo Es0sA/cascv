@@ -83,7 +83,7 @@ const SECTION_TYPES = {
   awards: {
     label: 'Awards', icon: '🏆',
     fields: [
-      { key:'title',   label:'Award Title',  type:'text' },
+      { key:'title',   label:'Award Title',  type:'text', linkable:true },
       { key:'issuer',  label:'Issuer',       type:'text' },
       { key:'date',    label:'Date',         type:'text', clearable:true },
       { key:'desc',    label:'Description',  type:'textarea', allowAlign:true }
@@ -103,25 +103,27 @@ const SECTION_TYPES = {
   organisations: {
     label: 'Organisations', icon: '🏢',
     fields: [
-      { key:'name',   label:'Organisation', type:'text', linkable:true },
-      { key:'role',   label:'Role',         type:'text' },
-      { key:'start',  label:'Start Date',   type:'text', clearable:true },
-      { key:'end',    label:'End Date',     type:'text', clearable:true },
-      { key:'desc',   label:'Description',  type:'textarea', allowAlign:true }
+      { key:'name',     label:'Organisation', type:'text', linkable:true },
+      { key:'role',     label:'Role',         type:'text' },
+      { key:'start',    label:'Start Date',   type:'text', clearable:true },
+      { key:'end',      label:'End Date',     type:'text', clearable:true },
+      { key:'location', label:'Location',     type:'text' },
+      { key:'desc',     label:'Description',  type:'textarea', allowAlign:true }
     ]
   },
   publications: {
     label: 'Publications', icon: '📰',
     fields: [
-      { key:'title',  label:'Title',        type:'text', linkable:true },
-      { key:'date',   label:'Date',         type:'text', clearable:true },
-      { key:'desc',   label:'Description',  type:'textarea', allowAlign:true }
+      { key:'title',     label:'Title',        type:'text', linkable:true },
+      { key:'publisher', label:'Publisher',    type:'text' },
+      { key:'date',      label:'Date',         type:'text', clearable:true },
+      { key:'desc',      label:'Description',  type:'textarea', allowAlign:true }
     ]
   },
   references: {
     label: 'References', icon: '👥',
     fields: [
-      { key:'name',     label:'Full Name',   type:'text' },
+      { key:'name',     label:'Full Name',   type:'text', linkable:true },
       { key:'position', label:'Position',    type:'text' },
       { key:'company',  label:'Company',     type:'text' },
       { key:'email',    label:'Email',       type:'text' },
@@ -131,7 +133,7 @@ const SECTION_TYPES = {
   interests: {
     label: 'Interests', icon: '⭐',
     fields: [
-      { key:'interest', label:'Interest',    type:'text' },
+      { key:'interest', label:'Interest',    type:'text', linkable:true },
       { key:'desc',     label:'Description', type:'textarea' }
     ]
   },
@@ -158,7 +160,7 @@ const DEFAULTS = {
   nameFont:'inherit', baseFontSize:11, nameFontSize:19, titleFontSize:12,
   headingFontSize:10, entryFontSize:11, lineHeight:1.55, letterSpacing:0,
   sectionSpacing:11, marginLR:13, marginTB:11, headingStyle:'underline',
-  headingCase:'upper', subtitleStyle:'normal', listStyle:'bullet',
+  headingCase:'upper', subtitleStyle:'normal', dateStyle:'normal', locationStyle:'normal', listStyle:'bullet',
   dateFormat:'Month YYYY', showDuration:false, skillStyle:'text',
   useMarkdown:false, accentColor:'#1a1a1a', colorBg:'#ffffff',
   colorSidebarBg:'#f0f4f8', colorText:'#1a1a1a', accentName:false,
@@ -802,13 +804,28 @@ document.addEventListener('keydown', e => {
    CUSTOMIZE PANEL
    ============================================================ */
 const FONTS = [
-  { label:'Calibri',          value:'Calibri, Arial, sans-serif' },
-  { label:'Lato',             value:"'Lato', Arial, sans-serif" },
+  // Serif
   { label:'Lora',             value:"'Lora', Georgia, serif" },
   { label:'Aleo',             value:"'Aleo', Georgia, serif" },
   { label:'EB Garamond',      value:"'EB Garamond', Garamond, Georgia, serif" },
   { label:'Georgia',          value:'Georgia, serif' },
   { label:'Times New Roman',  value:"'Times New Roman', Times, serif" },
+  { label:'Source Serif',     value:"'Source Serif 4', Georgia, serif" },
+  { label:'Merriweather',     value:"'Merriweather', Georgia, serif" },
+  { label:'PT Serif',         value:"'PT Serif', Georgia, serif" },
+  { label:'Crimson Text',     value:"'Crimson Text', Georgia, serif" },
+  // Sans
+  { label:'Calibri',          value:'Calibri, Arial, sans-serif' },
+  { label:'Lato',             value:"'Lato', Arial, sans-serif" },
+  { label:'Source Sans',      value:"'Source Sans 3', Arial, sans-serif" },
+  { label:'Open Sans',        value:"'Open Sans', Arial, sans-serif" },
+  { label:'Roboto',           value:"'Roboto', Arial, sans-serif" },
+  { label:'Work Sans',        value:"'Work Sans', Arial, sans-serif" },
+  { label:'Nunito',           value:"'Nunito', Arial, sans-serif" },
+  { label:'Karla',            value:"'Karla', Arial, sans-serif" },
+  // Mono
+  { label:'IBM Plex Mono',    value:"'IBM Plex Mono', 'Courier New', monospace" },
+  { label:'Source Code Pro',  value:"'Source Code Pro', 'Courier New', monospace" },
 ];
 const NAME_FONTS = [
   { label:'Same as Body',     value:'inherit',                             preview:'Calibri, Arial, sans-serif' },
@@ -816,6 +833,11 @@ const NAME_FONTS = [
   { label:'Playfair Display', value:"'Playfair Display', Georgia, serif",  preview:"'Playfair Display', Georgia, serif" },
   { label:'Lato',             value:"'Lato', Arial, sans-serif",           preview:"'Lato', Arial, sans-serif" },
   { label:'Lora',             value:"'Lora', Georgia, serif",              preview:"'Lora', Georgia, serif" },
+  { label:'Abril Fatface',    value:"'Abril Fatface', Georgia, serif",     preview:"'Abril Fatface', Georgia, serif" },
+  { label:'Pacifico',         value:"'Pacifico', cursive",                 preview:"'Pacifico', cursive" },
+  { label:'Caveat',           value:"'Caveat', cursive",                   preview:"'Caveat', cursive" },
+  { label:'Bungee Shade',     value:"'Bungee Shade', cursive",             preview:"'Bungee Shade', cursive" },
+  { label:'Parisienne',       value:"'Parisienne', cursive",               preview:"'Parisienne', cursive" },
 ];
 const ACCENT_COLORS = [
   { label:'Ink',      value:'#1a1a1a' }, { label:'Navy',    value:'#1B3A6B' },
@@ -958,7 +980,7 @@ function renderCustomizePanel() {
     custRow('Left & Right Margin', slider('marginLR',      6,  25,   1,'mm')) +
     custRow('Top & Bottom Margin', slider('marginTB',      6,  25,   1,'mm'));
 
-  const headingStyles = [{value:'underline',label:'Underline'},{value:'line',label:'Line'},{value:'bold',label:'Bold'},{value:'bar',label:'Bar'}];
+  const headingStyles = [{value:'underline',label:'Underline'},{value:'line',label:'Line'},{value:'bold',label:'Bold'},{value:'bar',label:'Bar'},{value:'overline',label:'Overline'},{value:'double',label:'Double'},{value:'dotted',label:'Dotted'}];
   let hsHtml = `<div class="hs-grid">`;
   headingStyles.forEach(hs => {
     const active = cvSettings.headingStyle===hs.value?'active':'';
@@ -966,7 +988,10 @@ function renderCustomizePanel() {
     if(hs.value==='underline') inner=`<div class="hs-preview"><div class="hs-preview-label" style="border-bottom:1px solid #888;padding-bottom:2px">SECTION</div><div class="hs-preview-lines"><div class="hs-preview-line"></div><div class="hs-preview-line"></div></div></div>`;
     else if(hs.value==='line') inner=`<div class="hs-preview"><div class="hs-preview-label">SECTION</div><div class="hs-preview-bar"></div><div class="hs-preview-lines"><div class="hs-preview-line"></div><div class="hs-preview-line"></div></div></div>`;
     else if(hs.value==='bold') inner=`<div class="hs-preview"><div class="hs-preview-label" style="font-weight:900;font-size:8px;color:#555">SECTION</div><div class="hs-preview-lines" style="margin-top:3px"><div class="hs-preview-line"></div><div class="hs-preview-line"></div></div></div>`;
-    else inner=`<div class="hs-preview" style="flex-direction:row;align-items:stretch;gap:5px"><div class="hs-bar-side"></div><div style="display:flex;flex-direction:column;gap:2px;flex:1"><div class="hs-preview-label">SECTION</div><div class="hs-preview-lines"><div class="hs-preview-line"></div><div class="hs-preview-line"></div></div></div></div>`;
+    else if(hs.value==='bar') inner=`<div class="hs-preview" style="flex-direction:row;align-items:stretch;gap:5px"><div class="hs-bar-side"></div><div style="display:flex;flex-direction:column;gap:2px;flex:1"><div class="hs-preview-label">SECTION</div><div class="hs-preview-lines"><div class="hs-preview-line"></div><div class="hs-preview-line"></div></div></div></div>`;
+    else if(hs.value==='overline') inner=`<div class="hs-preview"><div class="hs-preview-label" style="border-top:2px solid #888;padding-top:3px">SECTION</div><div class="hs-preview-lines"><div class="hs-preview-line"></div><div class="hs-preview-line"></div></div></div>`;
+    else if(hs.value==='double') inner=`<div class="hs-preview"><div class="hs-preview-label" style="border-bottom:3px double #888;padding-bottom:2px">SECTION</div><div class="hs-preview-lines"><div class="hs-preview-line"></div><div class="hs-preview-line"></div></div></div>`;
+    else inner=`<div class="hs-preview"><div class="hs-preview-label" style="border-bottom:1.5px dotted #888;padding-bottom:2px">SECTION</div><div class="hs-preview-lines"><div class="hs-preview-line"></div><div class="hs-preview-line"></div></div></div>`;
     hsHtml+=`<button class="hs-btn ${active}" onclick="setSetting('headingStyle','${hs.value}')" type="button">${inner}<span class="hs-btn-label">${hs.label}</span></button>`;
   });
   hsHtml+=`</div>`;
@@ -975,8 +1000,10 @@ function renderCustomizePanel() {
     custRow('Heading Style',  hsHtml) +
     custRow('Heading Case',   toggleGroup([{label:'UPPERCASE',value:'upper'},{label:'Title Case',value:'title'}],'headingCase')) +
     custRow('Subtitle Style', toggleGroup([{label:'Normal',value:'normal'},{label:'Bold',value:'bold'},{label:'Italic',value:'italic'}],'subtitleStyle')) +
+    custRow('Date Style',     toggleGroup([{label:'Normal',value:'normal'},{label:'Bold',value:'bold'},{label:'Italic',value:'italic'}],'dateStyle')) +
+    custRow('Location Style', toggleGroup([{label:'Normal',value:'normal'},{label:'Bold',value:'bold'},{label:'Italic',value:'italic'}],'locationStyle')) +
     custRow('List Style',     toggleGroup([{label:'• Bullet',value:'bullet'},{label:'– Hyphen',value:'hyphen'}],'listStyle')) +
-    custRow('Date Format',    toggleGroup([{label:'Month YYYY',value:'Month YYYY'},{label:'MM/YYYY',value:'MM/YYYY'},{label:'YYYY',value:'YYYY'}],'dateFormat')) +
+    custRow('Date Format',    toggleGroup([{label:'Month YYYY',value:'Month YYYY'},{label:'Mon YYYY',value:'Mon YYYY'},{label:'MM/YYYY',value:'MM/YYYY'},{label:'MM.YYYY',value:'MM.YYYY'},{label:'YYYY',value:'YYYY'}],'dateFormat')) +
     custRow('Duration',`<label class="cust-toggle-row"><input type="checkbox" ${cvSettings.showDuration?'checked':''} onchange="toggleBool('showDuration',this.checked)"><span class="cust-toggle-slider"></span><span class="cust-toggle-label">Show job duration (e.g. 2 yrs 3 mos)</span></label>`) +
     custRow('Skill Display',  toggleGroup([{label:'Text',value:'text'},{label:'Bars',value:'bars'},{label:'Dots',value:'dots'}],'skillStyle')) +
     custRow('Markdown',`<label class="cust-toggle-row"><input type="checkbox" ${cvSettings.useMarkdown?'checked':''} onchange="toggleBool('useMarkdown',this.checked);renderRightPanel()"><span class="cust-toggle-slider"></span><span class="cust-toggle-label">Enable **bold** and *italic* in content</span></label>`);
@@ -1228,7 +1255,8 @@ function applySettings() {
   ].filter(Boolean).join(' ');
 
   cvPaper.className = ['cv-paper',`t-${cvSettings.template}`,`hs-${cvSettings.headingStyle}`,
-    `hc-${cvSettings.headingCase}`,`ss-${cvSettings.subtitleStyle}`,`sl-${cvSettings.subtitleLine}`,
+    `hc-${cvSettings.headingCase}`,`ss-${cvSettings.subtitleStyle}`,`ds-${cvSettings.dateStyle}`,
+    `lc-${cvSettings.locationStyle}`,`sl-${cvSettings.subtitleLine}`,
     `ls-${cvSettings.linkStyle}`,accentClasses].filter(Boolean).join(' ');
 
   const isLetter = cvSettings.paperFormat==='Letter';
@@ -1476,9 +1504,9 @@ function renderEntryHTML(entry, stype) {
 
   if (stype==='awards'||stype==='publications'||stype==='interests') {
     const title = entry.title||entry.interest||'';
-    const titleLink = entry.titleLink||'';
+    const titleLink = entry.titleLink||entry.interestLink||'';
     const titleHtml = titleLink ? `<a href="${escapeAttr(titleLink)}" target="_blank" rel="noopener">${mdLine(title,true)}</a>` : mdLine(title,true);
-    const sub   = entry.issuer||entry.date||'';
+    const sub   = [entry.issuer||entry.publisher, entry.date ? formatDate(entry.date) : ''].filter(Boolean).join(' — ');
     const desc  = entry.desc||'';
     const descAlign = entry.descAlign && entry.descAlign!=='left' ? ` style="text-align:${entry.descAlign}"` : '';
     if (title) html += `<p class="cvp-entry-title">${titleHtml}</p>`;
@@ -1498,7 +1526,9 @@ function renderEntryHTML(entry, stype) {
   }
 
   if (stype==='references') {
-    html += `<p class="cvp-entry-title">${escapeHtml(entry.name||'')}</p>`;
+    const nameLink = entry.nameLink||'';
+    const nameHtml = nameLink ? `<a href="${escapeAttr(nameLink)}" target="_blank" rel="noopener">${escapeHtml(entry.name||'')}</a>` : escapeHtml(entry.name||'');
+    html += `<p class="cvp-entry-title">${nameHtml}</p>`;
     if (entry.position||entry.company) html += `<p class="cvp-entry-meta">${escapeHtml([entry.position,entry.company].filter(Boolean).join(', '))}</p>`;
     if (entry.email||entry.phone) html += `<p class="cvp-line">${escapeHtml([entry.email,entry.phone].filter(Boolean).join(' | '))}</p>`;
     return html;
@@ -1513,24 +1543,32 @@ function renderEntryHTML(entry, stype) {
    ============================================================ */
 const MONTH_MAP = {jan:'January',feb:'February',mar:'March',apr:'April',may:'May',jun:'June',jul:'July',aug:'August',sep:'September',oct:'October',nov:'November',dec:'December'};
 const MONTH_NUM = {jan:'01',feb:'02',mar:'03',apr:'04',may:'05',jun:'06',jul:'07',aug:'08',sep:'09',oct:'10',nov:'11',dec:'12'};
+const MONTH_ABBR = {jan:'Jan',feb:'Feb',mar:'Mar',apr:'Apr',may:'May',jun:'Jun',jul:'Jul',aug:'Aug',sep:'Sep',oct:'Oct',nov:'Nov',dec:'Dec'};
+
+// Shared by both match branches below: render a month/year pair once the
+// 3-letter abbreviation and year are known, for any supported dateFormat.
+function formatMonthYear(abbr, year, fallback) {
+  const fmt = cvSettings.dateFormat || 'Month YYYY';
+  if (fmt === 'Month YYYY') return `${MONTH_MAP[abbr] || fallback} ${year}`;
+  if (fmt === 'Mon YYYY')   return `${MONTH_ABBR[abbr] || fallback} ${year}`;
+  if (fmt === 'MM/YYYY')    return `${MONTH_NUM[abbr] || '01'}/${year}`;
+  if (fmt === 'MM.YYYY')    return `${MONTH_NUM[abbr] || '01'}.${year}`;
+  if (fmt === 'YYYY')       return year;
+  return fallback ? `${fallback} ${year}` : year;
+}
 
 /* Format a single date string ("Jan 2020", "January 2020", "2020", "Present")
-   according to cvSettings.dateFormat: 'Month YYYY' | 'MM/YYYY' | 'YYYY' */
+   according to cvSettings.dateFormat: 'Month YYYY' | 'Mon YYYY' | 'MM/YYYY' | 'MM.YYYY' | 'YYYY' */
 function formatDate(str) {
   if (!str) return '';
   const clean = str.trim();
   if (/^present$/i.test(clean)) return 'Present';
-  const fmt = cvSettings.dateFormat || 'Month YYYY';
 
   // "Jan 2020" / "January 2020"
   const mY = clean.match(/^(\w{3,9})\s+(\d{4})$/i);
   if (mY) {
     const abbr = mY[1].slice(0,3).toLowerCase();
-    const year = mY[2];
-    if (fmt === 'Month YYYY') return `${MONTH_MAP[abbr] || mY[1]} ${year}`;
-    if (fmt === 'MM/YYYY')    return `${MONTH_NUM[abbr] || '01'}/${year}`;
-    if (fmt === 'YYYY')       return year;
-    return clean;
+    return formatMonthYear(abbr, mY[2], mY[1]);
   }
 
   // "2020-01" / "2020-1"
@@ -1538,10 +1576,7 @@ function formatDate(str) {
   if (yM) {
     const year = yM[1], mon = yM[2].padStart(2,'0');
     const abbr = Object.keys(MONTH_NUM).find(k => MONTH_NUM[k] === mon);
-    if (fmt === 'Month YYYY') return `${abbr ? MONTH_MAP[abbr] : mon} ${year}`;
-    if (fmt === 'MM/YYYY')    return `${mon}/${year}`;
-    if (fmt === 'YYYY')       return year;
-    return clean;
+    return formatMonthYear(abbr, year, mon);
   }
 
   // Plain year only — nothing to convert for Month/MM formats, just return as-is
