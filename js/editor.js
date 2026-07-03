@@ -155,7 +155,7 @@ const SECTION_TYPES = {
 
 /* ---- DEFAULTS ---- */
 const DEFAULTS = {
-  template:'classic', columns:1, twoColWidth:32, headerAlign:'left',
+  template:'classic', columns:1, twoColWidth:32, headerAlign:'left', headerPosition:'top',
   subtitleLine:'next', paperFormat:'A4', bodyFont:'Calibri, Arial, sans-serif',
   nameFont:'inherit', baseFontSize:11, nameFontSize:19, titleFontSize:12,
   headingFontSize:10, entryFontSize:11, lineHeight:1.55, letterSpacing:0,
@@ -1060,6 +1060,7 @@ function renderCustomizePanel() {
   const colMode = String(cvSettings.columns);
   const isTwoCol = colMode === '2';
   const isMix    = colMode === 'mix';
+  const isSidebarTemplateNow = isTwoCol && SIDEBAR_TEMPLATES.includes(cvSettings.template);
 
   let templateHtml = `<div class="template-grid template-grid-2col">`;
   ALL_TEMPLATES.forEach(t => {
@@ -1072,6 +1073,7 @@ function renderCustomizePanel() {
     custRow('Paper Format', toggleGroup([{label:'A4',value:'A4'},{label:'Letter (US)',value:'Letter'}],'paperFormat')) +
     custRow('Columns',      toggleGroup([{label:'⬜ One',value:'1'},{label:'⬛⬛ Two',value:'2'},{label:'▦ Mix',value:'mix'}],'columns')) +
     (isTwoCol ? custRow('Sidebar Width', slider('twoColWidth',20,50,1,'%')) : '') +
+    (isTwoCol && !isSidebarTemplateNow ? custRow('Header Position', toggleGroup([{label:'Top',value:'top'},{label:'Left',value:'left'},{label:'Right',value:'right'}],'headerPosition')) : '') +
     custRow('Header',       toggleGroup([{label:'← Left',value:'left'},{label:'↔ Center',value:'center'}],'headerAlign')) +
     custRow('Subtitle',     toggleGroup([{label:'Next Line',value:'next'},{label:'Same Line',value:'same'}],'subtitleLine')) +
     custRow('Section Layout', renderSectionLayoutPanel(colMode));
@@ -1339,7 +1341,7 @@ function setSetting(key, value) {
     else if (SIDEBAR_TEMPLATES.includes(prevTemplate)) cvSettings.columns = '1';
   }
   renderCustomizePanel();
-  if (key==='listStyle'||key==='columns'||key==='dateFormat'||key==='template') { renderEditPanel(); renderRightPanel(); } else applySettings();
+  if (key==='listStyle'||key==='columns'||key==='dateFormat'||key==='template'||key==='headerPosition') { renderEditPanel(); renderRightPanel(); } else applySettings();
   scheduleSave();
 }
 function onSlider(key, value, suffix) {
@@ -1482,19 +1484,31 @@ function buildCVHTML(parsed) {
   contactLine = fieldParts.join(' | ');
   if (!contactLine && hf.contact && !cvData.hiddenFields['contact']) contactLine = hf.contact;
 
-  let html = '<div class="cvp-header">';
-  if (!cvData.hiddenFields['name'])     html += `<div class="cvp-name">${mdLine(hf.name||'')}</div>`;
-  if (!cvData.hiddenFields['jobTitle'] && hf.jobTitle) html += `<div class="cvp-jobtitle">${mdLine(hf.jobTitle)}</div>`;
-  if (contactLine) html += `<div class="cvp-contact">${escapeHtml(contactLine)}</div>`;
-  if (isSidebarTemplate) {
-    // These templates' header IS the colored side panel (see main.css
-    // "Shared sidebar base"), so sections assigned to the sidebar render
-    // inside it directly and inherit its color, instead of spawning a
-    // separate flat-colored box elsewhere in the layout.
-    const sidebar = sections.map((s,i)=>({s,i})).filter(({i})=>cvData.columnAssign[i]==='sidebar');
-    html += '<div class="cvp-header-sections">' + sidebar.map(({s,i})=>renderSectionPreview(s,i)).join('') + '</div>';
+  let headerInner = '';
+  if (!cvData.hiddenFields['name'])     headerInner += `<div class="cvp-name">${mdLine(hf.name||'')}</div>`;
+  if (!cvData.hiddenFields['jobTitle'] && hf.jobTitle) headerInner += `<div class="cvp-jobtitle">${mdLine(hf.jobTitle)}</div>`;
+  if (contactLine) headerInner += `<div class="cvp-contact">${escapeHtml(contactLine)}</div>`;
+
+  // Header Position (Left/Right) only applies to the generic two-column
+  // layout: sidebar templates already dedicate the header to their own
+  // permanent colored panel, and that's a different, established design
+  // this shouldn't interfere with.
+  const headerPos = cvSettings.headerPosition || 'top';
+  const headerInColumn = isTwoCol && !isSidebarTemplate && (headerPos === 'left' || headerPos === 'right');
+
+  let html = '';
+  if (!headerInColumn) {
+    html += '<div class="cvp-header">' + headerInner;
+    if (isSidebarTemplate) {
+      // These templates' header IS the colored side panel (see main.css
+      // "Shared sidebar base"), so sections assigned to the sidebar render
+      // inside it directly and inherit its color, instead of spawning a
+      // separate flat-colored box elsewhere in the layout.
+      const sidebar = sections.map((s,i)=>({s,i})).filter(({i})=>cvData.columnAssign[i]==='sidebar');
+      html += '<div class="cvp-header-sections">' + sidebar.map(({s,i})=>renderSectionPreview(s,i)).join('') + '</div>';
+    }
+    html += '</div><hr class="cvp-divider">';
   }
-  html += '</div><hr class="cvp-divider">';
 
   if (isSidebarTemplate) {
     const main = sections.map((s,i)=>({s,i})).filter(({i})=>(cvData.columnAssign[i]||'main')==='main');
@@ -1502,9 +1516,10 @@ function buildCVHTML(parsed) {
   } else if (isTwoCol) {
     const main    = sections.map((s,i)=>({s,i})).filter(({i})=>(cvData.columnAssign[i]||'main')==='main');
     const sidebar = sections.map((s,i)=>({s,i})).filter(({i})=>cvData.columnAssign[i]==='sidebar');
+    const headerBlock = headerInColumn ? `<div class="cvp-header cvp-header-incolumn">${headerInner}</div>` : '';
     html += '<div class="cv-two-col-wrap">';
-    html += '<div class="cv-sidebar-col">' + sidebar.map(({s,i})=>renderSectionPreview(s,i)).join('') + '</div>';
-    html += '<div class="cv-main-col">'    + main.map(({s,i})=>renderSectionPreview(s,i)).join('')    + '</div>';
+    html += '<div class="cv-sidebar-col">' + (headerPos==='left'?headerBlock:'') + sidebar.map(({s,i})=>renderSectionPreview(s,i)).join('') + '</div>';
+    html += '<div class="cv-main-col">'    + (headerPos==='right'?headerBlock:'') + main.map(({s,i})=>renderSectionPreview(s,i)).join('')    + '</div>';
     html += '</div>';
   } else if (isMix) {
     // Walk sections in order; pair up consecutive 'half' width sections into a flex row

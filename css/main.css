@@ -1230,6 +1230,15 @@ input {
   margin-bottom: 10px;
 }
 
+/* Header Position: Left/Right — header sits inside a column instead of
+   as a full-width top banner, so it needs its own bottom divider
+   (normally the separate <hr class="cvp-divider"> handles this). */
+.cvp-header-incolumn {
+  padding-bottom: 10px;
+  margin-bottom: 14px;
+  border-bottom: 1px solid #ddd;
+}
+
 .cvp-name {
   font-size: 19px;
   font-weight: 700;
