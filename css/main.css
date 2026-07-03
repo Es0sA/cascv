@@ -2691,6 +2691,27 @@ input {
   min-height: 297mm;
   overflow: hidden;
 }
+/* Under real pagination, .cv-page's own JS measurement already keeps
+   each page's content within one page's height, so `overflow: hidden`
+   here would only ever silently clip content if that measurement were
+   ever slightly off — a worse failure mode than a page rendering a hair
+   taller than ideal. Fail safe instead: let a paginated page grow if it
+   has to, same as every other paginated layout. */
+.cv-page[class*=" t-sb-"],
+.cv-page.t-atlantic-blue,
+.cv-page.t-corporate-panel,
+.cv-page.t-cobalt-edge,
+.cv-page.t-obsidian-edge,
+.cv-page.t-neutral-gray {
+  overflow: visible;
+}
+/* Continuation pages (sidebar panel content spanning page 2+) show a
+   small persistent name strip instead of repeating the full header, so
+   a printed page isn't a bare color block with no CV owner attached. */
+.cvp-header-continuation {
+  opacity: 0.85;
+  margin-bottom: 4px;
+}
 .cv-paper.t-atlantic-blue .cvp-header,
 .cv-paper.t-corporate-panel .cvp-header,
 .cv-paper.t-cobalt-edge .cvp-header,
