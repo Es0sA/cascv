@@ -153,6 +153,59 @@ const SECTION_TYPES = {
   }
 };
 
+// Custom Section field sets for the "Normal" and "Skill" subtypes —
+// see getSectionDef(). Mirrors Projects (Normal) and Skills (Skill)
+// so structured custom sections get the exact same rich entry-editor
+// UI those already have, no new rendering paths needed.
+const CUSTOM_NORMAL_FIELDS = [
+  { key:'title',     label:'Title',        type:'text', linkable:true },
+  { key:'subtitle',  label:'Subtitle',     type:'text' },
+  { key:'startDate', label:'Start Date',   type:'text', clearable:true },
+  { key:'endDate',   label:'End Date',     type:'text', allowPresent:true, clearable:true },
+  { key:'location',  label:'Location',     type:'text' },
+  { key:'desc',      label:'Description',  type:'textarea', placeholder:'Details...', allowAlign:true }
+];
+const CUSTOM_SKILL_FIELDS = [
+  { key:'skill', label:'Skill / Category',  type:'text' },
+  { key:'info',  label:'Sub-skills / Info', type:'textarea', placeholder:'Specific skills, tools, methods...' },
+  { key:'level', label:'Skill Level', type:'select', options: ['', 'Beginner', 'Intermediate', 'Advanced', 'Expert'] }
+];
+const CUSTOM_SECTION_ICONS = ['✏️','🎯','🛠️','💡','📌','🔖','📊','🎨','🎵','⚡','🌟','🔧','📱','💻','🎬','🏋️','🌍','🚀','🏆','📚','🏢','👥','🏅','🧠'];
+
+// Single source of truth for "what field set / icon does this section
+// actually use right now" — every renderer should call this instead of
+// indexing SECTION_TYPES directly, so a Custom Section's subtype
+// override (see cvData.customSectionType) is respected everywhere.
+// Falls back to the plain freeform-textarea behavior when no override
+// is set, which is exactly what every existing CV already has, so
+// nothing changes for CVs that never touch this new setting.
+// Maps a Custom Section's subtype to the stype string renderEntryHTML
+// actually branches on — 'custom-normal' is handled identically to
+// 'projects', 'custom-skill' identically to 'skills' (see
+// renderEntryHTML). Every other section type is unaffected.
+function getEffectiveStype(sec, i) {
+  const stype = sec.type || 'custom';
+  if (stype === 'custom') {
+    const subtype = cvData.customSectionType[i];
+    if (subtype === 'normal') return 'custom-normal';
+    if (subtype === 'skill')  return 'custom-skill';
+  }
+  return stype;
+}
+
+function getSectionDef(sec, i) {
+  const stype = sec.type || 'custom';
+  const baseDef = SECTION_TYPES[stype] || SECTION_TYPES.custom;
+  if (stype === 'custom') {
+    const subtype = cvData.customSectionType[i];
+    const icon = cvData.customSectionIcon[i] || baseDef.icon;
+    if (subtype === 'normal') return { label: baseDef.label, icon, fields: CUSTOM_NORMAL_FIELDS, useTextarea: false };
+    if (subtype === 'skill')  return { label: baseDef.label, icon, fields: CUSTOM_SKILL_FIELDS,  useTextarea: false };
+    return { ...baseDef, icon };
+  }
+  return baseDef;
+}
+
 /* ---- DEFAULTS ---- */
 const DEFAULTS = {
   template:'classic', columns:1, twoColWidth:32, headerAlign:'left', headerPosition:'top',
@@ -411,7 +464,7 @@ function renderEditPanel() {
     const assign   = cvData.columnAssign[i] || 'main';
     const showCols = Number(cvSettings.columns) === 2;
     const stype    = section.type || 'custom';
-    const def      = SECTION_TYPES[stype] || SECTION_TYPES.custom;
+    const def      = getSectionDef(section, i);
 
     html += `
   <div class="accordion sec-accordion" id="acc-${i}"
@@ -438,6 +491,7 @@ function renderEditPanel() {
       </div>
     </button>
     <div class="accordion-body" id="body-${i}">
+      ${stype==='custom' ? renderCustomSectionControls(section, i) : ''}
       ${def.useTextarea ? renderTextareaSection(section, i) : renderStructuredSection(section, i, def)}
       <div class="section-actions">
         <button class="sec-action-btn sec-action-danger" onclick="deleteSection(${i})" type="button">🗑 Delete</button>
@@ -461,6 +515,51 @@ function renderTextareaSection(section, i) {
   return `<textarea class="acc-textarea" id="section-ta-${i}" data-section="${i}"
       oninput="updateSection(${i},this.value);autoResize(this)"
     >${escapeHtml((section.lines || []).join('\n'))}</textarea>`;
+}
+
+// Custom Section-only controls: an icon picker, and a Text/Normal/
+// Skill type toggle. Normal reuses the exact Projects-style structured
+// entry form (title/subtitle/dates/location/description); Skill reuses
+// the Skills form (skill/sub-skills/level) — see getSectionDef().
+function renderCustomSectionControls(section, i) {
+  const subtype = cvData.customSectionType[i] || 'text';
+  const icon = cvData.customSectionIcon[i] || '✏️';
+  const iconOptions = CUSTOM_SECTION_ICONS.map(ic =>
+    `<button class="icon-pick-btn ${ic===icon?'active':''}" onclick="setCustomSectionIcon(${i},'${ic}')" type="button">${ic}</button>`
+  ).join('');
+  return `
+    <div class="custom-section-controls">
+      <div class="acc-label-row"><label class="acc-label">Icon</label></div>
+      <div class="icon-picker-grid">${iconOptions}</div>
+      <div class="acc-label-row" style="margin-top:10px"><label class="acc-label">Section Type</label></div>
+      <div class="toggle-group">
+        <button class="toggle-btn ${subtype==='text'?'active':''}"   onclick="setCustomSectionType(${i},'text')"   type="button">Text</button>
+        <button class="toggle-btn ${subtype==='normal'?'active':''}" onclick="setCustomSectionType(${i},'normal')" type="button">Normal</button>
+        <button class="toggle-btn ${subtype==='skill'?'active':''}"  onclick="setCustomSectionType(${i},'skill')"  type="button">Skill</button>
+      </div>
+      <p class="acc-hint">Normal gives structured Title/Subtitle/Dates/Description fields (like Projects). Skill gives Skill/Sub-skills/Level fields (like Core Skills).</p>
+    </div>`;
+}
+
+function setCustomSectionIcon(i, icon) {
+  cvData.customSectionIcon[i] = icon;
+  renderEditPanel();
+  renderRightPanel();
+  scheduleSave();
+}
+
+function setCustomSectionType(i, subtype) {
+  const current = cvData.customSectionType[i] || 'text';
+  if (current === subtype) return;
+  const section = cvData.parsed.sections[i];
+  const hasContent = (section.lines && section.lines.some(l => l.trim())) || (section.entries && section.entries.length);
+  if (hasContent && !confirm("Switching this section's type will clear its current content. Continue?")) return;
+  cvData.customSectionType[i] = subtype;
+  section.entries = [];
+  section.lines = [];
+  renderEditPanel();
+  renderRightPanel();
+  scheduleSave();
 }
 
 function renderStructuredSection(section, i, def) {
@@ -823,7 +922,7 @@ let _editEntryData  = null;
 
 function openEntryEditor(sectionIdx, entryIdx) {
   const section = cvData.parsed.sections[sectionIdx];
-  const def     = SECTION_TYPES[section.type] || SECTION_TYPES.custom;
+  const def     = getSectionDef(section, sectionIdx);
   const entry   = (section.entries || [])[entryIdx] || {};
 
   _editSectionIdx = sectionIdx;
@@ -910,7 +1009,7 @@ function openEntryEditor(sectionIdx, entryIdx) {
 
 function addEntry(sectionIdx) {
   const section = cvData.parsed.sections[sectionIdx];
-  const def     = SECTION_TYPES[section.type] || SECTION_TYPES.custom;
+  const def     = getSectionDef(section, sectionIdx);
   if (!section.entries) section.entries = [];
   const newIdx  = section.entries.length;
   section.entries.push({ visible: true });
@@ -1324,7 +1423,7 @@ function renderSectionLayoutPanel(colMode) {
 
   function chip(i) {
     const name = cvData.sectionNames[i] !== undefined ? cvData.sectionNames[i] : sections[i].title;
-    const def  = SECTION_TYPES[sections[i].type] || SECTION_TYPES.custom;
+    const def  = getSectionDef(sections[i], i);
     const width = cvData.sectionWidth[i] || 'full';
     return `<div class="layout-chip" draggable="true"
       ondragstart="onLayoutDragStart(event,${i})"
@@ -1817,7 +1916,8 @@ function buildLayoutUnits(parsed) {
     units.push({ html: `<div class="cvp-sec-heading">${escapeHtml(name)}</div>`, sectionIndex: i, isHeading: true });
 
     const stype = sec.type || 'custom';
-    const def   = SECTION_TYPES[stype];
+    const def   = getSectionDef(sec, i);
+    const renderStype = getEffectiveStype(sec, i);
     if (def && !def.useTextarea && sec.entries && sec.entries.length) {
       // Process per-entry (not the whole section's HTML flattened
       // together) so a job title's row1 and its company/location row2
@@ -1827,7 +1927,7 @@ function buildLayoutUnits(parsed) {
       // just keeping the pair together. Bullets/lines still flow
       // independently, same as before.
       sec.entries.filter(e=>e.visible!==false).forEach(entry => {
-        const nodes = htmlToTopLevelNodes(renderEntryHTML(entry, stype));
+        const nodes = htmlToTopLevelNodes(renderEntryHTML(entry, renderStype));
         let j = 0;
         while (j < nodes.length) {
           const node = nodes[j];
@@ -1990,11 +2090,12 @@ function renderSectionPreview(sec, i) {
   if ((sec.type || 'custom') === 'profile' && cvSettings.summaryInHeader) return '';
   const name  = cvData.sectionNames[i] !== undefined ? cvData.sectionNames[i] : sec.title;
   const stype = sec.type || 'custom';
-  const def   = SECTION_TYPES[stype];
+  const def   = getSectionDef(sec, i);
+  const renderStype = getEffectiveStype(sec, i);
   let body = '';
 
   if (def && !def.useTextarea && sec.entries && sec.entries.length) {
-    body = sec.entries.filter(e=>e.visible!==false).map(e=>renderEntryHTML(e, stype)).join('');
+    body = sec.entries.filter(e=>e.visible!==false).map(e=>renderEntryHTML(e, renderStype)).join('');
   } else {
     body = formatLines(sec.lines || []);
   }
@@ -2024,9 +2125,9 @@ function renderEntryHTML(entry, stype) {
     return html;
   }
 
-  if (stype==='work'||stype==='education'||stype==='projects'||stype==='courses'||stype==='organisations') {
+  if (stype==='work'||stype==='education'||stype==='projects'||stype==='courses'||stype==='organisations'||stype==='custom-normal') {
     const title   = entry.jobTitle||entry.degree||entry.title||entry.course||entry.name||'';
-    const sub     = entry.employer||entry.school||entry.role||entry.provider||entry.organisation||'';
+    const sub     = entry.employer||entry.school||entry.role||entry.provider||entry.organisation||entry.subtitle||'';
     const subLink = entry.employerLink||entry.schoolLink||entry.providerLink||entry.organisationLink||'';
     const start   = formatDate(entry.startDate||entry.start||'');
     const end     = formatDate(entry.endDate||entry.end||'');
@@ -2096,7 +2197,7 @@ function renderEntryHTML(entry, stype) {
     return html;
   }
 
-  if (stype==='skills') {
+  if (stype==='skills'||stype==='custom-skill') {
     const skill = entry.skill||'';
     const info  = entry.info||'';
     const level = entry.level||'';
@@ -2604,6 +2705,12 @@ async function initEditor() {
   cvData.sectionNames = cvData.sectionNames || {};
   cvData.sectionWidth = cvData.sectionWidth || {};
   cvData.headerFieldOrder = cvData.headerFieldOrder || ['email','phone','location','linkedin'];
+  // Per-instance overrides for Custom Section subtype ('text' — the
+  // original freeform behavior — is the implicit default whenever a
+  // section has no entry here, so every existing custom section on
+  // every existing CV keeps working exactly as before).
+  cvData.customSectionType = cvData.customSectionType || {};
+  cvData.customSectionIcon = cvData.customSectionIcon || {};
 
   cvSettings = Object.assign({}, DEFAULTS, cvData.settings || {});
 
