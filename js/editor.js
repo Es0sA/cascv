@@ -2240,15 +2240,15 @@ function sidebarPanelPageHTML(pageUnits, sectionMeta, pageIdx, header) {
 }
 
 // Same greedy measure-and-split approach as measureAndPaginate, but for
-// the sidebar template's colored panel: sidebar templates apply
-// `padding-top` on .cv-paper (page-level top space above the colored
-// panel, matching every other template) but no left/right/bottom
-// padding (the panel and main column still span full width edge-to-
-// edge), so only marginTB needs subtracting here, not marginTB*2.
+// the sidebar template's colored panel: sidebar templates set
+// `padding: 0 !important` on .cv-paper itself (all spacing lives on
+// .cvp-header/.cvp-section instead), so the FULL page height is usable
+// here — unlike measureAndPaginate/measureColumnAndPaginate, which
+// subtract marginTB because those layouts do use page-level padding.
 // No empty sibling column is needed in the probe: grid-template-columns
 // fixes both tracks' widths from the container's declared percentages
 // regardless of whether the other column has any content.
-function measureSidebarPanelAndPaginate(units, pw, ph, marginTB, classString, sectionMeta, header) {
+function measureSidebarPanelAndPaginate(units, pw, ph, classString, sectionMeta, header) {
   const probe = document.createElement('div');
   probe.className = classString;
   probe.style.cssText = 'position:fixed;top:0;left:-99999px;visibility:hidden;box-shadow:none;';
@@ -2264,7 +2264,7 @@ function measureSidebarPanelAndPaginate(units, pw, ph, marginTB, classString, se
   document.body.appendChild(probe);
 
   const pxPerMm = probe.clientWidth / pw;
-  const usablePageHeightPx = (ph - marginTB) * pxPerMm;
+  const usablePageHeightPx = ph * pxPerMm;
 
   const pages = [[]];
   units.forEach(u => {
@@ -2287,7 +2287,7 @@ function measureSidebarPanelAndPaginate(units, pw, ph, marginTB, classString, se
 // the probe's own rendered height already reflects just that column's
 // content — column 1 stays empty and contributes no height, same as a
 // real page where the panel and main column heights are independent.
-function measureSidebarMainAndPaginate(units, pw, ph, marginTB, classString, sectionMeta) {
+function measureSidebarMainAndPaginate(units, pw, ph, classString, sectionMeta) {
   const probe = document.createElement('div');
   probe.className = classString;
   probe.style.cssText = 'position:fixed;top:0;left:-99999px;visibility:hidden;box-shadow:none;';
@@ -2303,7 +2303,7 @@ function measureSidebarMainAndPaginate(units, pw, ph, marginTB, classString, sec
   document.body.appendChild(probe);
 
   const pxPerMm = probe.clientWidth / pw;
-  const usablePageHeightPx = (ph - marginTB) * pxPerMm;
+  const usablePageHeightPx = ph * pxPerMm;
 
   const pages = [[]];
   units.forEach(u => {
@@ -2342,8 +2342,8 @@ function paginateSidebarTemplate(parsed) {
     buildSectionUnits(sec, i, target, sectionMeta);
   });
 
-  const panelPages = measureSidebarPanelAndPaginate(panelUnits, pw, ph, cvSettings.marginTB, classString, sectionMeta, header);
-  const mainPages  = measureSidebarMainAndPaginate(mainUnits, pw, ph, cvSettings.marginTB, classString, sectionMeta);
+  const panelPages = measureSidebarPanelAndPaginate(panelUnits, pw, ph, classString, sectionMeta, header);
+  const mainPages  = measureSidebarMainAndPaginate(mainUnits, pw, ph, classString, sectionMeta);
 
   const sectionPageCount = {};
   [...panelPages, ...mainPages].forEach(pageUnits => {
