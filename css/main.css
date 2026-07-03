@@ -1262,6 +1262,14 @@ input {
   color: #555;
 }
 
+/* "Summary as part of header" */
+.cvp-header-summary {
+  font-size: var(--cv-base, 11px);
+  color: inherit;
+  margin-top: 8px;
+  line-height: 1.4;
+}
+
 /* ---- Header contact icons (Icon Style: Plain/Circle Filled/Circle
    Outline). "None" (the default) renders no .cvp-contact-item markup
    at all — see buildContactHtml — so no rule is needed for it. ---- */

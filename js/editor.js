@@ -168,6 +168,7 @@ const DEFAULTS = {
   accentSubtitle:false, showPageNums:false, linkStyle:'underline',
   footerCustom:false, footerLeft:'', footerCenter:'', footerRight:'',
   iconStyle:'none', accentIcons:false, accentLinkIcons:false,
+  workTitleOrder:'normal', eduTitleOrder:'normal', summaryInHeader:false,
 };
 
 // Real values get merged in with cvData.settings once initEditor()
@@ -617,6 +618,15 @@ function removeHeaderField(key) {
 // don't change appearance unless the user opts in), or an icon+text
 // span per field otherwise. Shared by buildCVHTML (fallback layout)
 // and buildLayoutUnits (real-pagination layout) so both stay in sync.
+// Finds the Professional Summary section's text, for "Summary as part
+// of header" — returns '' if there's no profile-type section or it's
+// empty, so callers can just check truthiness.
+function getSummaryHtml(sections) {
+  const profileSec = sections.find(s => (s.type || 'custom') === 'profile');
+  const text = profileSec?.entries?.[0]?.summary || '';
+  return text ? `<div class="cvp-header-summary">${mdLine(text, true)}</div>` : '';
+}
+
 function buildContactHtml(header) {
   const order = cvData.headerFieldOrder.filter(key => !cvData.hiddenFields[key] && header[key]);
   if (!order.length) {
@@ -1182,11 +1192,21 @@ function renderCustomizePanel() {
       custRow('Custom Footer',`<label class="cust-toggle-row"><input type="checkbox" ${cvSettings.footerCustom?'checked':''} onchange="toggleBool('footerCustom',this.checked);renderCustomizePanel();renderRightPanel()"><span class="cust-toggle-slider"></span><span class="cust-toggle-label">Build a custom 3-zone footer</span></label>${footerCustomFields}`) +
       custRow('Link Style', toggleGroup([{label:'Underline',value:'underline'},{label:'Blue',value:'blue'},{label:'Plain',value:'plain'}],'linkStyle'));
 
+  const hasWork    = cvData.parsed.sections.some(s => (s.type||'custom')==='work');
+  const hasEdu     = cvData.parsed.sections.some(s => (s.type||'custom')==='education');
+  const hasProfile = cvData.parsed.sections.some(s => (s.type||'custom')==='profile');
+  const sectionsHtml =
+    (hasWork ? custRow('Work Experience', toggleGroup([{label:'Title, Employer',value:'normal'},{label:'Employer, Title',value:'swapped'}],'workTitleOrder')) : '') +
+    (hasEdu  ? custRow('Education',       toggleGroup([{label:'Degree, School',value:'normal'},{label:'School, Degree',value:'swapped'}],'eduTitleOrder')) : '') +
+    (hasProfile ? custRow('Summary',`<label class="cust-toggle-row"><input type="checkbox" ${cvSettings.summaryInHeader?'checked':''} onchange="toggleBool('summaryInHeader',this.checked)"><span class="cust-toggle-slider"></span><span class="cust-toggle-label">Display summary as part of header</span></label>`) : '') +
+    (!hasWork && !hasEdu && !hasProfile ? '<p class="footer-zone-hint">Add a Work Experience, Education, or Professional Summary section to see options here.</p>' : '');
+
   customizePanel.innerHTML =
     section('Design Templates', templateHtml) + section('Layout', layoutHtml) +
     section('Font', fontHtml) + section('Font Size', fontSizeHtml) +
     section('Spacing', spacingHtml) + section('Style', styleHtml) +
-    section('Colours', colorHtml) + section('Footer & Links', footerHtml);
+    section('Colours', colorHtml) + section('Sections', sectionsHtml) +
+    section('Footer & Links', footerHtml);
 
   if (scrollEl) scrollEl.scrollTop = savedTop;
   const newTplScrollEl = document.querySelector('.template-grid-2col');
@@ -1364,7 +1384,7 @@ function setSetting(key, value) {
     else if (SIDEBAR_TEMPLATES.includes(prevTemplate)) cvSettings.columns = '1';
   }
   renderCustomizePanel();
-  if (key==='listStyle'||key==='columns'||key==='dateFormat'||key==='template'||key==='headerPosition'||key==='iconStyle') { renderEditPanel(); renderRightPanel(); } else applySettings();
+  if (key==='listStyle'||key==='columns'||key==='dateFormat'||key==='template'||key==='headerPosition'||key==='iconStyle'||key==='workTitleOrder'||key==='eduTitleOrder') { renderEditPanel(); renderRightPanel(); } else applySettings();
   scheduleSave();
 }
 function onSlider(key, value, suffix) {
@@ -1389,7 +1409,9 @@ function stepSlider(key, delta, min, max, step, suffix) {
 }
 function toggleBool(key,val){
   cvSettings[key]=val;
-  if (key==='showDuration') renderRightPanel(); else applySettings();
+  if (key==='showDuration') { renderRightPanel(); }
+  else if (key==='summaryInHeader') { renderEditPanel(); renderRightPanel(); renderCustomizePanel(); }
+  else applySettings();
   scheduleSave();
 }
 function onFontChange(key,value){ cvSettings[key]=value; applySettings(); scheduleSave(); renderCustomizePanel(); }
@@ -1530,6 +1552,7 @@ function buildCVHTML(parsed) {
   if (!cvData.hiddenFields['name'])     headerInner += `<div class="cvp-name">${mdLine(hf.name||'')}</div>`;
   if (!cvData.hiddenFields['jobTitle'] && hf.jobTitle) headerInner += `<div class="cvp-jobtitle">${mdLine(hf.jobTitle)}</div>`;
   if (contactHtml) headerInner += `<div class="cvp-contact">${contactHtml}</div>`;
+  if (cvSettings.summaryInHeader) headerInner += getSummaryHtml(sections);
 
   // Header Position (Left/Right) only applies to the generic two-column
   // layout: sidebar templates already dedicate the header to their own
@@ -1676,10 +1699,12 @@ function buildLayoutUnits(parsed) {
   if (!cvData.hiddenFields['name'])     headerHtml += `<div class="cvp-name">${mdLine(header.name||'')}</div>`;
   if (!cvData.hiddenFields['jobTitle'] && header.jobTitle) headerHtml += `<div class="cvp-jobtitle">${mdLine(header.jobTitle)}</div>`;
   if (contactHtml) headerHtml += `<div class="cvp-contact">${contactHtml}</div>`;
+  if (cvSettings.summaryInHeader) headerHtml += getSummaryHtml(sections);
   headerHtml += '</div><hr class="cvp-divider">';
   units.push({ html: headerHtml, sectionIndex: null, isHeading: false, isHeader: true });
 
   sections.forEach((sec, i) => {
+    if ((sec.type || 'custom') === 'profile' && cvSettings.summaryInHeader) return;
     const name = cvData.sectionNames[i] !== undefined ? cvData.sectionNames[i] : sec.title;
     sectionMeta[i] = { name };
     units.push({ html: `<div class="cvp-sec-heading">${escapeHtml(name)}</div>`, sectionIndex: i, isHeading: true });
@@ -1852,6 +1877,10 @@ function buildCustomFooterHTML(header) {
 }
 
 function renderSectionPreview(sec, i) {
+  // "Summary as part of header" moves the Professional Summary's text
+  // into the header block (see buildContactHtml call sites) instead of
+  // its own section — skip rendering it a second time here.
+  if ((sec.type || 'custom') === 'profile' && cvSettings.summaryInHeader) return '';
   const name  = cvData.sectionNames[i] !== undefined ? cvData.sectionNames[i] : sec.title;
   const stype = sec.type || 'custom';
   const def   = SECTION_TYPES[stype];
@@ -1896,6 +1925,13 @@ function renderEntryHTML(entry, stype) {
       }
     }
     const subHtml   = subLink ? `<a href="${escapeAttr(subLink)}" target="_blank" rel="noopener">${escapeHtml(sub)}</a>` : escapeHtml(sub);
+    // Title/Subtitle Order: which field (job title vs employer/school)
+    // leads in row 1. The CSS class stays tied to the field's MEANING
+    // (title keeps .cvp-entry-title, subtitle keeps .cvp-entry-employer)
+    // regardless of which row it's placed in, so Subtitle Style / accent
+    // color targeting keeps working correctly either way.
+    const titleOrder = stype==='work' ? cvSettings.workTitleOrder : stype==='education' ? cvSettings.eduTitleOrder : 'normal';
+    const swapped = titleOrder === 'swapped';
     // Row 1: job title left, date range right. Row 2: employer left, location right.
     // Keeps company/date/location as distinct fields all the way to markup,
     // instead of collapsing them into one pipe-joined flowing paragraph.
@@ -1911,6 +1947,15 @@ function renderEntryHTML(entry, stype) {
         ${dateStr ? `<span class="cvp-entry-date">${escapeHtml(dateStr)}</span>` : ''}
       </div>`;
       if (loc) html += `<div class="cvp-entry-row2"><span></span><span class="cvp-entry-location">${escapeHtml(loc)}</span></div>`;
+    } else if (swapped) {
+      if (sub||dateStr) html += `<div class="cvp-entry-row1">
+        ${sub ? `<span class="cvp-entry-employer">${subHtml}</span>` : '<span></span>'}
+        ${dateStr ? `<span class="cvp-entry-date">${escapeHtml(dateStr)}</span>` : ''}
+      </div>`;
+      if (title||loc) html += `<div class="cvp-entry-row2">
+        ${title ? `<span class="cvp-entry-title">${mdLine(title,true)}</span>` : '<span></span>'}
+        ${loc ? `<span class="cvp-entry-location">${escapeHtml(loc)}</span>` : ''}
+      </div>`;
     } else {
       if (title||dateStr) html += `<div class="cvp-entry-row1">
         ${title ? `<span class="cvp-entry-title">${mdLine(title,true)}</span>` : '<span></span>'}
