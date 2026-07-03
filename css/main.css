@@ -1230,6 +1230,35 @@ input {
   margin-bottom: 10px;
 }
 
+/* ---- Header photo — available globally, on any template, regardless
+   of Header Position (top/left/right). No photo, no markup at all
+   (see buildPhotoHtml), so templates without one are unaffected. ---- */
+.cvp-header-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+}
+.cvp-header-text { flex: 1; min-width: 0; }
+.cvp-photo-frame {
+  flex-shrink: 0;
+  width: 72px;
+  height: 72px;
+  overflow: hidden;
+}
+.cvp-photo-circle  { border-radius: 50%; }
+.cvp-photo-rounded { border-radius: 14px; }
+.cvp-photo-square  { border-radius: 0; }
+.cvp-photo {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform: scale(var(--cv-photo-zoom, 1));
+}
+/* Right-aligned headers (e.g. Header Position: Right, or headerAlign
+   center/right) read better with the photo on the right of the text. */
+.cvp-header[style*="text-align: right"] .cvp-header-row,
+.cvp-header[style*="text-align: center"] .cvp-header-row { flex-direction: row-reverse; }
+
 /* Header Position: Left/Right — header sits inside a column instead of
    as a full-width top banner, so it needs its own bottom divider
    (normally the separate <hr class="cvp-divider"> handles this). */
@@ -1448,6 +1477,41 @@ input {
   gap: 5px;
   margin-top: 12px;
 }
+
+.photo-upload-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.photo-preview {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+  border: 1px solid var(--border-color, #333);
+}
+.photo-upload-btn {
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--gold);
+  background: var(--gold-muted);
+  padding: 7px 12px;
+  border-radius: 6px;
+  transition: background 120ms;
+}
+.photo-upload-btn:hover { background: var(--gold-muted-hover, var(--gold-muted)); }
+.photo-remove-btn {
+  cursor: pointer;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  background: none;
+  border: 1px solid var(--border-color, #333);
+  padding: 6px 11px;
+  border-radius: 6px;
+}
+.photo-remove-btn:hover { color: #e05252; border-color: #e05252; }
 
 .acc-label {
   font-size: 0.73rem;
@@ -2716,6 +2780,67 @@ input {
 .cv-paper.t-neutral-gray .cvp-header-sections .cvp-entry-meta,
 .cv-paper.t-neutral-gray .cvp-header-sections .cvp-bullet,
 .cv-paper.t-neutral-gray .cvp-header-sections .cvp-line { color: rgba(255,255,255,0.80) !important; }
+
+/* ============================================================
+   FRAMED BORDER — a thin inset border around the whole page,
+   inspired by FlowCV's bordered-frame templates.
+   ============================================================ */
+.cv-paper.t-framed-border {
+  border: 2.5px solid var(--cv-accent, #1a1a1a) !important;
+}
+.cv-paper.t-framed-border .cvp-name { letter-spacing: 0.03em; }
+.cv-paper.t-framed-border .cvp-sec-heading { border-bottom: 1.5px solid var(--cv-accent, #1a1a1a) !important; text-transform: uppercase; letter-spacing: 0.05em; }
+
+/* ============================================================
+   LEFT RULE — a thin colored vertical line down the entire left
+   margin of the page, distinct from the sidebar templates (a line,
+   not a filled column).
+   ============================================================ */
+.cv-paper.t-left-rule {
+  border-left: 4px solid var(--cv-accent, #1a4d8f) !important;
+}
+.cv-paper.t-left-rule .cvp-name { color: var(--cv-accent, #1a4d8f) !important; font-weight: 700; }
+.cv-paper.t-left-rule .cvp-sec-heading { color: var(--cv-accent, #1a4d8f) !important; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; }
+.cv-paper.t-left-rule .cvp-divider { display: none; }
+
+/* ============================================================
+   ICON BULLETS — checkmark glyphs instead of plain bullet points
+   (the glyph itself is swapped in JS, see getBulletChar()); this CSS
+   just gives it a bit of color/weight to read as a deliberate icon
+   rather than an odd-looking bullet character.
+   ============================================================ */
+.cv-paper.t-icon-bullets .cvp-bullet { color: #1a1a1a; }
+.cv-paper.t-icon-bullets .cvp-sec-heading { color: var(--cv-accent, #1B3A6B) !important; font-weight: 700; }
+.cv-paper.t-icon-bullets .cvp-name { color: var(--cv-accent, #1B3A6B) !important; }
+
+/* ============================================================
+   PHOTO CARD — tinted page background with the header/section
+   blocks rendered as white "cards" with soft shadows, echoing
+   FlowCV's floating-card-over-tinted-page look without needing a
+   structural HTML change (extra wrapper divs per template).
+   ============================================================ */
+.cv-paper.t-photo-card {
+  background: #e8efe9 !important;
+}
+.cv-paper.t-photo-card .cvp-header {
+  background: #fff;
+  border-radius: 12px;
+  padding: 16px 18px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+  margin-bottom: 14px;
+}
+.cv-paper.t-photo-card .cvp-divider { display: none; }
+.cv-paper.t-photo-card .cvp-section {
+  background: #fff;
+  border-radius: 10px;
+  padding: 10px 16px;
+  box-shadow: 0 1px 6px rgba(0,0,0,0.06);
+}
+.cv-paper.t-photo-card .cvp-photo-frame {
+  border: 3px solid #fff;
+  box-shadow: 0 3px 10px rgba(0,0,0,0.18);
+}
+.cv-paper.t-photo-card .cvp-sec-heading { color: var(--cv-accent, #2d5a4a) !important; font-weight: 700; }
 
 /* ============================================================
    CV ENTRY FORMATTING — Job title + Company/Date detection

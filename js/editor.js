@@ -169,6 +169,7 @@ const DEFAULTS = {
   footerCustom:false, footerLeft:'', footerCenter:'', footerRight:'',
   iconStyle:'none', accentIcons:false, accentLinkIcons:false,
   workTitleOrder:'normal', eduTitleOrder:'normal', summaryInHeader:false,
+  photoShape:'circle', photoZoom:1,
 };
 
 // Real values get merged in with cvData.settings once initEditor()
@@ -395,6 +396,7 @@ function renderEditPanel() {
       <svg class="accordion-chevron" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg>
     </button>
     <div class="accordion-body" id="body-header">
+      ${renderPhotoField(header)}
       ${hdrField('name',     'Full Name',           header.name,     'text')}
       ${hdrField('jobTitle', 'Job Title / Tagline',  header.jobTitle, 'text')}
       ${renderContactFields(header)}
@@ -508,6 +510,82 @@ function entryPreviewLabel(entry, def) {
   if (entry.statement) return entry.statement.slice(0, 60) + (entry.statement.length > 60 ? '…' : '');
   if (entry.signatureName) return 'Signed: ' + entry.signatureName;
   return 'New Entry';
+}
+
+/* ---- Header photo: stored as a resized/compressed data URL directly
+   on cvData.parsed.header.photo (small enough to stay well under
+   Firestore's 1MB document limit — see resizeImageToDataUrl). ---- */
+function renderPhotoField(header) {
+  const hidden = cvData.hiddenFields['photo'];
+  const hasPhoto = !!header.photo;
+  return `
+    <div class="acc-field-group ${hidden ? 'field-hidden' : ''}">
+      <div class="acc-label-row">
+        <label class="acc-label">Photo</label>
+        ${hasPhoto ? `<button class="field-visibility-btn" onclick="toggleFieldVisibility('photo')" type="button" title="${hidden?'Show':'Hide'} field">
+          ${hidden
+            ? `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>`
+            : `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`
+          }
+        </button>` : ''}
+      </div>
+      <div class="photo-upload-row">
+        ${hasPhoto ? `<img class="photo-preview" src="${escapeAttr(header.photo)}" alt="Photo preview">` : ''}
+        <label class="photo-upload-btn">
+          ${hasPhoto ? 'Change' : '+ Upload Photo'}
+          <input type="file" accept="image/*" style="display:none" onchange="handlePhotoUpload(this)">
+        </label>
+        ${hasPhoto ? `<button class="photo-remove-btn" onclick="removePhoto()" type="button">Remove</button>` : ''}
+      </div>
+    </div>`;
+}
+
+// Downscales + JPEG-compresses an uploaded image client-side before
+// storing it as a data URL — keeps CV documents well under Firestore's
+// 1MB limit regardless of the original photo's size.
+function resizeImageToDataUrl(file, maxSize, quality) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        let { width, height } = img;
+        if (width > height) { if (width > maxSize) { height = Math.round(height * maxSize / width); width = maxSize; } }
+        else { if (height > maxSize) { width = Math.round(width * maxSize / height); height = maxSize; } }
+        const canvas = document.createElement('canvas');
+        canvas.width = width; canvas.height = height;
+        canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      };
+      img.onerror = reject;
+      img.src = e.target.result;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+async function handlePhotoUpload(input) {
+  const file = input.files && input.files[0];
+  if (!file) return;
+  try {
+    const dataUrl = await resizeImageToDataUrl(file, 320, 0.82);
+    cvData.parsed.header.photo = dataUrl;
+    renderEditPanel();
+    renderRightPanel();
+    renderCustomizePanel();
+    scheduleSave();
+  } catch {
+    alert('Could not process that image. Please try a different file.');
+  }
+}
+
+function removePhoto() {
+  delete cvData.parsed.header.photo;
+  renderEditPanel();
+  renderRightPanel();
+  renderCustomizePanel();
+  scheduleSave();
 }
 
 function hdrField(key, label, value, type, hint) {
@@ -625,6 +703,16 @@ function getSummaryHtml(sections) {
   const profileSec = sections.find(s => (s.type || 'custom') === 'profile');
   const text = profileSec?.entries?.[0]?.summary || '';
   return text ? `<div class="cvp-header-summary">${mdLine(text, true)}</div>` : '';
+}
+
+// Photo frame shape (circle/rounded/square) is a CSS class on the frame;
+// zoom is a CSS custom property read by the img inside it, so it applies
+// identically whether the photo lives on #cvPaper (fallback layout) or
+// gets copied per .cv-page (real pagination) — see applyStyleProps.
+function buildPhotoHtml(header) {
+  if (!header.photo || cvData.hiddenFields['photo']) return '';
+  const shape = cvSettings.photoShape || 'circle';
+  return `<div class="cvp-photo-frame cvp-photo-${shape}"><img class="cvp-photo" src="${escapeAttr(header.photo)}" alt=""></div>`;
 }
 
 function buildContactHtml(header) {
@@ -1017,6 +1105,10 @@ const ALL_TEMPLATES = [
   { value:'cobalt-edge',     label:'Cobalt Edge',     accent:'#1a4d8f' },
   { value:'obsidian-edge',   label:'Obsidian Edge',   accent:'#12121a' },
   { value:'neutral-gray',    label:'Neutral Gray',    accent:'#6b7280' },
+  { value:'framed-border',   label:'Framed Border',   accent:'#1a1a1a' },
+  { value:'left-rule',       label:'Left Rule',       accent:'#1a4d8f' },
+  { value:'icon-bullets',    label:'Icon Bullets',    accent:'#1B3A6B' },
+  { value:'photo-card',      label:'Photo Card',      accent:'#2d5a4a' },
 ];
 
 // Templates whose CSS already renders a permanent colored side panel
@@ -1201,12 +1293,17 @@ function renderCustomizePanel() {
     (hasProfile ? custRow('Summary',`<label class="cust-toggle-row"><input type="checkbox" ${cvSettings.summaryInHeader?'checked':''} onchange="toggleBool('summaryInHeader',this.checked)"><span class="cust-toggle-slider"></span><span class="cust-toggle-label">Display summary as part of header</span></label>`) : '') +
     (!hasWork && !hasEdu && !hasProfile ? '<p class="footer-zone-hint">Add a Work Experience, Education, or Professional Summary section to see options here.</p>' : '');
 
+  const photoHtml = cvData.parsed.header.photo
+    ? custRow('Shape', toggleGroup([{label:'○ Circle',value:'circle'},{label:'▢ Rounded',value:'rounded'},{label:'☐ Square',value:'square'}],'photoShape')) +
+      custRow('Zoom', slider('photoZoom',1,2,0.05,'x'))
+    : '<p class="footer-zone-hint">Upload a photo in the Header section of the Edit tab to see design options here.</p>';
+
   customizePanel.innerHTML =
     section('Design Templates', templateHtml) + section('Layout', layoutHtml) +
     section('Font', fontHtml) + section('Font Size', fontSizeHtml) +
     section('Spacing', spacingHtml) + section('Style', styleHtml) +
-    section('Colours', colorHtml) + section('Sections', sectionsHtml) +
-    section('Footer & Links', footerHtml);
+    section('Colours', colorHtml) + section('Photo', photoHtml) +
+    section('Sections', sectionsHtml) + section('Footer & Links', footerHtml);
 
   if (scrollEl) scrollEl.scrollTop = savedTop;
   const newTplScrollEl = document.querySelector('.template-grid-2col');
@@ -1384,7 +1481,7 @@ function setSetting(key, value) {
     else if (SIDEBAR_TEMPLATES.includes(prevTemplate)) cvSettings.columns = '1';
   }
   renderCustomizePanel();
-  if (key==='listStyle'||key==='columns'||key==='dateFormat'||key==='template'||key==='headerPosition'||key==='iconStyle'||key==='workTitleOrder'||key==='eduTitleOrder') { renderEditPanel(); renderRightPanel(); } else applySettings();
+  if (key==='listStyle'||key==='columns'||key==='dateFormat'||key==='template'||key==='headerPosition'||key==='iconStyle'||key==='workTitleOrder'||key==='eduTitleOrder'||key==='photoShape') { renderEditPanel(); renderRightPanel(); } else applySettings();
   scheduleSave();
 }
 function onSlider(key, value, suffix) {
@@ -1455,6 +1552,7 @@ function applySettings() {
     '--cv-bg':            cvSettings.colorBg,
     '--cv-sidebar-bg':    cvSettings.colorSidebarBg,
     '--cv-text':          cvSettings.colorText,
+    '--cv-photo-zoom':    cvSettings.photoZoom,
   };
   const applyStyleProps = (el) => {
     Object.entries(styleProps).forEach(([prop, val]) => el.style.setProperty(prop, val));
@@ -1548,11 +1646,15 @@ function buildCVHTML(parsed) {
   const hf = header;
   const contactHtml = buildContactHtml(hf);
 
-  let headerInner = '';
-  if (!cvData.hiddenFields['name'])     headerInner += `<div class="cvp-name">${mdLine(hf.name||'')}</div>`;
-  if (!cvData.hiddenFields['jobTitle'] && hf.jobTitle) headerInner += `<div class="cvp-jobtitle">${mdLine(hf.jobTitle)}</div>`;
-  if (contactHtml) headerInner += `<div class="cvp-contact">${contactHtml}</div>`;
-  if (cvSettings.summaryInHeader) headerInner += getSummaryHtml(sections);
+  let headerTextInner = '';
+  if (!cvData.hiddenFields['name'])     headerTextInner += `<div class="cvp-name">${mdLine(hf.name||'')}</div>`;
+  if (!cvData.hiddenFields['jobTitle'] && hf.jobTitle) headerTextInner += `<div class="cvp-jobtitle">${mdLine(hf.jobTitle)}</div>`;
+  if (contactHtml) headerTextInner += `<div class="cvp-contact">${contactHtml}</div>`;
+  if (cvSettings.summaryInHeader) headerTextInner += getSummaryHtml(sections);
+  const photoHtml = buildPhotoHtml(hf);
+  const headerInner = photoHtml
+    ? `<div class="cvp-header-row">${photoHtml}<div class="cvp-header-text">${headerTextInner}</div></div>`
+    : headerTextInner;
 
   // Header Position (Left/Right) only applies to the generic two-column
   // layout: sidebar templates already dedicate the header to their own
@@ -1695,12 +1797,17 @@ function buildLayoutUnits(parsed) {
 
   const contactHtml = buildContactHtml(header);
 
-  let headerHtml = '<div class="cvp-header">';
-  if (!cvData.hiddenFields['name'])     headerHtml += `<div class="cvp-name">${mdLine(header.name||'')}</div>`;
-  if (!cvData.hiddenFields['jobTitle'] && header.jobTitle) headerHtml += `<div class="cvp-jobtitle">${mdLine(header.jobTitle)}</div>`;
-  if (contactHtml) headerHtml += `<div class="cvp-contact">${contactHtml}</div>`;
-  if (cvSettings.summaryInHeader) headerHtml += getSummaryHtml(sections);
-  headerHtml += '</div><hr class="cvp-divider">';
+  let headerTextInner = '';
+  if (!cvData.hiddenFields['name'])     headerTextInner += `<div class="cvp-name">${mdLine(header.name||'')}</div>`;
+  if (!cvData.hiddenFields['jobTitle'] && header.jobTitle) headerTextInner += `<div class="cvp-jobtitle">${mdLine(header.jobTitle)}</div>`;
+  if (contactHtml) headerTextInner += `<div class="cvp-contact">${contactHtml}</div>`;
+  if (cvSettings.summaryInHeader) headerTextInner += getSummaryHtml(sections);
+  const photoHtmlUnits = buildPhotoHtml(header);
+  const headerInnerUnits = photoHtmlUnits
+    ? `<div class="cvp-header-row">${photoHtmlUnits}<div class="cvp-header-text">${headerTextInner}</div></div>`
+    : headerTextInner;
+
+  let headerHtml = '<div class="cvp-header">' + headerInnerUnits + '</div><hr class="cvp-divider">';
   units.push({ html: headerHtml, sectionIndex: null, isHeading: false, isHeader: true });
 
   sections.forEach((sec, i) => {
@@ -1898,8 +2005,17 @@ function renderSectionPreview(sec, i) {
   </div>`;
 }
 
+// "Icon Bullets" template swaps the plain bullet/hyphen character for
+// a checkmark glyph — the character is baked directly into rendered
+// text (not a CSS list-style), so this is the one place both callers
+// (structured entries and freeform textarea lines) need to check.
+function getBulletChar() {
+  if (cvSettings.template === 'icon-bullets') return '✓';
+  return cvSettings.listStyle==='hyphen'?'–':'•';
+}
+
 function renderEntryHTML(entry, stype) {
-  const bullet = cvSettings.listStyle==='hyphen'?'–':'•';
+  const bullet = getBulletChar();
   let html = '';
 
   if (stype==='profile') {
@@ -2111,7 +2227,7 @@ function calcDuration(start,end) {
    formatLines (for textarea / custom sections)
    ============================================================ */
 function formatLines(lines) {
-  const bullet = cvSettings.listStyle==='hyphen'?'–':'•';
+  const bullet = getBulletChar();
   const result = [];
   for(let i=0;i<lines.length;i++){
     const t=lines[i].trim();
