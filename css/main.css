@@ -2682,7 +2682,7 @@ input {
 .cv-paper.t-neutral-gray {
   display: grid;
   grid-template-columns: var(--cv-col-width, 36%) 1fr;
-  padding: 0 !important;
+  padding: var(--cv-margin-tb, 44px) 0 0 !important;
   min-height: 297mm;
   overflow: hidden;
 }
