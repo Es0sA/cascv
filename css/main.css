@@ -2606,8 +2606,7 @@ input {
 .cv-paper.t-editorial-rule .cvp-section  { margin-top: 12px !important; }
 
 /* ---- SILVER BANNER ---- */
-.cv-paper.t-silver-banner { padding-top: 0 !important; }
-.cv-paper.t-silver-banner .cvp-header { background: #f2f2f2; margin: calc(var(--cv-margin-tb, 44px) * -1) calc(var(--cv-margin-lr, 50px) * -1) 16px; padding: 28px var(--cv-margin-lr, 50px) 22px; border-bottom: 2px solid #ddd; }
+.cv-paper.t-silver-banner .cvp-header { background: #f2f2f2; margin: 0 calc(var(--cv-margin-lr, 50px) * -1) 16px; padding: 28px var(--cv-margin-lr, 50px) 22px; border-bottom: 2px solid #ddd; }
 .cv-paper.t-silver-banner .cvp-name    { font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: #222; }
 .cv-paper.t-silver-banner .cvp-jobtitle { color: var(--cv-accent); }
 .cv-paper.t-silver-banner .cvp-contact  { color: #666; }
@@ -2624,8 +2623,7 @@ input {
 .cv-paper.t-true-blue .cvp-sec-heading { color: var(--cv-accent) !important; font-weight: 700; }
 
 /* ---- CORPORATE ---- */
-.cv-paper.t-corporate { padding-top: 0 !important; }
-.cv-paper.t-corporate .cvp-header  { background: var(--cv-accent); margin: calc(var(--cv-margin-tb, 44px) * -1) calc(var(--cv-margin-lr, 50px) * -1) 18px; padding: 28px var(--cv-margin-lr, 50px) 22px; }
+.cv-paper.t-corporate .cvp-header  { background: var(--cv-accent); margin: 0 calc(var(--cv-margin-lr, 50px) * -1) 18px; padding: 28px var(--cv-margin-lr, 50px) 22px; }
 .cv-paper.t-corporate .cvp-name    { color: white !important; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; }
 .cv-paper.t-corporate .cvp-jobtitle { color: rgba(255,255,255,0.80) !important; font-style: italic; }
 .cv-paper.t-corporate .cvp-contact  { color: rgba(255,255,255,0.65) !important; }
@@ -2634,8 +2632,7 @@ input {
 .cv-paper.t-corporate .cvp-entry-title { color: var(--cv-accent) !important; }
 
 /* ---- BLUE STEEL ---- */
-.cv-paper.t-blue-steel { padding-top: 0 !important; }
-.cv-paper.t-blue-steel .cvp-header  { background: #2C3E50; margin: calc(var(--cv-margin-tb, 44px) * -1) calc(var(--cv-margin-lr, 50px) * -1) 18px; padding: 28px var(--cv-margin-lr, 50px) 22px; }
+.cv-paper.t-blue-steel .cvp-header  { background: #2C3E50; margin: 0 calc(var(--cv-margin-lr, 50px) * -1) 18px; padding: 28px var(--cv-margin-lr, 50px) 22px; }
 .cv-paper.t-blue-steel .cvp-name    { color: white !important; font-weight: 300 !important; letter-spacing: 0.15em !important; text-transform: uppercase; font-size: calc(var(--cv-name-size) * 1.15) !important; }
 .cv-paper.t-blue-steel .cvp-jobtitle { color: rgba(255,255,255,0.75) !important; letter-spacing: 0.06em; }
 .cv-paper.t-blue-steel .cvp-contact  { color: rgba(255,255,255,0.6) !important; }
@@ -2643,8 +2640,7 @@ input {
 .cv-paper.t-blue-steel .cvp-sec-heading { color: #2C3E50 !important; font-weight: 700; border-bottom: 2px solid #2C3E50 !important; padding-bottom: 2px; }
 
 /* ---- CLEAR BANNER ---- */
-.cv-paper.t-clear-banner { padding-top: 0 !important; }
-.cv-paper.t-clear-banner .cvp-header { background: #fdf6ec; margin: calc(var(--cv-margin-tb, 44px) * -1) calc(var(--cv-margin-lr, 50px) * -1) 16px; padding: 28px var(--cv-margin-lr, 50px) 22px; border-bottom: 1px solid #e8d8b8; }
+.cv-paper.t-clear-banner .cvp-header { background: #fdf6ec; margin: 0 calc(var(--cv-margin-lr, 50px) * -1) 16px; padding: 28px var(--cv-margin-lr, 50px) 22px; border-bottom: 1px solid #e8d8b8; }
 .cv-paper.t-clear-banner .cvp-name    { font-weight: 700; color: #5C3D2E !important; text-transform: uppercase; letter-spacing: 0.04em; }
 .cv-paper.t-clear-banner .cvp-jobtitle { color: #8a6a4a; }
 .cv-paper.t-clear-banner .cvp-contact  { color: #aaa; }
@@ -2659,8 +2655,7 @@ input {
 .cv-paper.t-sage-line .cvp-entry-title { color: #2d5a4a; }
 
 /* ---- HUNTER GREEN ---- */
-.cv-paper.t-hunter-green { padding-top: 0 !important; }
-.cv-paper.t-hunter-green .cvp-header { background: #1B4D3E; margin: calc(var(--cv-margin-tb, 44px) * -1) calc(var(--cv-margin-lr, 50px) * -1) 18px; padding: 28px var(--cv-margin-lr, 50px) 22px; }
+.cv-paper.t-hunter-green .cvp-header { background: #1B4D3E; margin: 0 calc(var(--cv-margin-lr, 50px) * -1) 18px; padding: 28px var(--cv-margin-lr, 50px) 22px; }
 .cv-paper.t-hunter-green .cvp-name    { color: white !important; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; }
 .cv-paper.t-hunter-green .cvp-jobtitle { color: rgba(255,255,255,0.80) !important; font-style: italic; }
 .cv-paper.t-hunter-green .cvp-contact  { color: rgba(255,255,255,0.65) !important; }
