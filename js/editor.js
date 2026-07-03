@@ -1724,8 +1724,11 @@ function updatePageBreaks() {
 let _paginationMultiPageSections = new Set();
 
 function renderRightPanel() {
-  if (isPaginatedLayout()) {
-    const { pageHtmls, multiPageSections } = paginateSingleColumn(cvData.parsed);
+  const mode = getPaginationMode();
+  if (mode === 'single' || mode === 'twocol') {
+    const { pageHtmls, multiPageSections } = mode === 'single'
+      ? paginateSingleColumn(cvData.parsed)
+      : paginateTwoColumn(cvData.parsed);
     _paginationMultiPageSections = multiPageSections;
     cvPaper.innerHTML = pageHtmls.map(h => `<div class="cv-page">${h}</div>`).join('');
   } else {
@@ -1844,8 +1847,21 @@ function buildCVHTML(parsed) {
    into top-level DOM nodes and treated as atomic layout units, rather
    than duplicating any of that per-section-type logic here.
    ============================================================ */
+// Sidebar templates are their own follow-up phase (their colored header
+// panel needs a "continuation" design for page 2+ that doesn't exist
+// yet), so they stay on the flowing path here even though they're
+// technically a two-column layout. Mix stays flowing too (row-based
+// flex pairing, not persistent columns — a different shape entirely).
+function getPaginationMode() {
+  if (SIDEBAR_TEMPLATES.includes(cvSettings.template)) return 'flowing';
+  const colMode = String(cvSettings.columns);
+  if (colMode === '1') return 'single';
+  if (colMode === '2') return 'twocol';
+  return 'flowing';
+}
+
 function isPaginatedLayout() {
-  return String(cvSettings.columns) === '1' && !SIDEBAR_TEMPLATES.includes(cvSettings.template);
+  return getPaginationMode() !== 'flowing';
 }
 
 // Single source of truth for the class string that carries every
@@ -1887,7 +1903,10 @@ function htmlToTopLevelNodes(html) {
 // buildLayoutUnits so future multi-column pagination call sites can
 // reuse it without duplicating this markup (e.g. a sidebar-template's
 // colored panel prepending this same unit on its first page).
-function buildHeaderUnit(header, sections) {
+// variant 'incolumn' matches buildCVHTML's headerInColumn markup (used
+// when Header Position is Left/Right in the two-column layout); default
+// matches the plain top-of-page header + divider used everywhere else.
+function buildHeaderUnit(header, sections, variant) {
   const contactHtml = buildContactHtml(header);
 
   let headerTextInner = '';
@@ -1900,7 +1919,9 @@ function buildHeaderUnit(header, sections) {
     ? `<div class="cvp-header-row">${photoHtmlUnits}<div class="cvp-header-text">${headerTextInner}</div></div>`
     : headerTextInner;
 
-  const headerHtml = '<div class="cvp-header">' + headerInnerUnits + '</div><hr class="cvp-divider">';
+  const headerHtml = variant === 'incolumn'
+    ? `<div class="cvp-header cvp-header-incolumn">${headerInnerUnits}</div>`
+    : '<div class="cvp-header">' + headerInnerUnits + '</div><hr class="cvp-divider">';
   return { html: headerHtml, sectionIndex: null, isHeading: false, isHeader: true };
 }
 
@@ -2077,6 +2098,108 @@ function paginateSingleColumn(parsed) {
   const multiPageSections = new Set(Object.keys(sectionPageCount).filter(k => sectionPageCount[k] > 1).map(Number));
 
   const pageHtmls = pages.map((pageUnits, pageIdx) => unitsToPageHTML(pageUnits, sectionMeta, pageIdx));
+  return { pageHtmls, classString, multiPageSections };
+}
+
+// Same greedy measure-and-split approach as measureAndPaginate, but for
+// one column of a two-column layout: renders each candidate page inside
+// a real `.cv-two-col-wrap > .cv-sidebar-col + .cv-main-col` probe (the
+// same markup buildCVHTML/the composited output use) and measures the
+// TARGET column's own rendered height, not the whole probe. The other
+// column is left empty in the probe — CSS grid's `grid-template-columns`
+// fixes both tracks' widths from the wrap's total width regardless of
+// either side's content, so the target column's width (and therefore
+// its text wrapping/height) is identical to how it'll actually render
+// once both columns' real per-page content is composited in.
+function measureColumnAndPaginate(units, pw, ph, marginTB, classString, sectionMeta, column) {
+  const probe = document.createElement('div');
+  probe.className = classString;
+  probe.style.cssText = 'position:fixed;top:0;left:-99999px;visibility:hidden;box-shadow:none;';
+  probe.style.width = probe.style.maxWidth = `${pw}mm`;
+  probe.style.minWidth = probe.style.minHeight = '0';
+  probe.style.height = 'auto';
+  Array.from(cvPaper.style).forEach(prop => {
+    if (prop.startsWith('--')) probe.style.setProperty(prop, cvPaper.style.getPropertyValue(prop));
+  });
+  probe.style.fontFamily    = cvPaper.style.fontFamily;
+  probe.style.lineHeight    = cvPaper.style.lineHeight;
+  probe.style.letterSpacing = cvPaper.style.letterSpacing;
+  document.body.appendChild(probe);
+
+  const pxPerMm = probe.clientWidth / pw;
+  const usablePageHeightPx = (ph - marginTB * 2) * pxPerMm;
+  const colClass      = column === 'sidebar' ? 'cv-sidebar-col' : 'cv-main-col';
+  const otherColClass = column === 'sidebar' ? 'cv-main-col'    : 'cv-sidebar-col';
+
+  const pages = [[]];
+  units.forEach(u => {
+    const pageIdx = pages.length - 1;
+    const candidate = pages[pageIdx].concat([u]);
+    probe.innerHTML = `<div class="cv-two-col-wrap"><div class="${colClass}">${unitsToPageHTML(candidate, sectionMeta, pageIdx)}</div><div class="${otherColClass}"></div></div>`;
+    const h = probe.querySelector('.' + colClass).getBoundingClientRect().height;
+    if (h > usablePageHeightPx && pages[pageIdx].length > 0) {
+      pages.push([u]);
+    } else {
+      pages[pageIdx] = candidate;
+    }
+  });
+  document.body.removeChild(probe);
+  return pages;
+}
+
+// Two-column analog of paginateSingleColumn: the sidebar-assigned and
+// main-assigned sections are two independent content streams that can
+// each overflow (or run out) on their own, so each is paginated
+// separately via measureColumnAndPaginate, then composited per physical
+// page into the same .cv-two-col-wrap markup buildCVHTML already builds
+// for a single flowing page. Header Position (Left/Right) prepends the
+// header as an ordinary unit to whichever stream owns it, so it's
+// measured like any other content; Top position renders it once, full
+// width, above the columns on page 1 only (matches the existing
+// flowing-layout behavior).
+function paginateTwoColumn(parsed) {
+  const { header, sections } = parsed;
+  const isLetter = cvSettings.paperFormat === 'Letter';
+  const [pw, ph] = isLetter ? [215.9, 279.4] : [210, 297];
+  const classString = computeCvPaperClassString(true);
+
+  const headerPos = cvSettings.headerPosition || 'top';
+  const headerInColumn = headerPos === 'left' || headerPos === 'right';
+
+  const sidebarUnits = [];
+  const mainUnits = [];
+  const sectionMeta = [];
+  if (headerInColumn) {
+    const headerUnit = buildHeaderUnit(header, sections, 'incolumn');
+    (headerPos === 'left' ? sidebarUnits : mainUnits).push(headerUnit);
+  }
+  sections.forEach((sec, i) => {
+    if ((sec.type || 'custom') === 'profile' && cvSettings.summaryInHeader) return;
+    const target = cvData.columnAssign[i] === 'sidebar' ? sidebarUnits : mainUnits;
+    buildSectionUnits(sec, i, target, sectionMeta);
+  });
+
+  const sidebarPages = measureColumnAndPaginate(sidebarUnits, pw, ph, cvSettings.marginTB, classString, sectionMeta, 'sidebar');
+  const mainPages    = measureColumnAndPaginate(mainUnits,    pw, ph, cvSettings.marginTB, classString, sectionMeta, 'main');
+
+  const sectionPageCount = {};
+  [...sidebarPages, ...mainPages].forEach(pageUnits => {
+    const seen = new Set(pageUnits.map(u => u.sectionIndex).filter(idx => idx !== null));
+    seen.forEach(idx => { sectionPageCount[idx] = (sectionPageCount[idx] || 0) + 1; });
+  });
+  const multiPageSections = new Set(Object.keys(sectionPageCount).filter(k => sectionPageCount[k] > 1).map(Number));
+
+  const topHeaderHtml = headerInColumn ? '' : buildHeaderUnit(header, sections).html;
+  const pageCount = Math.max(sidebarPages.length, mainPages.length, 1);
+  const pageHtmls = [];
+  for (let k = 0; k < pageCount; k++) {
+    const sidebarHtml = sidebarPages[k] ? unitsToPageHTML(sidebarPages[k], sectionMeta, k) : '';
+    const mainHtml    = mainPages[k]    ? unitsToPageHTML(mainPages[k],    sectionMeta, k) : '';
+    let html = (k === 0 && topHeaderHtml) ? topHeaderHtml : '';
+    html += `<div class="cv-two-col-wrap"><div class="cv-sidebar-col">${sidebarHtml}</div><div class="cv-main-col">${mainHtml}</div></div>`;
+    pageHtmls.push(html);
+  }
+
   return { pageHtmls, classString, multiPageSections };
 }
 
