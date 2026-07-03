@@ -3,6 +3,24 @@
 Log of changes made to this repo by Claude Code sessions. Newest first.
 Commit hashes refer to `main`.
 
+## 2026-07-03 (final)
+
+- Fixed the preview pane not resetting scroll position on template/
+  columns/header-position changes (PR #6, not yet merged). Cas reported
+  (from using the live editor directly, not automated testing) that one
+  template appeared to have no space above its header while another
+  did. Root cause: `setSetting()` in `js/editor.js` never reset the
+  preview pane's scroll position after a layout-changing setting.
+  Switching from a taller/multi-page template to a shorter one left the
+  scroll wherever it was, which can leave the view scrolled past the
+  new template's actual top space, making it look missing when it
+  wasn't. Now resets `#editorRight`'s scrollTop to 0 specifically on
+  template/columns/headerPosition changes (not on every render, so
+  typing/editing while scrolled isn't disrupted). Verified with
+  Playwright: scrolled down on a 5-page template, switched to a single-
+  page template, confirmed scroll now resets to 0. No console errors.
+  File changed: `js/editor.js`.
+
 ## 2026-07-03 (latest)
 
 - Re-applied the banner-header top-spacing fix (un-reverted) and
