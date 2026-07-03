@@ -3,6 +3,27 @@
 Log of changes made to this repo by Claude Code sessions. Newest first.
 Commit hashes refer to `main`.
 
+## 2026-07-03 (latest)
+
+- Re-applied the banner-header top-spacing fix (un-reverted) and
+  extended it to the 5 sidebar templates too (PR #6, not yet merged).
+  Cas clarified the gap he'd flagged for removal was just incidental
+  browser/editor canvas spacing around the preview pane, not real page
+  padding; what he actually wanted was the earlier fix, applied
+  everywhere. Sidebar templates (Atlantic Blue, Corporate Panel, Cobalt
+  Edge, Obsidian Edge, Neutral Gray) had `padding: 0 !important` on
+  `.cv-paper` so their colored panel touched every edge; changed to
+  `padding-top: var(--cv-margin-tb) 0 0` so they get the same top space
+  as every other template, while the panel and main column still span
+  full width edge-to-edge. Updated `measureSidebarPanelAndPaginate()`/
+  `measureSidebarMainAndPaginate()` in `js/editor.js` to subtract
+  marginTB from the usable page height, since it's no longer zero.
+  Verified with Playwright across all 28 templates (all now show
+  45-53px of embedded top space), a 5-page multi-page sidebar-template
+  test (every page keeps the same top gap), and PDF export (page count
+  matched, no console errors). Files changed: `css/main.css`,
+  `js/editor.js`.
+
 ## 2026-07-03 (even later)
 
 - Reverted the banner-style header top-spacing change below (PR #6, not
