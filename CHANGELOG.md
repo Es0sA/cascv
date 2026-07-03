@@ -5,6 +5,27 @@ Commit hashes refer to `main`.
 
 ## 2026-07-03 (later)
 
+- Phase 2 of extending real pagination to two-column layouts and the 5
+  sidebar templates (PR #3, stacked on PR #2, not yet merged): added
+  `paginateTwoColumn()` and `measureColumnAndPaginate()` in
+  `js/editor.js`, so generic two-column CVs (Columns: Two, non-sidebar
+  templates) now split into real `.cv-page` elements the same way
+  single-column pagination already does, instead of the old flowing +
+  guessed-overlay behavior. The sidebar-assigned and main-assigned
+  sections paginate as two independent streams (each can overflow or run
+  out independently), then get composited per physical page. Replaced
+  the `isPaginatedLayout()` boolean gate with `getPaginationMode()`
+  returning `'single' | 'twocol' | 'flowing'`; the 5 sidebar templates and
+  Mix layout still fall under `'flowing'`, deferred to Phase 3 and out of
+  scope here. `exportPaginatedPdf()` needed zero changes since it just
+  iterates whatever `.cv-page` elements exist. Verified with Playwright
+  (in-memory test content, never saved to Firestore): main-column
+  overflow across 7 pages, sidebar-overflow-while-main-short, Header
+  Position Left rendering inside the sidebar column, PDF export page
+  count matching the live preview exactly with no phantom trailing page,
+  and regression-checked that single-column and sidebar templates are
+  unaffected. Files changed: `js/editor.js`.
+
 - Phase 1 of extending real pagination to two-column layouts and the 5
   sidebar templates (PR #2, not yet merged): refactored
   `buildLayoutUnits()` in `js/editor.js`, extracting `buildHeaderUnit()`
