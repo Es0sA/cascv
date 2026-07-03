@@ -527,22 +527,39 @@ function hdrField(key, label, value, type, hint) {
     </div>`;
 }
 
-/* ---- Reorderable contact fields (Email / Phone / Location / LinkedIn) ---- */
+/* ---- Reorderable contact fields (Email / Phone / Location / LinkedIn +
+   optional add-on detail/social fields). Only keys present in
+   cvData.headerFieldOrder are ever rendered/shown — the catalog below
+   is just the full menu of what CAN be added via "+ Add Field". ---- */
 const CONTACT_FIELD_META = {
-  email:    { label: 'Email',       type: 'email' },
-  phone:    { label: 'Phone',       type: 'text'  },
-  location: { label: 'Location',    type: 'text'  },
-  linkedin: { label: 'LinkedIn URL',type: 'text'  },
+  email:          { label: 'Email',            type: 'email' },
+  phone:          { label: 'Phone',             type: 'text'  },
+  location:       { label: 'Location',          type: 'text'  },
+  linkedin:       { label: 'LinkedIn URL',      type: 'text'  },
+  website:        { label: 'Website',           type: 'text'  },
+  portfolio:      { label: 'Portfolio URL',     type: 'text'  },
+  github:         { label: 'GitHub',            type: 'text'  },
+  twitter:        { label: 'Twitter / X',       type: 'text'  },
+  nationality:    { label: 'Nationality',       type: 'text'  },
+  dob:            { label: 'Date of Birth',     type: 'text'  },
+  visaStatus:     { label: 'Visa Status',       type: 'text'  },
+  availability:   { label: 'Availability',      type: 'text'  },
+  drivingLicense: { label: 'Driving License',   type: 'text'  },
+  maritalStatus:  { label: 'Marital Status',    type: 'text'  },
 };
+// Always shown, never removable (only hideable) — the fields nearly
+// every CV needs. Everything else in the catalog above is opt-in.
+const CORE_HEADER_FIELDS = ['email', 'phone', 'location'];
 
 function renderContactFields(header) {
   const order = cvData.headerFieldOrder;
-  return order.map((key, idx) => {
-    const meta   = CONTACT_FIELD_META[key];
+  const fieldsHtml = order.map((key, idx) => {
+    const meta   = CONTACT_FIELD_META[key] || { label: key, type: 'text' };
     const hidden = cvData.hiddenFields[key];
     const value  = header[key] || '';
     const isFirst = idx === 0;
     const isLast  = idx === order.length - 1;
+    const removable = !CORE_HEADER_FIELDS.includes(key);
     return `
     <div class="acc-field-group ${hidden ? 'field-hidden' : ''}">
       <div class="acc-label-row">
@@ -556,12 +573,42 @@ function renderContactFields(header) {
               : `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`
             }
           </button>
+          ${removable ? `<button class="field-remove-btn" onclick="removeHeaderField('${key}')" type="button" title="Remove field">✕</button>` : ''}
         </div>
       </div>
       <input class="acc-input" type="${meta.type}" id="field-${key}" value="${escapeAttr(value)}"
              oninput="updateHeader('${key}',this.value)">
     </div>`;
   }).join('');
+
+  const available = Object.keys(CONTACT_FIELD_META).filter(k => !order.includes(k));
+  const addFieldHtml = available.length ? `
+    <div class="acc-field-group">
+      <select class="acc-input add-field-select" onchange="if(this.value){addHeaderField(this.value);this.value='';}">
+        <option value="">+ Add Field…</option>
+        ${available.map(k => `<option value="${k}">${CONTACT_FIELD_META[k].label}</option>`).join('')}
+      </select>
+    </div>` : '';
+
+  return fieldsHtml + addFieldHtml;
+}
+
+function addHeaderField(key) {
+  if (!CONTACT_FIELD_META[key] || cvData.headerFieldOrder.includes(key)) return;
+  cvData.headerFieldOrder.push(key);
+  renderEditPanel();
+  renderRightPanel();
+  scheduleSave();
+}
+
+function removeHeaderField(key) {
+  if (CORE_HEADER_FIELDS.includes(key)) return;
+  cvData.headerFieldOrder = cvData.headerFieldOrder.filter(k => k !== key);
+  delete cvData.parsed.header[key];
+  delete cvData.hiddenFields[key];
+  renderEditPanel();
+  renderRightPanel();
+  scheduleSave();
 }
 
 function moveHeaderField(key, direction) {

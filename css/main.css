@@ -3653,6 +3653,28 @@ body.panel-resizing iframe {
 .field-reorder-btn:hover:not(:disabled) { color: var(--gold); background: var(--gold-muted); }
 .field-reorder-btn:disabled { opacity: 0.25; cursor: default; }
 
+.field-remove-btn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 0.8rem;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: all 120ms;
+  padding: 0;
+}
+.field-remove-btn:hover { color: #e05252; background: rgba(224, 82, 82, 0.12); }
+
+.add-field-select {
+  cursor: pointer;
+  color: var(--text-secondary);
+}
+
 /* ---- Clear date button ---- */
 .clear-field-btn {
   flex-shrink: 0;
