@@ -3,6 +3,31 @@
 Log of changes made to this repo by Claude Code sessions. Newest first.
 Commit hashes refer to `main`.
 
+## 2026-07-03 (post header-spacing cleanup)
+
+- Fixed the preview pane not resetting scroll position on template/
+  columns/header-position changes. Root cause: `setSetting()` in
+  `js/editor.js` never reset the preview pane's scroll position after a
+  layout-changing setting, so switching from a taller/multi-page
+  template to a shorter one could leave the view scrolled past the new
+  template's actual top, making it look like space was missing when it
+  wasn't. This fix was originally written and verified during the
+  header top-spacing investigation (see below), but that entire branch
+  (PR #6) was dropped since the padding changes it also contained never
+  converged on something worth keeping. This entry re-applies just the
+  scroll-reset fix on a clean branch off `main`, since the old branch
+  and its commits no longer exist. File changed: `js/editor.js`.
+- Fixed `README.md`'s Project Status checklist still showing "Real
+  pagination for two-column layouts and the 5 sidebar templates" as
+  unchecked, even though that work shipped and merged to `main` in
+  Phases 1-3 (PRs #2, #5, #4) prior to this entry. File changed:
+  `README.md`.
+- Note: the header top-spacing back-and-forth itself (multiple
+  attempts to add/remove/re-add embedded top padding above banner and
+  sidebar template headers) ended with PR #6 closed unmerged and its
+  branch deleted. `css/main.css` on `main` is unaffected; templates
+  remain in their original flush-top design.
+
 ## 2026-07-03 (later)
 
 - Phase 3 (final phase) of extending real pagination to two-column

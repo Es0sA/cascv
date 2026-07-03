@@ -1580,7 +1580,19 @@ function setSetting(key, value) {
     else if (SIDEBAR_TEMPLATES.includes(prevTemplate)) cvSettings.columns = '1';
   }
   renderCustomizePanel();
-  if (key==='listStyle'||key==='columns'||key==='dateFormat'||key==='template'||key==='headerPosition'||key==='iconStyle'||key==='workTitleOrder'||key==='eduTitleOrder'||key==='photoShape') { renderEditPanel(); renderRightPanel(); } else applySettings();
+  if (key==='listStyle'||key==='columns'||key==='dateFormat'||key==='template'||key==='headerPosition'||key==='iconStyle'||key==='workTitleOrder'||key==='eduTitleOrder'||key==='photoShape') {
+    renderEditPanel(); renderRightPanel();
+    // Template/columns/headerPosition can drastically change page count
+    // and height. Without resetting scroll, staying scrolled to the same
+    // pixel position after switching (e.g. from a taller multi-page
+    // template to a shorter one) can leave the view past the new
+    // template's top, making it look like the top space is missing when
+    // it's simply off-screen above the current scroll position.
+    if (key==='template'||key==='columns'||key==='headerPosition') {
+      const scrollEl = document.getElementById('editorRight');
+      if (scrollEl) scrollEl.scrollTop = 0;
+    }
+  } else applySettings();
   scheduleSave();
 }
 function onSlider(key, value, suffix) {
