@@ -3,6 +3,21 @@
 Log of changes made to this repo by Claude Code sessions. Newest first.
 Commit hashes refer to `main`.
 
+## 2026-07-03 (even later)
+
+- Restored top space above banner-style template headers (PR #6, not yet
+  merged). Corporate, Blue Steel, Hunter Green, Silver Banner, and Clear
+  Banner each cancelled the paper's top padding (`padding-top: 0` plus a
+  negative top margin on `.cvp-header`) so the header banner touched the
+  very top edge with no white space, unlike every other template. Cas
+  flagged this with side-by-side photos and wants space above on all of
+  them. Removed the top-padding cancellation on all 5 while keeping the
+  left/right cancellation, so the banner still spans full width edge-to-
+  edge with the paper's normal top padding restored above it. Verified
+  with Playwright across all 5 templates (each now has the same ~49px
+  top gap other templates get from the paper's own padding) plus a PDF
+  export, no console errors. File changed: `css/main.css`.
+
 ## 2026-07-03 (later)
 
 - Phase 3 (final phase) of extending real pagination to two-column
