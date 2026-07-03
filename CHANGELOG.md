@@ -3,6 +3,21 @@
 Log of changes made to this repo by Claude Code sessions. Newest first.
 Commit hashes refer to `main`.
 
+## 2026-07-03 (truly final)
+
+- Settled the header top-spacing question with an annotated screenshot
+  from Cas (PR #6, not yet merged): the header/banner/colored panel
+  should sit flush against the actual top edge of the page, with no
+  embedded padding above it inside the page. The separate gray space
+  above the page in the editor's own preview pane (outside the page,
+  never controlled by this CSS) stays as it always was. Reverted the 5
+  banner templates and 5 sidebar templates back to their original
+  flush-top design; `css/main.css` now nets to zero change against
+  `main`. The only real, kept change from this whole back-and-forth is
+  the scroll-position-reset fix logged below, which is a separate, real
+  bug unrelated to padding. Verified with Playwright and PDF export, no
+  console errors. Files changed: `css/main.css`, `js/editor.js`.
+
 ## 2026-07-03 (final)
 
 - Fixed the preview pane not resetting scroll position on template/
