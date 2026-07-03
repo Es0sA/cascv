@@ -5,6 +5,37 @@ Commit hashes refer to `main`.
 
 ## 2026-07-03 (later)
 
+- Phase 3 (final phase) of extending real pagination to two-column
+  layouts and the 5 sidebar templates (PR #4, stacked on PR #3/#2, not
+  yet merged): added `paginateSidebarTemplate()`,
+  `measureSidebarPanelAndPaginate()`, and `measureSidebarMainAndPaginate()`
+  in `js/editor.js`, so the 5 sidebar templates (Atlantic Blue, Corporate
+  Panel, Cobalt Edge, Obsidian Edge, Neutral Gray) now split into real
+  `.cv-page` elements instead of the old flowing + guessed-overlay
+  behavior, matching what Phases 1-2 already did for single-column and
+  generic two-column layouts. These templates don't use
+  `.cv-two-col-wrap`: the colored panel IS `.cvp-header` itself, so the
+  panel (header + sidebar-assigned sections) and the main column
+  paginate as two independent streams, then get composited per page.
+  New: the panel's colored background continuing onto page 2+ shows a
+  small persistent name strip instead of repeating the full header, so a
+  printed page 2 isn't a bare color block with no CV owner attached.
+  `getPaginationMode()` now returns `'sidebar'` for these templates
+  instead of `'flowing'`; every other pagination call site needed zero
+  changes. CSS: added a scoped `.cv-page[template]` override so a
+  mismeasured page fails safe (renders slightly tall) instead of
+  silently clipping content via the templates' original `overflow:
+  hidden` (which assumed exactly one page). Verified with Playwright
+  (in-memory test content, never saved to Firestore) across all 5
+  templates: panel fills the page on a short CV, continuation strip and
+  "(cont'd)" headings render correctly across 4 pages, panel keeps
+  stretching to match main-column height even when sidebar content is
+  short, PDF export page count matched the live preview exactly with no
+  phantom trailing page, no console errors, and no regression to
+  single-column mode. This completes the real-pagination extension;
+  Mix layout stays on the legacy flowing path (unchanged, out of scope
+  per the original plan). Files changed: `js/editor.js`, `css/main.css`.
+
 - Phase 2 of extending real pagination to two-column layouts and the 5
   sidebar templates (PR #3, stacked on PR #2, not yet merged): added
   `paginateTwoColumn()` and `measureColumnAndPaginate()` in
