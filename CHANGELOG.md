@@ -3,6 +3,20 @@
 Log of changes made to this repo by Claude Code sessions. Newest first.
 Commit hashes refer to `main`.
 
+## 2026-07-03 (later)
+
+- Phase 1 of extending real pagination to two-column layouts and the 5
+  sidebar templates (PR #2, not yet merged): refactored
+  `buildLayoutUnits()` in `js/editor.js`, extracting `buildHeaderUnit()`
+  and `buildSectionUnits()` so a later phase can build partial unit
+  streams (e.g. only sidebar-assigned sections) without duplicating the
+  per-section-type flattening logic. Pure refactor, no behavior change to
+  existing single-column pagination; verified with Playwright against two
+  real single-column CVs (live preview + PDF export, no console errors).
+  Full plan for phases 2 (generic two-column) and 3 (sidebar templates)
+  saved separately; ask Claude Code to recall it when ready to continue.
+  Files changed: `js/editor.js`.
+
 ## 2026-07-03
 
 - Custom Section restructure: added a per-section icon picker (24 icon

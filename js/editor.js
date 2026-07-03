@@ -1882,18 +1882,12 @@ function htmlToTopLevelNodes(html) {
   return Array.from(tmp.children);
 }
 
-// Flat ordered array of atomic layout units for single-column
-// pagination: the header once (page-1 only), then per section a
-// heading unit followed by its entries' row1/row2/bullet/line units
-// (each individually placeable — a section's entries, and even a
-// single entry's bullets, can end up split across a page boundary,
-// matching the exact same atomic granularity already proven safe by
-// the PDF export's pagebreak-avoid list).
-function buildLayoutUnits(parsed) {
-  const { header, sections } = parsed;
-  const units = [];
-  const sectionMeta = [];
-
+// Builds the header unit alone (name/jobTitle/contact/photo, plus the
+// inline summary if summaryInHeader is on). Extracted out of
+// buildLayoutUnits so future multi-column pagination call sites can
+// reuse it without duplicating this markup (e.g. a sidebar-template's
+// colored panel prepending this same unit on its first page).
+function buildHeaderUnit(header, sections) {
   const contactHtml = buildContactHtml(header);
 
   let headerTextInner = '';
@@ -1906,46 +1900,70 @@ function buildLayoutUnits(parsed) {
     ? `<div class="cvp-header-row">${photoHtmlUnits}<div class="cvp-header-text">${headerTextInner}</div></div>`
     : headerTextInner;
 
-  let headerHtml = '<div class="cvp-header">' + headerInnerUnits + '</div><hr class="cvp-divider">';
-  units.push({ html: headerHtml, sectionIndex: null, isHeading: false, isHeader: true });
+  const headerHtml = '<div class="cvp-header">' + headerInnerUnits + '</div><hr class="cvp-divider">';
+  return { html: headerHtml, sectionIndex: null, isHeading: false, isHeader: true };
+}
+
+// Builds one section's heading + body units and pushes them onto
+// `units` (mutates `sectionMeta[i]` too). Extracted out of
+// buildLayoutUnits so future multi-column pagination call sites can
+// build a units array for an arbitrary subset of sections (e.g. only
+// the sections assigned to a sidebar column) without duplicating this
+// per-section-type flattening logic.
+function buildSectionUnits(sec, i, units, sectionMeta) {
+  const name = cvData.sectionNames[i] !== undefined ? cvData.sectionNames[i] : sec.title;
+  sectionMeta[i] = { name };
+  units.push({ html: `<div class="cvp-sec-heading">${escapeHtml(name)}</div>`, sectionIndex: i, isHeading: true });
+
+  const def   = getSectionDef(sec, i);
+  const renderStype = getEffectiveStype(sec, i);
+  if (def && !def.useTextarea && sec.entries && sec.entries.length) {
+    // Process per-entry (not the whole section's HTML flattened
+    // together) so a job title's row1 and its company/location row2
+    // can be paired into ONE atomic unit — splitting them across a
+    // page boundary would show a title with no company on one page
+    // and a company with no title on the next, which is worse than
+    // just keeping the pair together. Bullets/lines still flow
+    // independently, same as before.
+    sec.entries.filter(e=>e.visible!==false).forEach(entry => {
+      const nodes = htmlToTopLevelNodes(renderEntryHTML(entry, renderStype));
+      let j = 0;
+      while (j < nodes.length) {
+        const node = nodes[j];
+        const next = nodes[j+1];
+        if ((node.className||'').includes('cvp-entry-row1') && next && (next.className||'').includes('cvp-entry-row2')) {
+          units.push({ html: node.outerHTML + next.outerHTML, sectionIndex: i, isHeading: false });
+          j += 2;
+        } else {
+          units.push({ html: node.outerHTML, sectionIndex: i, isHeading: false });
+          j += 1;
+        }
+      }
+    });
+  } else {
+    htmlToTopLevelNodes(formatLines(sec.lines || [])).forEach(node => {
+      units.push({ html: node.outerHTML, sectionIndex: i, isHeading: false });
+    });
+  }
+}
+
+// Flat ordered array of atomic layout units for single-column
+// pagination: the header once (page-1 only), then per section a
+// heading unit followed by its entries' row1/row2/bullet/line units
+// (each individually placeable — a section's entries, and even a
+// single entry's bullets, can end up split across a page boundary,
+// matching the exact same atomic granularity already proven safe by
+// the PDF export's pagebreak-avoid list).
+function buildLayoutUnits(parsed) {
+  const { header, sections } = parsed;
+  const units = [];
+  const sectionMeta = [];
+
+  units.push(buildHeaderUnit(header, sections));
 
   sections.forEach((sec, i) => {
     if ((sec.type || 'custom') === 'profile' && cvSettings.summaryInHeader) return;
-    const name = cvData.sectionNames[i] !== undefined ? cvData.sectionNames[i] : sec.title;
-    sectionMeta[i] = { name };
-    units.push({ html: `<div class="cvp-sec-heading">${escapeHtml(name)}</div>`, sectionIndex: i, isHeading: true });
-
-    const stype = sec.type || 'custom';
-    const def   = getSectionDef(sec, i);
-    const renderStype = getEffectiveStype(sec, i);
-    if (def && !def.useTextarea && sec.entries && sec.entries.length) {
-      // Process per-entry (not the whole section's HTML flattened
-      // together) so a job title's row1 and its company/location row2
-      // can be paired into ONE atomic unit — splitting them across a
-      // page boundary would show a title with no company on one page
-      // and a company with no title on the next, which is worse than
-      // just keeping the pair together. Bullets/lines still flow
-      // independently, same as before.
-      sec.entries.filter(e=>e.visible!==false).forEach(entry => {
-        const nodes = htmlToTopLevelNodes(renderEntryHTML(entry, renderStype));
-        let j = 0;
-        while (j < nodes.length) {
-          const node = nodes[j];
-          const next = nodes[j+1];
-          if ((node.className||'').includes('cvp-entry-row1') && next && (next.className||'').includes('cvp-entry-row2')) {
-            units.push({ html: node.outerHTML + next.outerHTML, sectionIndex: i, isHeading: false });
-            j += 2;
-          } else {
-            units.push({ html: node.outerHTML, sectionIndex: i, isHeading: false });
-            j += 1;
-          }
-        }
-      });
-    } else {
-      htmlToTopLevelNodes(formatLines(sec.lines || [])).forEach(node => {
-        units.push({ html: node.outerHTML, sectionIndex: i, isHeading: false });
-      });
-    }
+    buildSectionUnits(sec, i, units, sectionMeta);
   });
 
   return { units, sectionMeta };
