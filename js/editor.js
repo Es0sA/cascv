@@ -167,6 +167,7 @@ const DEFAULTS = {
   accentTitle:false, accentHeadings:true, accentLine:true, accentDates:false,
   accentSubtitle:false, showPageNums:false, linkStyle:'underline',
   footerCustom:false, footerLeft:'', footerCenter:'', footerRight:'',
+  iconStyle:'none', accentIcons:false, accentLinkIcons:false,
 };
 
 // Real values get merged in with cvData.settings once initEditor()
@@ -532,20 +533,20 @@ function hdrField(key, label, value, type, hint) {
    cvData.headerFieldOrder are ever rendered/shown — the catalog below
    is just the full menu of what CAN be added via "+ Add Field". ---- */
 const CONTACT_FIELD_META = {
-  email:          { label: 'Email',            type: 'email' },
-  phone:          { label: 'Phone',             type: 'text'  },
-  location:       { label: 'Location',          type: 'text'  },
-  linkedin:       { label: 'LinkedIn URL',      type: 'text'  },
-  website:        { label: 'Website',           type: 'text'  },
-  portfolio:      { label: 'Portfolio URL',     type: 'text'  },
-  github:         { label: 'GitHub',            type: 'text'  },
-  twitter:        { label: 'Twitter / X',       type: 'text'  },
-  nationality:    { label: 'Nationality',       type: 'text'  },
-  dob:            { label: 'Date of Birth',     type: 'text'  },
-  visaStatus:     { label: 'Visa Status',       type: 'text'  },
-  availability:   { label: 'Availability',      type: 'text'  },
-  drivingLicense: { label: 'Driving License',   type: 'text'  },
-  maritalStatus:  { label: 'Marital Status',    type: 'text'  },
+  email:          { label: 'Email',            type: 'email', icon: '✉' },
+  phone:          { label: 'Phone',             type: 'text',  icon: '☎' },
+  location:       { label: 'Location',          type: 'text',  icon: '📍' },
+  linkedin:       { label: 'LinkedIn URL',      type: 'text',  icon: 'in' },
+  website:        { label: 'Website',           type: 'text',  icon: '🌐' },
+  portfolio:      { label: 'Portfolio URL',     type: 'text',  icon: '🎨' },
+  github:         { label: 'GitHub',            type: 'text',  icon: '⌥' },
+  twitter:        { label: 'Twitter / X',       type: 'text',  icon: '𝕏' },
+  nationality:    { label: 'Nationality',       type: 'text',  icon: '🌍' },
+  dob:            { label: 'Date of Birth',     type: 'text',  icon: '🎂' },
+  visaStatus:     { label: 'Visa Status',       type: 'text',  icon: '🛂' },
+  availability:   { label: 'Availability',      type: 'text',  icon: '📅' },
+  drivingLicense: { label: 'Driving License',   type: 'text',  icon: '🚗' },
+  maritalStatus:  { label: 'Marital Status',    type: 'text',  icon: '💍' },
 };
 // Always shown, never removable (only hideable) — the fields nearly
 // every CV needs. Everything else in the catalog above is opt-in.
@@ -609,6 +610,27 @@ function removeHeaderField(key) {
   renderEditPanel();
   renderRightPanel();
   scheduleSave();
+}
+
+// Builds the .cvp-contact inner HTML: plain pipe-joined text when
+// Icon Style is "none" (the long-standing default, so existing CVs
+// don't change appearance unless the user opts in), or an icon+text
+// span per field otherwise. Shared by buildCVHTML (fallback layout)
+// and buildLayoutUnits (real-pagination layout) so both stay in sync.
+function buildContactHtml(header) {
+  const order = cvData.headerFieldOrder.filter(key => !cvData.hiddenFields[key] && header[key]);
+  if (!order.length) {
+    if (header.contact && !cvData.hiddenFields['contact']) return escapeHtml(header.contact);
+    return '';
+  }
+  if (cvSettings.iconStyle === 'none') {
+    return escapeHtml(order.map(key => header[key]).join(' | '));
+  }
+  return order.map(key => {
+    const meta = CONTACT_FIELD_META[key];
+    const icon = (meta && meta.icon) || '•';
+    return `<span class="cvp-contact-item"><span class="cvp-contact-icon">${escapeHtml(icon)}</span><span class="cvp-contact-text">${escapeHtml(header[key])}</span></span>`;
+  }).join('');
 }
 
 function moveHeaderField(key, direction) {
@@ -1075,6 +1097,7 @@ function renderCustomizePanel() {
     (isTwoCol ? custRow('Sidebar Width', slider('twoColWidth',20,50,1,'%')) : '') +
     (isTwoCol && !isSidebarTemplateNow ? custRow('Header Position', toggleGroup([{label:'Top',value:'top'},{label:'Left',value:'left'},{label:'Right',value:'right'}],'headerPosition')) : '') +
     custRow('Header',       toggleGroup([{label:'← Left',value:'left'},{label:'↔ Center',value:'center'}],'headerAlign')) +
+    custRow('Icon Style',   toggleGroup([{label:'None',value:'none'},{label:'Plain',value:'plain'},{label:'● Filled',value:'circle-filled'},{label:'○ Outline',value:'circle-outline'}],'iconStyle')) +
     custRow('Subtitle',     toggleGroup([{label:'Next Line',value:'next'},{label:'Same Line',value:'same'}],'subtitleLine')) +
     custRow('Section Layout', renderSectionLayoutPanel(colMode));
 
@@ -1132,7 +1155,7 @@ function renderCustomizePanel() {
   });
   colorGrid+=`</div><div class="color-custom-row"><span class="color-custom-label">Custom</span><input type="color" class="color-custom-swatch" id="colorPickerSwatch" value="${ac}" oninput="onColorPickerInput(this.value)"><input type="text" class="color-custom-input" id="colorHexInput" value="${ac}" maxlength="7" placeholder="#1a1a1a" oninput="onColorHexInput(this.value)"></div>`;
 
-  const accentTargets=[{key:'accentName',label:'Name'},{key:'accentTitle',label:'Job Title'},{key:'accentHeadings',label:'Section Headings'},{key:'accentLine',label:'Heading Line'},{key:'accentDates',label:'Dates'},{key:'accentSubtitle',label:'Entry Subtitle'}];
+  const accentTargets=[{key:'accentName',label:'Name'},{key:'accentTitle',label:'Job Title'},{key:'accentHeadings',label:'Section Headings'},{key:'accentLine',label:'Heading Line'},{key:'accentDates',label:'Dates'},{key:'accentSubtitle',label:'Entry Subtitle'},{key:'accentIcons',label:'Header Icons'},{key:'accentLinkIcons',label:'Link Icons'}];
   let targetsHtml=`<div class="accent-targets"><div class="accent-targets-label">Apply Accent Colour To</div>`;
   accentTargets.forEach(t=>{
     const checked=cvSettings[t.key]?'checked':'';
@@ -1341,7 +1364,7 @@ function setSetting(key, value) {
     else if (SIDEBAR_TEMPLATES.includes(prevTemplate)) cvSettings.columns = '1';
   }
   renderCustomizePanel();
-  if (key==='listStyle'||key==='columns'||key==='dateFormat'||key==='template'||key==='headerPosition') { renderEditPanel(); renderRightPanel(); } else applySettings();
+  if (key==='listStyle'||key==='columns'||key==='dateFormat'||key==='template'||key==='headerPosition'||key==='iconStyle') { renderEditPanel(); renderRightPanel(); } else applySettings();
   scheduleSave();
 }
 function onSlider(key, value, suffix) {
@@ -1376,7 +1399,8 @@ function onPerColorInput(key,hex){ cvSettings[key]=hex; applySettings(); schedul
 function onFooterZoneInput(key,value){ cvSettings[key]=value; renderRightPanel(); scheduleSave(); }
 
 function applySettings() {
-  if (isPaginatedLayout()) {
+  const paginated = isPaginatedLayout();
+  if (paginated) {
     // #cvPaper is a plain stacking wrapper here; each .cv-page carries
     // the real theme/style class string instead (see computeCvPaperClassString).
     cvPaper.className = 'cv-pages-holder';
@@ -1387,28 +1411,52 @@ function applySettings() {
   }
 
   const isLetter = cvSettings.paperFormat==='Letter';
-  cvPaper.style.setProperty('--cv-paper-w',  isLetter?'215.9mm':'210mm');
-  cvPaper.style.setProperty('--cv-paper-h',  isLetter?'279.4mm':'297mm');
-  cvPaper.style.setProperty('--cv-accent',       cvSettings.accentColor);
-  cvPaper.style.setProperty('--cv-base',          cvSettings.baseFontSize    +'px');
-  cvPaper.style.setProperty('--cv-name-size',     cvSettings.nameFontSize    +'px');
-  cvPaper.style.setProperty('--cv-name-font',     cvSettings.nameFont);
-  cvPaper.style.setProperty('--cv-title-size',    cvSettings.titleFontSize   +'px');
-  cvPaper.style.setProperty('--cv-heading-size',  cvSettings.headingFontSize +'px');
-  cvPaper.style.setProperty('--cv-entry-size',    cvSettings.entryFontSize   +'px');
-  cvPaper.style.setProperty('--cv-section-gap',   cvSettings.sectionSpacing  +'px');
-  cvPaper.style.setProperty('--cv-margin-lr',     cvSettings.marginLR        +'mm');
-  cvPaper.style.setProperty('--cv-margin-tb',     cvSettings.marginTB        +'mm');
-  cvPaper.style.setProperty('--cv-letter-spacing',cvSettings.letterSpacing   +'em');
-  cvPaper.style.setProperty('--cv-col-width',     cvSettings.twoColWidth     +'%');
-  cvPaper.style.setProperty('--cv-bg',            cvSettings.colorBg);
-  cvPaper.style.setProperty('--cv-sidebar-bg',    cvSettings.colorSidebarBg);
-  cvPaper.style.setProperty('--cv-text',          cvSettings.colorText);
-  cvPaper.style.fontFamily    = cvSettings.bodyFont;
-  cvPaper.style.lineHeight    = cvSettings.lineHeight;
-  cvPaper.style.letterSpacing = cvSettings.letterSpacing+'em';
-  cvPaper.style.color         = cvSettings.colorText;
-  cvPaper.style.background    = cvSettings.colorBg;
+  // Custom properties AND direct style props (fontFamily/lineHeight/
+  // color/background), keyed so they can be applied identically to
+  // #cvPaper and, under real pagination, to every .cv-page too — see
+  // the note below on why that second part is required.
+  const styleProps = {
+    '--cv-paper-w':       isLetter?'215.9mm':'210mm',
+    '--cv-paper-h':       isLetter?'279.4mm':'297mm',
+    '--cv-accent':        cvSettings.accentColor,
+    '--cv-base':          cvSettings.baseFontSize    +'px',
+    '--cv-name-size':     cvSettings.nameFontSize    +'px',
+    '--cv-name-font':     cvSettings.nameFont,
+    '--cv-title-size':    cvSettings.titleFontSize   +'px',
+    '--cv-heading-size':  cvSettings.headingFontSize +'px',
+    '--cv-entry-size':    cvSettings.entryFontSize   +'px',
+    '--cv-section-gap':   cvSettings.sectionSpacing  +'px',
+    '--cv-margin-lr':     cvSettings.marginLR        +'mm',
+    '--cv-margin-tb':     cvSettings.marginTB        +'mm',
+    '--cv-letter-spacing':cvSettings.letterSpacing   +'em',
+    '--cv-col-width':     cvSettings.twoColWidth     +'%',
+    '--cv-bg':            cvSettings.colorBg,
+    '--cv-sidebar-bg':    cvSettings.colorSidebarBg,
+    '--cv-text':          cvSettings.colorText,
+  };
+  const applyStyleProps = (el) => {
+    Object.entries(styleProps).forEach(([prop, val]) => el.style.setProperty(prop, val));
+    el.style.fontFamily    = cvSettings.bodyFont;
+    el.style.lineHeight    = cvSettings.lineHeight;
+    el.style.letterSpacing = cvSettings.letterSpacing+'em';
+    el.style.color         = cvSettings.colorText;
+    el.style.background    = cvSettings.colorBg;
+  };
+  applyStyleProps(cvPaper);
+  if (paginated) {
+    // .cv-page carries the literal class `cv-paper` (see above), which
+    // has its OWN base rule declaring hardcoded defaults for these same
+    // custom properties (`.cv-paper { --cv-accent:#1a1a1a; ... }`, used
+    // as a fallback for contexts like template thumbnails that never
+    // set them via JS). A property declared directly on an element
+    // always wins over one inherited from an ancestor, so without this,
+    // every .cv-page would silently ignore whatever #cvPaper says and
+    // fall back to those hardcoded defaults — font size, margins, and
+    // accent color would all quietly stop working. Setting them again,
+    // directly, on each .cv-page closes that gap.
+    cvPaper.querySelectorAll('.cv-page').forEach(applyStyleProps);
+  }
+
   const hdr = cvPaper.querySelector('.cvp-header');
   if (hdr) hdr.style.textAlign = cvSettings.headerAlign;
   requestAnimationFrame(updatePageBreaks);
@@ -1475,19 +1523,13 @@ function buildCVHTML(parsed) {
   const isMix    = colMode === 'mix';
   const isSidebarTemplate = isTwoCol && SIDEBAR_TEMPLATES.includes(cvSettings.template);
 
-  // Build header line from structured fields, in the user-defined order
-  let contactLine = '';
   const hf = header;
-  const fieldParts = cvData.headerFieldOrder
-    .filter(key => !cvData.hiddenFields[key] && hf[key])
-    .map(key => hf[key]);
-  contactLine = fieldParts.join(' | ');
-  if (!contactLine && hf.contact && !cvData.hiddenFields['contact']) contactLine = hf.contact;
+  const contactHtml = buildContactHtml(hf);
 
   let headerInner = '';
   if (!cvData.hiddenFields['name'])     headerInner += `<div class="cvp-name">${mdLine(hf.name||'')}</div>`;
   if (!cvData.hiddenFields['jobTitle'] && hf.jobTitle) headerInner += `<div class="cvp-jobtitle">${mdLine(hf.jobTitle)}</div>`;
-  if (contactLine) headerInner += `<div class="cvp-contact">${escapeHtml(contactLine)}</div>`;
+  if (contactHtml) headerInner += `<div class="cvp-contact">${contactHtml}</div>`;
 
   // Header Position (Left/Right) only applies to the generic two-column
   // layout: sidebar templates already dedicate the header to their own
@@ -1597,11 +1639,12 @@ function computeCvPaperClassString(excludePageNum) {
     cvSettings.accentName     ?'ac-name':'', cvSettings.accentTitle    ?'ac-title':'',
     cvSettings.accentHeadings ?'ac-headings':'', cvSettings.accentLine  ?'ac-line':'',
     cvSettings.accentDates    ?'ac-dates':'', cvSettings.accentSubtitle ?'ac-subtitle':'',
+    cvSettings.accentIcons    ?'ac-icons':'', cvSettings.accentLinkIcons?'ac-linkicons':'',
     (cvSettings.showPageNums && !excludePageNum) ?'show-pagenum':'', colClass,
   ].filter(Boolean).join(' ');
   return ['cv-paper',`t-${cvSettings.template}`,`hs-${cvSettings.headingStyle}`,
     `hc-${cvSettings.headingCase}`,`ss-${cvSettings.subtitleStyle}`,`ds-${cvSettings.dateStyle}`,
-    `lc-${cvSettings.locationStyle}`,`sl-${cvSettings.subtitleLine}`,
+    `lc-${cvSettings.locationStyle}`,`sl-${cvSettings.subtitleLine}`,`ic-${cvSettings.iconStyle}`,
     `ls-${cvSettings.linkStyle}`,accentClasses].filter(Boolean).join(' ');
 }
 
@@ -1627,17 +1670,12 @@ function buildLayoutUnits(parsed) {
   const units = [];
   const sectionMeta = [];
 
-  let contactLine = '';
-  const fieldParts = cvData.headerFieldOrder
-    .filter(key => !cvData.hiddenFields[key] && header[key])
-    .map(key => header[key]);
-  contactLine = fieldParts.join(' | ');
-  if (!contactLine && header.contact && !cvData.hiddenFields['contact']) contactLine = header.contact;
+  const contactHtml = buildContactHtml(header);
 
   let headerHtml = '<div class="cvp-header">';
   if (!cvData.hiddenFields['name'])     headerHtml += `<div class="cvp-name">${mdLine(header.name||'')}</div>`;
   if (!cvData.hiddenFields['jobTitle'] && header.jobTitle) headerHtml += `<div class="cvp-jobtitle">${mdLine(header.jobTitle)}</div>`;
-  if (contactLine) headerHtml += `<div class="cvp-contact">${escapeHtml(contactLine)}</div>`;
+  if (contactHtml) headerHtml += `<div class="cvp-contact">${contactHtml}</div>`;
   headerHtml += '</div><hr class="cvp-divider">';
   units.push({ html: headerHtml, sectionIndex: null, isHeading: false, isHeader: true });
 

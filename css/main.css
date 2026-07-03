@@ -1262,6 +1262,39 @@ input {
   color: #555;
 }
 
+/* ---- Header contact icons (Icon Style: Plain/Circle Filled/Circle
+   Outline). "None" (the default) renders no .cvp-contact-item markup
+   at all — see buildContactHtml — so no rule is needed for it. ---- */
+.cvp-contact-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-right: 12px;
+}
+.cvp-contact-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.85em;
+  font-style: normal;
+  line-height: 1;
+  width: 1.5em;
+  height: 1.5em;
+  flex-shrink: 0;
+}
+.cv-paper.ic-circle-filled .cvp-contact-icon {
+  background: #555;
+  color: #fff;
+  border-radius: 50%;
+}
+.cv-paper.ic-circle-outline .cvp-contact-icon {
+  border: 1px solid #555;
+  border-radius: 50%;
+}
+.cv-paper.ac-icons.ic-circle-filled .cvp-contact-icon { background: var(--cv-accent) !important; }
+.cv-paper.ac-icons.ic-circle-outline .cvp-contact-icon { border-color: var(--cv-accent) !important; color: var(--cv-accent) !important; }
+.cv-paper.ac-icons.ic-plain .cvp-contact-icon { color: var(--cv-accent) !important; }
+
 .cvp-divider {
   border: none;
   border-top: 1.5px solid #111;
@@ -2365,6 +2398,7 @@ input {
 .cv-paper.ls-underline a            { text-decoration: underline; color: inherit; }
 .cv-paper.ls-blue a                 { text-decoration: none; color: #1a56db !important; }
 .cv-paper.ls-plain a                { text-decoration: none; color: inherit; }
+.cv-paper.ac-linkicons a::after     { content: ' \1F517'; font-size: 0.75em; color: var(--cv-accent); }
 
 /* ============================================================
    PAGE NUMBERS FOOTER
