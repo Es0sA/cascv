@@ -3,6 +3,30 @@
 Log of changes made to this repo by Claude Code sessions. Newest first.
 Commit hashes refer to `main`.
 
+## 2026-07-03
+
+- Custom Section restructure: added a per-section icon picker (24 icon
+  choices) and a Text/Normal/Skill type toggle to Custom Sections. Text
+  keeps the original freeform textarea behavior (default, so every
+  existing custom section on every existing CV is unaffected). Normal
+  reuses the exact Projects-style structured entry form (Title,
+  Subtitle, Start/End Date, Location, Description). Skill reuses the
+  Core Skills form (Skill/Sub-skills/Level). Switching type when the
+  section already has content prompts for confirmation since it clears
+  the section first. Added `getSectionDef(sec, i)` and
+  `getEffectiveStype(sec, i)` helpers so every render call site (entry
+  editor, preview, section-layout chips, add-content picker) reads the
+  per-instance override instead of the static `SECTION_TYPES` table.
+  New per-CV state: `cvData.customSectionType` and
+  `cvData.customSectionIcon`, plain objects keyed by section index like
+  the existing `columnAssign`/`sectionNames`. Tested locally with
+  Playwright: added a Custom Section, switched Normal then Skill (with
+  confirm dialog firing correctly on the second switch since content
+  existed), changed the icon, and confirmed the live preview rendered
+  the structured entry correctly. Files changed: `js/editor.js`,
+  `css/main.css`. Added `.gitignore` for `.playwright-mcp/` test
+  artifacts.
+
 ## 2026-07-01
 
 - Removed Netlify leftovers now that the project is fully on GitHub

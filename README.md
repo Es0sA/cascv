@@ -25,10 +25,12 @@ within about a minute). There is no build step and no bundler; every
 
 ## Data storage
 
-CV content is currently stored in the browser's `localStorage`
-(key `cas_cv_data`), not in a database. This means CVs do not sync
-across browsers or devices yet. Migrating this to Firestore is planned
-but not started. See `CLAUDE.md` for details before touching this.
+CV content is stored in Firestore, at `users/{uid}/cvs/{cvId}`, one
+document per CV. This means CVs sync across any browser or device the
+account signs into. A one-time migration pushes any CV data still
+sitting in a browser's old `localStorage` (key `cas_cv_data`) up to
+Firestore on first load; the local copy is left in place as a backup,
+not deleted. See `CLAUDE.md` for details before touching this.
 
 ---
 
@@ -42,7 +44,9 @@ but not started. See `CLAUDE.md` for details before touching this.
 - [x] Templates (multiple design templates, live-rendered thumbnails)
 - [x] PDF export
 - [x] ATS keyword checker
-- [ ] Firestore migration (move CV data off localStorage, cross-device sync)
+- [x] Firestore migration (CV data synced across devices, off localStorage)
+- [x] Real pagination (single-column templates split correctly across PDF pages)
+- [ ] Real pagination for two-column layouts and the 5 sidebar templates
 
 See `CLAUDE.md` for full technical context, and `CHANGELOG.md` for a
 log of changes made by Claude Code sessions.
