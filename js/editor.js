@@ -1724,6 +1724,15 @@ function updatePageBreaks() {
 let _paginationMultiPageSections = new Set();
 
 function renderRightPanel() {
+  // Replacing cvPaper's innerHTML destroys and recreates every child node,
+  // which can reset the scroll position of the ancestor scrollable panel
+  // (#editorRight) — same class of bug as the one already worked around
+  // in renderEditPanel for the left panel. Save/restore here too, so
+  // saving an entry, renaming a section, etc. doesn't jump the preview
+  // back to page 1.
+  const rightScrollEl = document.getElementById('editorRight');
+  const rightSavedTop = rightScrollEl ? rightScrollEl.scrollTop : 0;
+
   const mode = getPaginationMode();
   if (mode === 'single' || mode === 'twocol' || mode === 'sidebar') {
     const { pageHtmls, multiPageSections } =
@@ -1737,6 +1746,15 @@ function renderRightPanel() {
     cvPaper.innerHTML = buildCVHTML(cvData.parsed);
   }
   applySettings();
+
+  if (rightScrollEl) {
+    rightScrollEl.scrollTop = rightSavedTop;
+    // applySettings() schedules zoom/page-break recalculation a frame
+    // later (scheduleFitZoom/updatePageBreaks), which can itself shift
+    // this scroll position again (e.g. fitPaperZoom briefly resets zoom
+    // to measure natural size) — restore once more after that settles.
+    requestAnimationFrame(() => { rightScrollEl.scrollTop = rightSavedTop; });
+  }
 }
 
 function buildCVHTML(parsed) {
