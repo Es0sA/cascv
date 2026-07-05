@@ -3,6 +3,36 @@
 Log of changes made to this repo by Claude Code sessions. Newest first.
 Commit hashes refer to `main`.
 
+## 2026-07-05 (even later)
+
+- Fixed the on-screen preview showing text noticeably bigger/roomier
+  than the same CV looks in the downloaded PDF. Root cause: the live
+  preview's `.cv-paper` was hard-capped to `max-width: 660px` (a fixed
+  "screen-friendly" size chosen in an earlier session), while the PDF
+  export explicitly renders an off-screen clone at the TRUE physical
+  page width (210mm / 215.9mm, roughly 794px/816px at 96dpi). Font
+  sizes are set in fixed px, not relative to the container, so the same
+  text wrapped inside a narrower 660px box on screen than in the
+  ~794px-wide PDF box, making it look proportionally bigger on screen
+  than what actually prints. Changed `.cv-paper-wrap` and
+  `.cv-paper-wrap .cv-paper` (`css/main.css`) to size at
+  `var(--cv-paper-w, 210mm)` instead of the fixed 660px, and added a
+  line in `applySettings()` (`js/editor.js`) to set that CSS variable
+  on `#cvPaperWrap` itself, since it's an ANCESTOR of `#cvPaper` (which
+  already had the variable) and custom properties don't propagate
+  upward. The existing `fitPaperZoom()` mechanism (already built to
+  shrink an oversized preview via CSS `zoom` when the editor's sidebar
+  is dragged wide) now shrinks from this true-size starting point
+  instead of the old 660px one, so narrow panels still fit correctly
+  without any overflow — it just makes the shrink starting point
+  accurate, so proportions match the PDF at any zoom level. Verified
+  with Playwright against the real client CV that prompted this report
+  (read-only: measured dimensions and downloaded a PDF, no edits or
+  saves triggered): on-screen paper now renders at 794px (matching true
+  210mm) instead of 660px, and the downloaded PDF's text density/layout
+  now visually matches the live preview. Files changed: `css/main.css`,
+  `js/editor.js`.
+
 ## 2026-07-05 (later)
 
 - Fixed the live preview jumping back to the top of the CV after saving
