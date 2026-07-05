@@ -3,6 +3,24 @@
 Log of changes made to this repo by Claude Code sessions. Newest first.
 Commit hashes refer to `main`.
 
+## 2026-07-05 (later)
+
+- Fixed the live preview jumping back to the top of the CV after saving
+  an entry edit, adding an entry, renaming a section, or any other action
+  that re-renders the right-hand preview panel. `renderRightPanel()`
+  replaces `#cvPaper`'s entire innerHTML on every call, which can reset
+  the scroll position of its ancestor scrollable panel (`#editorRight`)
+  the same way `renderEditPanel()`'s own innerHTML replacement already
+  needed a save/restore workaround for the left panel. Added the same
+  save/restore pattern here, plus a follow-up restore one frame later
+  (via `requestAnimationFrame`) since `applySettings()` schedules zoom
+  and page-break recalculation asynchronously
+  (`scheduleFitZoom`/`updatePageBreaks`), which can shift the scroll
+  position again after the synchronous restore already ran. Verified
+  with Playwright: scrolled both panels partway down, edited and saved
+  an entry, confirmed both scroll positions held steady; no console
+  errors. File changed: `js/editor.js`.
+
 ## 2026-07-05
 
 - Fixed four bugs Cas hit while using the editor on a real client CV:
