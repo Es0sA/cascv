@@ -3,6 +3,50 @@
 Log of changes made to this repo by Claude Code sessions. Newest first.
 Commit hashes refer to `main`.
 
+## 2026-07-05
+
+- Fixed four bugs Cas hit while using the editor on a real client CV:
+  - **Section drag-reorder didn't work in the Edit tab or Customize tab.**
+    Root cause: neither `onDragStart` nor `onLayoutDragStart` in
+    `js/editor.js` called `dataTransfer.setData()`, which Firefox (Cas's
+    browser) requires for a drag operation to actually complete; Chrome is
+    lenient about this, which is why it looked completely broken only for
+    him. Added `setData()` to both drag-start handlers. Also consolidated
+    the two separate, duplicated splice/remap implementations
+    (`onDrop` and `reorderSections`) into one shared `reorderSections()`
+    function used by both tabs, and removed a redundant double-render in
+    `onLayoutDrop`.
+  - **"(cont'd)" heading on continuation pages.** Removed the synthetic
+    `"SECTION NAME (cont'd)"` heading `unitsToPageHTML()` used to insert
+    when a section's content continued onto a new page; content now just
+    flows onto the next page with nothing repeated. Kept the underlying
+    per-page id-suffix logic (still needed to avoid duplicate DOM ids
+    across pages), just detached it from the heading text itself.
+  - **Section headings hard to edit.** The Edit tab's rename input only
+    committed on `onchange` (needed to click away first); changed to
+    `oninput` so the preview updates live while typing. Also added the
+    same rename input to the Customize tab's Section Layout chips (it was
+    previously a plain non-editable `<span>` there), so renaming doesn't
+    require switching tabs.
+  - **`**bold**`/`*italic*`/`` `code` `` showing as literal text.** The
+    `mdLine()` markdown-to-HTML converter existed and worked correctly,
+    but was gated behind a `cvSettings.useMarkdown` toggle that defaulted
+    to off, and only bypassed via a hardcoded `force=true` in some call
+    sites but not others (header contact info skipped it entirely). Made
+    markdown parsing unconditional everywhere `mdLine()` is called
+    (dropped the gate and the now-pointless toggle/setting), and switched
+    header contact-row rendering from `escapeHtml()` to `mdLine()` so bold
+    works there too.
+  - Verified all four with Playwright against a throwaway scratch CV
+    (never touching Cas's real client CV): dragged sections successfully
+    in both tabs and between sidebar/main columns, forced a section to
+    overflow across 2 pages with no "(cont'd)" text anywhere and no
+    duplicate DOM ids, renamed a section from both tabs with live preview
+    updates, and confirmed `**bold**`/`*italic*`/`` `code` `` rendered as
+    real `<strong>`/`<em>`/`<code>` in both the live preview and the
+    exported PDF with zero console errors. Files changed: `js/editor.js`,
+    `css/main.css`.
+
 ## 2026-07-03 (later)
 
 - Phase 3 (final phase) of extending real pagination to two-column
