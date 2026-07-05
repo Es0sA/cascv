@@ -264,9 +264,9 @@ cvPaper.innerHTML = '<p class="cv-loading-text">Loading CV…</p>';
    Captures an off-screen clone of cvPaper rendered at TRUE A4/Letter
    mm dimensions (matching dashboard.js's approach), instead of
    capturing the live on-screen preview directly — the on-screen
-   preview is a fixed-px (660px-wide) scaled-down box for editing
-   convenience, and capturing it directly caused a width/page-height
-   mismatch against html2pdf's mm-based page slicing.
+   preview can be CSS-zoomed down by fitPaperZoom() to fit a narrow
+   panel, and capturing it directly at that shrunk size caused a
+   width/page-height mismatch against html2pdf's mm-based page slicing.
 
    To avoid a spurious near-blank trailing page (rounding between
    the browser's mm→px layout and html2canvas's own pixel math can
@@ -1629,6 +1629,21 @@ function applySettings() {
   }
 
   const isLetter = cvSettings.paperFormat==='Letter';
+  // --cv-paper-w is read by .cv-paper-wrap's own CSS width (main.css) so
+  // the ON-SCREEN preview box is sized at the same true physical mm
+  // width as the PDF export clone, not a smaller fixed editing-friendly
+  // px box. #cvPaperWrap is an ANCESTOR of #cvPaper, and CSS custom
+  // properties don't propagate upward, so it needs setting here
+  // directly rather than only on #cvPaper below. Without this, text set
+  // at a fixed px size would wrap inside a narrower on-screen box than
+  // the true-width PDF box, making it look proportionally bigger on
+  // screen than in the actual downloaded PDF. fitPaperZoom() already
+  // shrinks this true-size box back down via CSS zoom when the
+  // available panel is too narrow to fit it, so this doesn't cause
+  // overflow — it just makes the shrink starting point accurate.
+  const cvPaperWrapEl = document.getElementById('cvPaperWrap');
+  if (cvPaperWrapEl) cvPaperWrapEl.style.setProperty('--cv-paper-w', isLetter?'215.9mm':'210mm');
+
   // Custom properties AND direct style props (fontFamily/lineHeight/
   // color/background), keyed so they can be applied identically to
   // #cvPaper and, under real pagination, to every .cv-page too — see
@@ -2926,7 +2941,7 @@ function fitPaperZoom() {
   if (!wrap || !right) return;
 
   wrap.style.zoom  = 1;   // reset first so we measure the true natural width
-  wrap.style.width = '';  // fall back to CSS width: min(660px, 100%)
+  wrap.style.width = '';  // fall back to CSS width: min(var(--cv-paper-w), 100%)
   const availW   = right.clientWidth;   // .editor-right has no horizontal padding
   const naturalW = wrap.scrollWidth || wrap.offsetWidth;
 
