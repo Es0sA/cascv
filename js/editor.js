@@ -215,7 +215,7 @@ const DEFAULTS = {
   sectionSpacing:11, marginLR:13, marginTB:11, headingStyle:'underline',
   headingCase:'upper', subtitleStyle:'normal', dateStyle:'normal', locationStyle:'normal', listStyle:'bullet',
   dateFormat:'Month YYYY', showDuration:false, skillStyle:'text',
-  useMarkdown:false, accentColor:'#1a1a1a', colorBg:'#ffffff',
+  accentColor:'#1a1a1a', colorBg:'#ffffff',
   colorSidebarBg:'#f0f4f8', colorText:'#1a1a1a', accentName:false,
   accentTitle:false, accentHeadings:true, accentLine:true, accentDates:false,
   accentSubtitle:false, showPageNums:false, linkStyle:'underline',
@@ -479,7 +479,7 @@ function renderEditPanel() {
         <span class="accordion-index">${i + 1}</span>
         <input class="accordion-rename" type="text" value="${escapeAttr(name)}"
                onclick="event.stopPropagation()" onkeydown="event.stopPropagation()"
-               onchange="event.stopPropagation();renameSectionHandler(${i},this.value)">
+               oninput="event.stopPropagation();renameSectionHandler(${i},this.value)">
       </div>
       <div class="accordion-header-right">
         ${showCols ? `
@@ -801,7 +801,7 @@ function removeHeaderField(key) {
 function getSummaryHtml(sections) {
   const profileSec = sections.find(s => (s.type || 'custom') === 'profile');
   const text = profileSec?.entries?.[0]?.summary || '';
-  return text ? `<div class="cvp-header-summary">${mdLine(text, true)}</div>` : '';
+  return text ? `<div class="cvp-header-summary">${mdLine(text)}</div>` : '';
 }
 
 // Photo frame shape (circle/rounded/square) is a CSS class on the frame;
@@ -817,16 +817,16 @@ function buildPhotoHtml(header) {
 function buildContactHtml(header) {
   const order = cvData.headerFieldOrder.filter(key => !cvData.hiddenFields[key] && header[key]);
   if (!order.length) {
-    if (header.contact && !cvData.hiddenFields['contact']) return escapeHtml(header.contact);
+    if (header.contact && !cvData.hiddenFields['contact']) return mdLine(header.contact);
     return '';
   }
   if (cvSettings.iconStyle === 'none') {
-    return escapeHtml(order.map(key => header[key]).join(' | '));
+    return mdLine(order.map(key => header[key]).join(' | '));
   }
   return order.map(key => {
     const meta = CONTACT_FIELD_META[key];
     const icon = (meta && meta.icon) || '•';
-    return `<span class="cvp-contact-item"><span class="cvp-contact-icon">${escapeHtml(icon)}</span><span class="cvp-contact-text">${escapeHtml(header[key])}</span></span>`;
+    return `<span class="cvp-contact-item"><span class="cvp-contact-icon">${escapeHtml(icon)}</span><span class="cvp-contact-text">${mdLine(header[key])}</span></span>`;
   }).join('');
 }
 
@@ -1346,8 +1346,7 @@ function renderCustomizePanel() {
     custRow('List Style',     toggleGroup([{label:'• Bullet',value:'bullet'},{label:'– Hyphen',value:'hyphen'}],'listStyle')) +
     custRow('Date Format',    toggleGroup([{label:'Month YYYY',value:'Month YYYY'},{label:'Mon YYYY',value:'Mon YYYY'},{label:'MM/YYYY',value:'MM/YYYY'},{label:'MM.YYYY',value:'MM.YYYY'},{label:'YYYY',value:'YYYY'}],'dateFormat')) +
     custRow('Duration',`<label class="cust-toggle-row"><input type="checkbox" ${cvSettings.showDuration?'checked':''} onchange="toggleBool('showDuration',this.checked)"><span class="cust-toggle-slider"></span><span class="cust-toggle-label">Show job duration (e.g. 2 yrs 3 mos)</span></label>`) +
-    custRow('Skill Display',  toggleGroup([{label:'Text',value:'text'},{label:'Bars',value:'bars'},{label:'Dots',value:'dots'}],'skillStyle')) +
-    custRow('Markdown',`<label class="cust-toggle-row"><input type="checkbox" ${cvSettings.useMarkdown?'checked':''} onchange="toggleBool('useMarkdown',this.checked);renderRightPanel()"><span class="cust-toggle-slider"></span><span class="cust-toggle-label">Enable **bold** and *italic* in content</span></label>`);
+    custRow('Skill Display',  toggleGroup([{label:'Text',value:'text'},{label:'Bars',value:'bars'},{label:'Dots',value:'dots'}],'skillStyle'));
 
   let colorGrid=`<div class="color-grid">`;
   ACCENT_COLORS.forEach(c=>{
@@ -1432,7 +1431,9 @@ function renderSectionLayoutPanel(colMode) {
       ondragend="onLayoutDragEnd()">
       <span class="layout-chip-handle">⠿</span>
       <span class="layout-chip-icon">${def.icon || '📄'}</span>
-      <span class="layout-chip-label">${escapeHtml(name)}</span>
+      <input class="layout-chip-label" type="text" value="${escapeAttr(name)}"
+             onclick="event.stopPropagation()" onkeydown="event.stopPropagation()"
+             oninput="event.stopPropagation();renameSectionHandler(${i},this.value)">
       ${colMode==='mix' ? `<button class="layout-width-btn" type="button" onclick="event.stopPropagation();toggleSectionWidth(${i})" title="Toggle full/half width">${width==='half'?'◧ Half':'▭ Full'}</button>` : ''}
     </div>`;
   }
@@ -1463,6 +1464,7 @@ let _layoutDragIdx = null;
 function onLayoutDragStart(e, idx) {
   _layoutDragIdx = idx;
   e.dataTransfer.effectAllowed = 'move';
+  e.dataTransfer.setData('text/plain', String(idx));
   setTimeout(() => e.target.classList.add('layout-chip-dragging'), 0);
 }
 function onLayoutDragOver(e, idx) { e.preventDefault(); }
@@ -1473,11 +1475,7 @@ function onLayoutDrop(e, targetIdx) {
   e.stopPropagation();
   if (_layoutDragIdx === null || _layoutDragIdx === targetIdx) return;
   const targetCol = cvData.columnAssign[targetIdx]; // capture target's column before indices shift
-  reorderSections(_layoutDragIdx, targetIdx);
-  if (targetCol !== undefined) {
-    cvData.columnAssign[targetIdx] = targetCol; // moved chip now lives at targetIdx — match target's column
-    renderEditPanel(); renderCustomizePanel(); renderRightPanel(); scheduleSave();
-  }
+  reorderSections(_layoutDragIdx, targetIdx, targetCol);
   _layoutDragIdx = null;
 }
 
@@ -1497,7 +1495,7 @@ function onLayoutDragEnd() {
   document.querySelectorAll('.layout-chip').forEach(el => el.classList.remove('layout-chip-dragging'));
 }
 
-function reorderSections(fromIdx, toIdx) {
+function reorderSections(fromIdx, toIdx, targetCol) {
   const secs = cvData.parsed.sections;
   const [moved] = secs.splice(fromIdx, 1);
   secs.splice(toIdx, 0, moved);
@@ -1515,6 +1513,8 @@ function reorderSections(fromIdx, toIdx) {
   cvData.columnAssign = remap(cvData.columnAssign);
   cvData.sectionNames = remap(cvData.sectionNames);
   cvData.sectionWidth = remap(cvData.sectionWidth);
+  // moved section now lives at toIdx — match whatever column the drop target belonged to
+  if (targetCol !== undefined) cvData.columnAssign[toIdx] = targetCol;
   renderEditPanel(); renderCustomizePanel(); renderRightPanel(); scheduleSave();
 }
 
@@ -2046,12 +2046,12 @@ function measureAndPaginate(units, pw, ph, marginLR, marginTB, classString, sect
 // Reassembles one page's unit array back into real HTML, reconstructing
 // the .cvp-section/.cvp-sec-heading/.cvp-sec-content wrapper structure
 // fresh per page. A section whose heading unit isn't among this page's
-// units (i.e. it started on an earlier page) gets a synthesized
-// "(cont'd)" heading instead of silently continuing headerless. IDs are
-// only kept unique-and-meaningful on a section's FIRST page — later
-// pages suffix the id, since updateSection()/renameSectionHandler()'s
-// fast-path deliberately avoids targeting multi-page sections at all
-// (see those functions) and duplicate ids would be invalid HTML.
+// units (i.e. it started on an earlier page) just continues headerless,
+// no repeated heading. IDs are only kept unique-and-meaningful on a
+// section's FIRST page — later pages suffix the id, since
+// updateSection()/renameSectionHandler()'s fast-path deliberately avoids
+// targeting multi-page sections at all (see those functions) and
+// duplicate ids would be invalid HTML.
 function unitsToPageHTML(pageUnits, sectionMeta, pageIdx) {
   let html = '';
   let i = 0;
@@ -2067,10 +2067,11 @@ function unitsToPageHTML(pageUnits, sectionMeta, pageIdx) {
       else bodyHtml += gu.html;
       i++;
     }
+    // A section chunk with no heading unit is a continuation of a section
+    // that started on an earlier page; just flow the content, no repeated
+    // heading. Still needs a page-specific id suffix so continuation pages
+    // don't collide with the section's original DOM id.
     const isContinuation = !headingHtml;
-    if (isContinuation) {
-      headingHtml = `<div class="cvp-sec-heading">${escapeHtml(sectionMeta[secIdx].name)} (cont'd)</div>`;
-    }
     const idSuffix = isContinuation ? `-p${pageIdx}` : '';
     html += `<div class="cvp-section" id="preview-sec-${secIdx}${idSuffix}">
       ${headingHtml}
@@ -2410,7 +2411,7 @@ function renderEntryHTML(entry, stype) {
 
   if (stype==='profile') {
     const align = entry.summaryAlign && entry.summaryAlign!=='left' ? ` style="text-align:${entry.summaryAlign}"` : '';
-    html += `<p class="cvp-line"${align}>${mdLine(entry.summary||'',true)}</p>`;
+    html += `<p class="cvp-line"${align}>${mdLine(entry.summary||'')}</p>`;
     return html;
   }
 
@@ -2445,7 +2446,7 @@ function renderEntryHTML(entry, stype) {
     // (its pre-existing meaning), leaving row 2 for location only.
     if (cvSettings.subtitleLine === 'same') {
       const titleHtml = [
-        title ? `<span class="cvp-entry-title">${mdLine(title,true)}</span>` : '',
+        title ? `<span class="cvp-entry-title">${mdLine(title)}</span>` : '',
         sub   ? `<span class="cvp-entry-employer cvp-entry-employer-inline">${subHtml}</span>` : ''
       ].filter(Boolean).join('');
       if (titleHtml||dateStr) html += `<div class="cvp-entry-row1">
@@ -2459,12 +2460,12 @@ function renderEntryHTML(entry, stype) {
         ${dateStr ? `<span class="cvp-entry-date">${escapeHtml(dateStr)}</span>` : ''}
       </div>`;
       if (title||loc) html += `<div class="cvp-entry-row2">
-        ${title ? `<span class="cvp-entry-title">${mdLine(title,true)}</span>` : '<span></span>'}
+        ${title ? `<span class="cvp-entry-title">${mdLine(title)}</span>` : '<span></span>'}
         ${loc ? `<span class="cvp-entry-location">${escapeHtml(loc)}</span>` : ''}
       </div>`;
     } else {
       if (title||dateStr) html += `<div class="cvp-entry-row1">
-        ${title ? `<span class="cvp-entry-title">${mdLine(title,true)}</span>` : '<span></span>'}
+        ${title ? `<span class="cvp-entry-title">${mdLine(title)}</span>` : '<span></span>'}
         ${dateStr ? `<span class="cvp-entry-date">${escapeHtml(dateStr)}</span>` : ''}
       </div>`;
       if (sub||loc) html += `<div class="cvp-entry-row2">
@@ -2477,9 +2478,9 @@ function renderEntryHTML(entry, stype) {
         const t = line.trim();
         if (!t) return;
         if (/^[•–-]\s/.test(t)) {
-          html += `<p class="cvp-bullet"${descAlign} style="break-inside:avoid">${bullet} ${mdLine(t.replace(/^[•–-]\s+/,''),true)}</p>`;
+          html += `<p class="cvp-bullet"${descAlign} style="break-inside:avoid">${bullet} ${mdLine(t.replace(/^[•–-]\s+/,''))}</p>`;
         } else {
-          html += `<p class="cvp-line"${descAlign}>${mdLine(t,true)}</p>`;
+          html += `<p class="cvp-line"${descAlign}>${mdLine(t)}</p>`;
         }
       });
     }
@@ -2513,13 +2514,13 @@ function renderEntryHTML(entry, stype) {
   if (stype==='awards'||stype==='publications'||stype==='interests') {
     const title = entry.title||entry.interest||'';
     const titleLink = entry.titleLink||entry.interestLink||'';
-    const titleHtml = titleLink ? `<a href="${escapeAttr(titleLink)}" target="_blank" rel="noopener">${mdLine(title,true)}</a>` : mdLine(title,true);
+    const titleHtml = titleLink ? `<a href="${escapeAttr(titleLink)}" target="_blank" rel="noopener">${mdLine(title)}</a>` : mdLine(title);
     const sub   = [entry.issuer||entry.publisher, entry.date ? formatDate(entry.date) : ''].filter(Boolean).join(' — ');
     const desc  = entry.desc||'';
     const descAlign = entry.descAlign && entry.descAlign!=='left' ? ` style="text-align:${entry.descAlign}"` : '';
     if (title) html += `<p class="cvp-entry-title">${titleHtml}</p>`;
     if (sub)   html += `<p class="cvp-entry-meta">${escapeHtml(sub)}</p>`;
-    if (desc)  html += `<p class="cvp-line"${descAlign}>${mdLine(desc,true)}</p>`;
+    if (desc)  html += `<p class="cvp-line"${descAlign}>${mdLine(desc)}</p>`;
     return html;
   }
 
@@ -2527,7 +2528,7 @@ function renderEntryHTML(entry, stype) {
     const statement = entry.statement||'';
     const sigName   = entry.signatureName||'';
     const date      = formatDate(entry.date||'');
-    if (statement) html += `<p class="cvp-line">${mdLine(statement,true)}</p>`;
+    if (statement) html += `<p class="cvp-line">${mdLine(statement)}</p>`;
     if (sigName) html += `<p class="cvp-signature">${escapeHtml(sigName)}</p>`;
     if (date) html += `<p class="cvp-entry-meta">${escapeHtml(date)}</p>`;
     return html;
@@ -2633,8 +2634,7 @@ function formatLines(lines) {
   return result.join('');
 }
 
-function mdLine(text, force) {
-  if(!cvSettings.useMarkdown && !force) return escapeHtml(text||'');
+function mdLine(text) {
   return (text||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
     .replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, (m, label, url) => {
       const safeUrl = url.replace(/"/g, '&quot;');
@@ -2744,14 +2744,12 @@ function markPresent(sectionIdx) {
    DRAG-TO-REORDER SECTIONS
    ============================================================ */
 let dragSrcIdx=null, dragOverIdx=null;
-function onDragStart(e,idx){ dragSrcIdx=idx; e.dataTransfer.effectAllowed='move'; setTimeout(()=>document.getElementById(`acc-${idx}`)?.classList.add('dragging'),0); }
+function onDragStart(e,idx){ dragSrcIdx=idx; e.dataTransfer.effectAllowed='move'; e.dataTransfer.setData('text/plain',String(idx)); setTimeout(()=>document.getElementById(`acc-${idx}`)?.classList.add('dragging'),0); }
 function onDragOver(e,idx){ e.preventDefault(); if(idx===dragOverIdx)return; dragOverIdx=idx; document.querySelectorAll('.sec-accordion').forEach(el=>el.classList.remove('drag-over')); if(idx!==dragSrcIdx)document.getElementById(`acc-${idx}`)?.classList.add('drag-over'); }
 function onDrop(e,idx){
   e.preventDefault(); if(dragSrcIdx===null||dragSrcIdx===idx)return;
-  const secs=cvData.parsed.sections; const[moved]=secs.splice(dragSrcIdx,1); secs.splice(idx,0,moved);
-  const remap=obj=>{ const out={}; Object.entries(obj).forEach(([k,v])=>{ let nk=parseInt(k); if(nk===dragSrcIdx)nk=idx; else if(dragSrcIdx<idx&&nk>dragSrcIdx&&nk<=idx)nk=nk-1; else if(dragSrcIdx>idx&&nk>=idx&&nk<dragSrcIdx)nk=nk+1; out[nk]=v; }); return out; };
-  cvData.columnAssign=remap(cvData.columnAssign); cvData.sectionNames=remap(cvData.sectionNames); cvData.sectionWidth=remap(cvData.sectionWidth);
-  dragSrcIdx=null; dragOverIdx=null; renderEditPanel(); renderRightPanel(); scheduleSave();
+  reorderSections(dragSrcIdx, idx);
+  dragSrcIdx=null; dragOverIdx=null;
 }
 function onDragEnd(){ dragSrcIdx=null; dragOverIdx=null; document.querySelectorAll('.sec-accordion').forEach(el=>el.classList.remove('dragging','drag-over')); }
 
