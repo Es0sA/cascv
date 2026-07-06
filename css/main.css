@@ -1597,6 +1597,34 @@ input {
   .editor-cv-name {
     max-width: 140px;
   }
+
+  /* .editor-header-right holds six controls (undo, redo, Reimport,
+     Saved, Download PDF) at a fixed flex-shrink:0, so on a phone-width
+     screen their combined natural width is wider than the viewport.
+     With no wrapping, `justify-content: space-between` still shoves
+     that whole group as far right as it can go, which is further left
+     than where the back button/name already end, so they visually
+     overlap. Letting the header wrap moves the group onto its own
+     line, fixing the overlap, but a wrapped flex item still sizes to
+     its own content width by default rather than the row's full
+     width, so the group (~450px of buttons) stayed wider than the
+     390px viewport and kept the whole page horizontally scrollable.
+     Forcing it to `width: 100%` when wrapped gives it a bounded box
+     to wrap its own buttons inside, via its own flex-wrap, onto a
+     genuine second line instead of overflowing off-screen. */
+  .editor-header {
+    flex-wrap: wrap;
+    height: auto;
+    min-height: 56px;
+    padding: 10px 12px;
+    row-gap: 8px;
+  }
+
+  .editor-header-right {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    width: 100%;
+  }
 }
 
 /* ============================================================

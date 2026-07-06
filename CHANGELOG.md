@@ -3,6 +3,30 @@
 Log of changes made to this repo by Claude Code sessions. Newest first.
 Commit hashes refer to `main`.
 
+## 2026-07-06 (later)
+
+- Fixed two mobile-layout bugs found during a general mobile audit of
+  `editor.html` (simulated a phone viewport locally with Firebase
+  auth/Firestore stubbed out, since no real device or login was
+  available in this session). `.editor-header-right` holds six controls
+  (undo, redo, Reimport, Saved, Download PDF) at a fixed `flex-shrink:
+  0`, so their combined natural width is wider than any phone screen.
+  With no wrapping, `justify-content: space-between` shoved that whole
+  group left until it visually overlapped the back button/CV name, and
+  even after making it wrap onto its own line, the group still rendered
+  wider than the viewport (a wrapped flex item sizes to its own content
+  width, not the row's width), keeping the entire page horizontally
+  scrollable. Added a `@media (max-width: 800px)` rule for `.editor-
+  header` (`flex-wrap: wrap`) and `.editor-header-right` (`flex-wrap:
+  wrap; width: 100%`) so the control group gets a bounded box to wrap
+  its own buttons inside onto a real second line, instead of overlapping
+  or spilling off-screen. Verified with Playwright at 390x844: page
+  `scrollWidth` dropped from up to 459px back to the true 390px viewport
+  width, and the header now renders as two clean, non-overlapping rows.
+  The template-picker thumbnail strip and per-entry edit modal were
+  checked too and are already fine on mobile (the thumbnail strip's
+  horizontal scroll is an intentional swipeable carousel).
+
 ## 2026-07-06
 
 - Fixed inconsistent CV pagination (sometimes the last job entry flows
