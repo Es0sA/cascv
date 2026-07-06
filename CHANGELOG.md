@@ -3,6 +3,40 @@
 Log of changes made to this repo by Claude Code sessions. Newest first.
 Commit hashes refer to `main`.
 
+## 2026-07-06 (even later)
+
+- Fixed the mobile preview not matching the true CV layout the way it
+  does on desktop (reported by comparing against FlowCV, whose mobile
+  preview is a true proportional miniature of the exact desktop/PDF
+  layout, just zoomed out). Two compounding bugs in `fitPaperZoom()`
+  (`js/editor.js`), both only reachable on a narrow panel (mobile, or a
+  desktop panel dragged narrow with the resize divider):
+  1. `.cv-paper-wrap`'s own CSS rule is `width: min(var(--cv-paper-w,
+     210mm), 100%)`. Clearing the inline width to `''` to "measure the
+     true natural width" actually fell back to that capped rule, and on
+     a narrow panel the 100% branch wins, so the measured width was
+     never allowed to exceed the panel's own width. That meant the
+     shrink-to-fit branch never ran; the CV's own content just reflowed
+     natively at that narrow width, with full desktop-sized fonts
+     crammed into a narrower column instead of being rendered at true
+     size and uniformly zoomed down — a different, "squeezed" layout
+     rather than a small version of the same one.
+  2. Once (1) was fixed and the shrink branch started running, it
+     revealed a second, previously-dormant bug: that branch set both
+     `wrap.style.zoom = scale` AND `wrap.style.width` to the
+     already-scaled-down pixel value. `zoom` shrinks the rendered
+     footprint of whatever width is set, so setting width to a value
+     that's already been scaled down gets shrunk a second time,
+     rendering at roughly `scale^2` of the intended size (verified: CV
+     name text rendered at 11px tall instead of the intended ~22px).
+     Fixed by keeping width at the true physical page size in both
+     branches and letting `zoom` alone do the shrinking.
+  Verified with Playwright: the CV name element's rendered height now
+  matches the true page width times the zoom scale exactly (both on a
+  simulated mobile viewport and a desktop viewport with the panel
+  divider dragged narrow), and the mobile preview now shows the full
+  page edge-to-edge like FlowCV's, instead of a narrow reflowed column.
+
 ## 2026-07-06 (later)
 
 - Fixed two mobile-layout bugs found during a general mobile audit of

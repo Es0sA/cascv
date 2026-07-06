@@ -2975,19 +2975,38 @@ function fitPaperZoom() {
   const right = document.getElementById('editorRight');
   if (!wrap || !right) return;
 
+  // .cv-paper-wrap's own CSS rule is `width: min(var(--cv-paper-w, 210mm),
+  // 100%)` — that 100% cap exists so the wrap never overflows before this
+  // function has run, but it means clearing the inline width back to ''
+  // does NOT fall back to the true physical page width on a narrow panel
+  // (mobile, or a dragged-narrow desktop panel): 100% of the container
+  // is narrower than 210mm there, so min() picks the 100% branch. That
+  // silently caps naturalW at the container's own width below, so it can
+  // never exceed availW, zoom never engages, and the paper's own content
+  // (width:100% of the wrap) reflows its text to fit that narrow box
+  // instead of being measured/rendered at true size and then uniformly
+  // scaled down — a fundamentally different, narrower layout than
+  // desktop, not just a smaller rendering of the same one. Setting the
+  // true physical width explicitly here (bypassing the 100% cap) makes
+  // the measurement, and therefore the on-screen layout, match the
+  // desktop/PDF layout at every panel width; only the zoom scale changes.
   wrap.style.zoom  = 1;   // reset first so we measure the true natural width
-  wrap.style.width = '';  // fall back to CSS width: min(var(--cv-paper-w), 100%)
+  wrap.style.width = 'var(--cv-paper-w, 210mm)';
   const availW   = right.clientWidth;   // .editor-right has no horizontal padding
   const naturalW = wrap.scrollWidth || wrap.offsetWidth;
 
-  if (naturalW > availW && availW > 50) {
-    const scale = Math.max(0.35, Math.min(1, availW / naturalW));
-    wrap.style.zoom  = scale;
-    wrap.style.width = Math.round(naturalW * scale) + 'px';
-  } else {
-    wrap.style.zoom  = 1;
-    wrap.style.width = '';
-  }
+  // `zoom` alone already shrinks the wrap's rendered/visual footprint
+  // (the size the parent flex container lays out around) by `scale` —
+  // it's not just a paint-time effect, ancestors see the post-zoom size.
+  // width must stay at the true physical value in both branches; also
+  // setting it to the already-scaled pixel value here (as this used to)
+  // gets shrunk by zoom a second time, rendering at roughly scale^2 of
+  // the intended size instead of scale. This is what made the mobile
+  // preview render far smaller than the desktop layout instead of a
+  // clean proportional miniature of it.
+  wrap.style.zoom = (naturalW > availW && availW > 50)
+    ? Math.max(0.35, Math.min(1, availW / naturalW))
+    : 1;
 }
 
 let _zoomRaf = null;
