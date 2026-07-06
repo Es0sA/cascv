@@ -230,6 +230,35 @@ const DEFAULTS = {
 // the brief window before that.
 let cvSettings = Object.assign({}, DEFAULTS);
 
+// Google Fonts (linked in editor.html's <head>) load lazily: the browser
+// doesn't fetch the actual font file until something on the page tries
+// to paint text in it, and that fetch is async and network-dependent.
+// Both the live-preview pagination (measureAndPaginate's hidden probe)
+// and the PDF export (html2canvas capture) measure/rasterize text
+// height synchronously, with no wait for that fetch to finish. If the
+// real font hasn't swapped in yet, they measure/capture using the
+// fallback font's metrics instead, which are a different width and
+// line-height, silently producing a different page-break point than
+// once the real font loads, on a total race depending on network/cache
+// timing. This is what caused a CV's page count to change between
+// refreshes, and why a PDF downloaded on a slower mobile connection
+// could come out in a completely different (fallback) font than the
+// on-screen preview showed. Call this and await it before any
+// measurement or capture step; it resolves immediately once the fonts
+// are already loaded, so it's a no-op cost on repeat calls.
+async function ensureFontsReady() {
+  if (!(document.fonts && document.fonts.load)) return;
+  const stacks = [cvSettings.bodyFont, cvSettings.nameFont].filter(f => f && f !== 'inherit');
+  const specs = [];
+  stacks.forEach(stack => {
+    specs.push(`400 16px ${stack}`, `700 16px ${stack}`, `italic 400 16px ${stack}`);
+  });
+  try {
+    await Promise.all(specs.map(spec => document.fonts.load(spec).catch(() => {})));
+    await document.fonts.ready;
+  } catch { /* best-effort; fall through and render with whatever's loaded */ }
+}
+
 /* ---- Elements ---- */
 const backBtn           = document.getElementById('backBtn');
 const cvNameDisplay     = document.getElementById('cvNameDisplay');
@@ -289,6 +318,12 @@ downloadBtn.addEventListener('click', async () => {
   downloadBtn.disabled    = true;
 
   try {
+    // Re-confirm fonts are actually loaded before capturing, not just
+    // relying on the preview having already loaded them earlier in the
+    // session — a slower connection (mobile data especially) can still
+    // be mid-fetch, and capturing then bakes the fallback font into the
+    // downloaded file even though the on-screen preview looks fine.
+    await ensureFontsReady();
     if (isPaginatedLayout()) {
       await exportPaginatedPdf(pw, ph, isLetter);
     } else {
@@ -3045,8 +3080,15 @@ async function initEditor() {
 
   renderEditPanel();
   renderCustomizePanel();
+  // Wait for this CV's actual fonts to finish loading before the first
+  // pagination pass runs, so the very first render doesn't race the
+  // font fetch and measure with fallback-font metrics (see
+  // ensureFontsReady's comment). Render once immediately anyway so the
+  // page isn't blank while fonts load, then re-render once they're
+  // confirmed ready; the re-render is a no-op if they already were.
   renderRightPanel();
   scheduleFitZoom();
+  ensureFontsReady().then(() => { renderRightPanel(); scheduleFitZoom(); });
 
   pushHistoryCheckpoint();
 }

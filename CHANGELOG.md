@@ -3,6 +3,30 @@
 Log of changes made to this repo by Claude Code sessions. Newest first.
 Commit hashes refer to `main`.
 
+## 2026-07-06
+
+- Fixed inconsistent CV pagination (sometimes the last job entry flows
+  onto page 2, sometimes everything fits on page 1, changing between
+  refreshes of the same CV) and PDFs downloaded on mobile coming out in
+  the wrong font compared to the on-screen preview. Root cause: Google
+  Fonts loaded via the `<link>` tag in `<head>` fetch lazily and
+  asynchronously (the browser doesn't download the font file until
+  something tries to paint text in it), but nothing in `js/editor.js`
+  waited for that fetch to finish before measuring page-break height
+  (`measureAndPaginate`) or before capturing the PDF (`exportPaginatedPdf`
+  / `exportFlowingPdf`). Whichever font (real or fallback) happened to be
+  loaded at that exact instant got measured/captured, and that's a race
+  whose outcome depends on network/cache timing, which is why it varied
+  between page loads and was worse on slower mobile connections. Added
+  `ensureFontsReady()` (uses `document.fonts.load()` +
+  `document.fonts.ready`) and now await it before the first pagination
+  pass in `initEditor()` and before generating a PDF in the download
+  button handler. Verified the race and the fix offline with a Playwright
+  test serving a local font behind an artificial delay: measuring
+  immediately gave the wrong (fallback-font) height on every run, while
+  measuring after `ensureFontsReady()` consistently gave the correct
+  height.
+
 ## 2026-07-05 (even later)
 
 - Fixed the on-screen preview showing text noticeably bigger/roomier
