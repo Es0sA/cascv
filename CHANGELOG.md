@@ -3,6 +3,42 @@
 Log of changes made to this repo by Claude Code sessions. Newest first.
 Commit hashes refer to `main`.
 
+## 2026-07-07 (later)
+
+- Fixed drag-to-reorder not working on mobile at all (sections, entries
+  within a section, and the Customize tab's Section Layout chips).
+  Root cause: all three used the native HTML5 Drag and Drop API
+  (`draggable="true"` + `dataTransfer`), which no touch browser (iOS
+  Safari, Chrome for Android) fires for touch input — it's mouse-only
+  by spec, silently doing nothing on a phone. Replaced all three with
+  SortableJS (loaded via CDN in `editor.html`, same pattern as
+  html2pdf.js), which handles mouse and touch through one code path.
+  Section cards now live in their own `#sectionsList` wrapper (so the
+  header card and the Add Content button, previously direct siblings,
+  can't get pulled into the reorder index math); the Section Layout
+  panel's sidebar/main zones read the final chip order straight out of
+  the DOM after a drag rather than tracking from/to deltas, since a
+  chip can now cross between zones. Verified with Playwright
+  (mouse-driven drag gestures, which exercise the same SortableJS
+  pointer-handling code path touch input does) for all three: entries
+  within Work Experience, whole sections in the left panel, and chips
+  moving between the sidebar/main zones.
+
+- Added a mobile Preview button (bottom-left floating button, matching
+  FlowCV), so seeing your edits no longer means scrolling past the
+  entire edit form first. Only appears under the same width the editor
+  already stacks the form above the preview at (800px) — above that,
+  the live preview already sits beside the form. Opens a full-screen
+  overlay by MOVING the real `#cvPaperWrap` node into it rather than
+  cloning it, so there's exactly one live preview element and it can
+  never drift out of sync while open; closing moves it straight back.
+  Required making `fitPaperZoom()` (`js/editor.js`) read its sizing
+  target from `wrap.parentElement` instead of a hardcoded `#editorRight`
+  reference, so the same zoom-to-fit logic sizes correctly against
+  whichever container the preview currently lives in. The modal also
+  has its own Download PDF button (triggers the same download flow via
+  the existing header button).
+
 ## 2026-07-07
 
 - Added a "Sort by Date" button next to each section's Delete button

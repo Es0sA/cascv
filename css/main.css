@@ -1567,6 +1567,91 @@ input {
 }
 
 /* ============================================================
+   MOBILE PREVIEW BUTTON/MODAL — see the comment above the markup in
+   editor.html for why this exists. The floating button only shows up
+   under the same 800px breakpoint the rest of this file switches the
+   editor to a stacked (edit form above preview) mobile layout at;
+   above that width the live preview already sits beside the form, so
+   there's nothing this button would usefully jump to.
+   ============================================================ */
+.mobile-preview-fab {
+  display: none;
+  position: fixed;
+  left: 18px;
+  bottom: 18px;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-input);
+  color: var(--text-primary);
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 18px rgba(0,0,0,0.28);
+  z-index: 200;
+}
+.mobile-preview-fab:active { background: var(--bg-hover); }
+
+.mobile-preview-modal {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+  background: var(--bg-base, #0D1117);
+  flex-direction: column;
+}
+.mobile-preview-modal.open { display: flex; }
+
+.mobile-preview-modal-body {
+  flex: 1;
+  overflow: auto;
+  display: flex;
+  justify-content: center;
+  padding: 56px 12px 84px;
+}
+/* The live #cvPaperWrap gets moved in here (see openMobilePreview in
+   editor.js) — fitPaperZoom() sizes it against whichever element is
+   its current parent, so it naturally fills this body instead of the
+   desktop split-panel it normally sits in. */
+.mobile-preview-modal-body .cv-paper-wrap { flex-shrink: 0; }
+
+.mobile-preview-close {
+  position: fixed;
+  top: 14px;
+  right: 14px;
+  z-index: 310;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-input);
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.mobile-preview-download {
+  position: fixed;
+  left: 50%;
+  bottom: 18px;
+  transform: translateX(-50%);
+  z-index: 310;
+  background: var(--gold);
+  color: #0D1117;
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 11px 20px;
+  border-radius: 999px;
+  box-shadow: 0 4px 18px rgba(0,0,0,0.3);
+  white-space: nowrap;
+}
+
+@media (max-width: 800px) {
+  .mobile-preview-fab { display: flex; }
+}
+
+/* ============================================================
    EDITOR RESPONSIVE
    ============================================================ */
 
@@ -3086,11 +3171,12 @@ input {
   line-height: 1;
 }
 .drag-handle:active { cursor: grabbing; }
-.sec-accordion.dragging { opacity: 0.45; }
-.sec-accordion.drag-over {
-  border-top: 2px solid var(--gold);
-  border-radius: var(--radius-md);
-}
+
+/* SortableJS's own default hook classes (no ghostClass/chosenClass
+   config needed — these class names apply automatically), shared by
+   the section list, every entry list, and the section-layout chips. */
+.sortable-ghost { opacity: 0.35; }
+.sortable-chosen { box-shadow: 0 4px 14px rgba(0,0,0,0.25); }
 
 /* ---- Accordion rename input ---- */
 .accordion-rename {
@@ -3626,9 +3712,6 @@ select.acc-input:focus { border-color: var(--gold); }
   border-radius: 10px;
   padding: 8px;
   min-height: 80px;
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
   transition: border-color 150ms, background 150ms;
 }
 .layout-zone:hover { border-color: var(--gold-border); }
@@ -3640,7 +3723,20 @@ select.acc-input:focus { border-color: var(--gold); }
   color: var(--text-muted);
   padding: 0 2px 4px;
 }
-.layout-zone-empty {
+
+/* The actual SortableJS-managed list of chips, nested inside
+   .layout-zone / .layout-1col-panel — see the comment in
+   renderSectionLayoutPanel (editor.js) for why the label/hint text
+   live outside this element instead of alongside the chips. */
+.layout-zone-list {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-height: 40px;
+}
+.layout-zone-list:empty::after {
+  content: 'Drag sections here';
+  display: block;
   font-size: 0.72rem;
   color: var(--text-muted);
   font-style: italic;
@@ -3649,9 +3745,6 @@ select.acc-input:focus { border-color: var(--gold); }
 }
 
 .layout-1col-panel {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
   background: var(--bg-elevated);
   border: 1.5px dashed var(--border-input);
   border-radius: 10px;
@@ -3672,7 +3765,6 @@ select.acc-input:focus { border-color: var(--gold); }
 }
 .layout-chip:hover { border-color: var(--gold-border); background: var(--bg-hover); }
 .layout-chip:active { cursor: grabbing; }
-.layout-chip-dragging { opacity: 0.4; }
 .layout-chip-handle { color: var(--text-muted); flex-shrink: 0; font-size: 0.9rem; }
 .layout-chip-icon { flex-shrink: 0; font-size: 0.85rem; }
 .layout-chip-label {

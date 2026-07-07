@@ -275,6 +275,11 @@ const reimportText      = document.getElementById('reimportText');
 const reimportConfirm   = document.getElementById('reimportConfirm');
 const reimportError     = document.getElementById('reimportError');
 const cvPaper           = document.getElementById('cvPaper');
+const mobilePreviewFab      = document.getElementById('mobilePreviewFab');
+const mobilePreviewModal    = document.getElementById('mobilePreviewModal');
+const mobilePreviewClose    = document.getElementById('mobilePreviewClose');
+const mobilePreviewBody     = document.getElementById('mobilePreviewBody');
+const mobilePreviewDownload = document.getElementById('mobilePreviewDownload');
 
 // document.title and cvNameDisplay get the real CV name once
 // initEditor() has fetched it; both already show sensible
@@ -493,7 +498,14 @@ function renderEditPanel() {
     </div>
   </div>`;
 
-  /* Section cards */
+  /* Section cards — wrapped in their own container (rather than left
+     as direct siblings of the header card and the Add Content button
+     inside #sectionsContainer) so the section-reorder Sortable
+     instance only ever sees section cards as its items; otherwise
+     dragging a section above the header or below Add Content would
+     shift those into the same index space and throw off
+     reorderSections' index math. */
+  html += `<div id="sectionsList">`;
   sections.forEach((section, i) => {
     const name     = cvData.sectionNames[i] !== undefined ? cvData.sectionNames[i] : section.title;
     const assign   = cvData.columnAssign[i] || 'main';
@@ -502,12 +514,7 @@ function renderEditPanel() {
     const def      = getSectionDef(section, i);
 
     html += `
-  <div class="accordion sec-accordion" id="acc-${i}"
-       draggable="true"
-       ondragstart="onDragStart(event,${i})"
-       ondragover="onDragOver(event,${i})"
-       ondrop="onDrop(event,${i})"
-       ondragend="onDragEnd()">
+  <div class="accordion sec-accordion" id="acc-${i}">
     <button class="accordion-header open" onclick="toggleAccordion(${i})" type="button">
       <div class="accordion-title-row">
         <span class="drag-handle" onclick="event.stopPropagation()">⠿</span>
@@ -536,6 +543,7 @@ function renderEditPanel() {
     </div>
   </div>`;
   });
+  html += `</div>`; // close #sectionsList
 
   /* Add Content button */
   html += `
@@ -546,6 +554,8 @@ function renderEditPanel() {
   sectionsContainer.innerHTML = html;
   requestAnimationFrame(() => document.querySelectorAll('.acc-textarea').forEach(autoResize));
   if (scrollEl) scrollEl.scrollTop = savedTop;
+  initSectionsSortable();
+  initEntrySortables();
 }
 
 function renderTextareaSection(section, i) {
@@ -607,17 +617,12 @@ function renderStructuredSection(section, i, def) {
       <button class="entry-add-btn" onclick="addEntry(${i})" type="button">+ Add Entry</button>
     </div>`;
   }
-  let html = `<div class="entry-list">`;
+  let html = `<div class="entry-list" data-section-index="${i}">`;
   entries.forEach((entry, ei) => {
     const preview = entryPreviewLabel(entry, def);
     const visible = entry.visible !== false;
     html += `
-    <div class="entry-card ${!visible?'entry-hidden':''}"
-         draggable="true"
-         ondragstart="onEntryDragStart(event,${i},${ei})"
-         ondragover="onEntryDragOver(event,${i},${ei})"
-         ondrop="onEntryDrop(event,${i},${ei})"
-         ondragend="onEntryDragEnd()">
+    <div class="entry-card ${!visible?'entry-hidden':''}">
       <span class="entry-drag-handle">⠿</span>
       <span class="entry-preview" onclick="openEntryEditor(${i},${ei})">${escapeHtml(preview)}</span>
       <div class="entry-actions">
@@ -1106,21 +1111,32 @@ function toggleEntryVisibility(si, ei) {
   scheduleSave();
 }
 
-/* Entry drag */
-let _eDragSi=null, _eDragEi=null;
-function onEntryDragStart(e,si,ei) { _eDragSi=si; _eDragEi=ei; e.dataTransfer.effectAllowed='move'; }
-function onEntryDragOver(e,si,ei)  { e.preventDefault(); }
-function onEntryDrop(e,si,ei) {
-  e.preventDefault();
-  if (_eDragSi!==si || _eDragEi===ei) {
-    const entries = cvData.parsed.sections[si].entries||[];
-    const [moved] = entries.splice(_eDragEi,1);
-    entries.splice(ei,0,moved);
-    renderEditPanel(); renderRightPanel(); scheduleSave();
-  }
-  _eDragSi=null; _eDragEi=null;
+/* Entry drag — see initEntrySortables() for the SortableJS wiring
+   (one instance per rendered .entry-list) that calls this. */
+function reorderEntries(si, fromIdx, toIdx) {
+  const entries = cvData.parsed.sections[si].entries || [];
+  const [moved] = entries.splice(fromIdx, 1);
+  entries.splice(toIdx, 0, moved);
+  renderEditPanel(); renderRightPanel(); scheduleSave();
 }
-function onEntryDragEnd() { _eDragSi=null; _eDragEi=null; }
+
+let _entrySortables = [];
+function initEntrySortables() {
+  _entrySortables.forEach(s => s.destroy());
+  _entrySortables = [];
+  if (typeof Sortable === 'undefined') return;
+  document.querySelectorAll('.entry-list[data-section-index]').forEach(list => {
+    const si = parseInt(list.dataset.sectionIndex, 10);
+    _entrySortables.push(new Sortable(list, {
+      handle: '.entry-drag-handle',
+      animation: 150,
+      onEnd(evt) {
+        if (evt.oldIndex === evt.newIndex) return;
+        reorderEntries(si, evt.oldIndex, evt.newIndex);
+      },
+    }));
+  });
+}
 
 /* ============================================================
    ADD CONTENT MODAL
@@ -1443,6 +1459,7 @@ function renderCustomizePanel() {
   if (scrollEl) scrollEl.scrollTop = savedTop;
   const newTplScrollEl = document.querySelector('.template-grid-2col');
   if (newTplScrollEl) newTplScrollEl.scrollLeft = savedTplLeft;
+  initLayoutSortable();
 }
 
 function custRow(label, controlHtml) {
@@ -1461,11 +1478,7 @@ function renderSectionLayoutPanel(colMode) {
     const name = cvData.sectionNames[i] !== undefined ? cvData.sectionNames[i] : sections[i].title;
     const def  = getSectionDef(sections[i], i);
     const width = cvData.sectionWidth[i] || 'full';
-    return `<div class="layout-chip" draggable="true"
-      ondragstart="onLayoutDragStart(event,${i})"
-      ondragover="onLayoutDragOver(event,${i})"
-      ondrop="onLayoutDrop(event,${i})"
-      ondragend="onLayoutDragEnd()">
+    return `<div class="layout-chip" data-section-idx="${i}">
       <span class="layout-chip-handle">⠿</span>
       <span class="layout-chip-icon">${def.icon || '📄'}</span>
       <input class="layout-chip-label" type="text" value="${escapeAttr(name)}"
@@ -1475,61 +1488,90 @@ function renderSectionLayoutPanel(colMode) {
     </div>`;
   }
 
+  // The inner `.layout-zone-list`/`.layout-1col-list` is the actual
+  // SortableJS-managed container — it holds ONLY chip elements. The
+  // zone label and the empty-state hint used to sit alongside the
+  // chips as plain sibling divs, which SortableJS would otherwise try
+  // to treat as draggable list items too; keeping them in the outer
+  // wrapper instead avoids that. The empty-state text itself is a pure
+  // CSS `:empty::after` on the list (see main.css) rather than a real
+  // DOM node, for the same reason.
   if (colMode === '2') {
     const mainIdx    = sections.map((_,i)=>i).filter(i => (cvData.columnAssign[i]||'main') === 'main');
     const sidebarIdx = sections.map((_,i)=>i).filter(i => cvData.columnAssign[i] === 'sidebar');
     return `<div class="layout-2col-panel">
-      <div class="layout-zone" data-zone="sidebar" ondragover="onZoneDragOver(event)" ondrop="onZoneDrop(event,'sidebar')">
+      <div class="layout-zone">
         <div class="layout-zone-label">Sidebar</div>
-        ${sidebarIdx.length ? sidebarIdx.map(chip).join('') : '<div class="layout-zone-empty">Drag sections here</div>'}
+        <div class="layout-zone-list" data-zone="sidebar">${sidebarIdx.map(chip).join('')}</div>
       </div>
-      <div class="layout-zone" data-zone="main" ondragover="onZoneDragOver(event)" ondrop="onZoneDrop(event,'main')">
+      <div class="layout-zone">
         <div class="layout-zone-label">Main</div>
-        ${mainIdx.length ? mainIdx.map(chip).join('') : '<div class="layout-zone-empty">Drag sections here</div>'}
+        <div class="layout-zone-list" data-zone="main">${mainIdx.map(chip).join('')}</div>
       </div>
     </div>`;
   }
 
   // One column or Mix: single reorderable list
-  return `<div class="layout-1col-panel" data-zone="single" ondragover="onZoneDragOver(event)" ondrop="onZoneDrop(event,'single')">
-    ${sections.map((_,i)=>chip(i)).join('')}
+  return `<div class="layout-1col-panel">
+    <div class="layout-zone-list" data-zone="single">${sections.map((_,i)=>chip(i)).join('')}</div>
     ${colMode==='mix' ? '<p class="layout-hint">Half-width sections pair up side by side, in the order shown.</p>' : ''}
   </div>`;
 }
 
-let _layoutDragIdx = null;
-function onLayoutDragStart(e, idx) {
-  _layoutDragIdx = idx;
-  e.dataTransfer.effectAllowed = 'move';
-  e.dataTransfer.setData('text/plain', String(idx));
-  setTimeout(() => e.target.classList.add('layout-chip-dragging'), 0);
-}
-function onLayoutDragOver(e, idx) { e.preventDefault(); }
-function onZoneDragOver(e) { e.preventDefault(); }
+// Rather than tracking a dragged chip's old/new position as deltas
+// (awkward here since a chip can move between the sidebar and main
+// zones, not just within one list), this reads the FULL final chip
+// order straight out of the DOM after any drag SortableJS just
+// performed, across whichever zone(s) exist for the current column
+// mode, and rebuilds cvData.parsed.sections (plus the column/name/
+// width maps, all keyed by section index) from that. Simpler and more
+// robust than reconstructing what moved from an index pair.
+function commitLayoutOrderFromDOM() {
+  const oldSections = cvData.parsed.sections;
+  const chipIdxsIn = (list) => list ? [...list.querySelectorAll('.layout-chip')].map(el => parseInt(el.dataset.sectionIdx, 10)) : [];
 
-function onLayoutDrop(e, targetIdx) {
-  e.preventDefault();
-  e.stopPropagation();
-  if (_layoutDragIdx === null || _layoutDragIdx === targetIdx) return;
-  const targetCol = cvData.columnAssign[targetIdx]; // capture target's column before indices shift
-  reorderSections(_layoutDragIdx, targetIdx, targetCol);
-  _layoutDragIdx = null;
-}
+  const singleList = document.querySelector('.layout-zone-list[data-zone="single"]');
+  let newOrderOldIdx, newColumnAssignByOldIdx = null;
 
-function onZoneDrop(e, zone) {
-  e.preventDefault();
-  if (_layoutDragIdx === null) return;
-  // Dropped on empty zone space (not on a specific chip) — assign to end of that zone/column
-  if (zone === 'sidebar' || zone === 'main') {
-    cvData.columnAssign[_layoutDragIdx] = zone;
+  if (singleList) {
+    newOrderOldIdx = chipIdxsIn(singleList);
+  } else {
+    const sidebarOldIdx = chipIdxsIn(document.querySelector('.layout-zone-list[data-zone="sidebar"]'));
+    const mainOldIdx    = chipIdxsIn(document.querySelector('.layout-zone-list[data-zone="main"]'));
+    newOrderOldIdx = [...sidebarOldIdx, ...mainOldIdx];
+    newColumnAssignByOldIdx = {};
+    sidebarOldIdx.forEach(oi => { newColumnAssignByOldIdx[oi] = 'sidebar'; });
+    mainOldIdx.forEach(oi => { newColumnAssignByOldIdx[oi] = 'main'; });
   }
-  _layoutDragIdx = null;
+  if (newOrderOldIdx.length !== oldSections.length) return; // safety net, shouldn't happen
+
+  const remapByOldIdx = (obj) => {
+    const out = {};
+    newOrderOldIdx.forEach((oldI, newI) => { if (obj[oldI] !== undefined) out[newI] = obj[oldI]; });
+    return out;
+  };
+
+  cvData.parsed.sections = newOrderOldIdx.map(oldI => oldSections[oldI]);
+  cvData.sectionNames = remapByOldIdx(cvData.sectionNames);
+  cvData.sectionWidth  = remapByOldIdx(cvData.sectionWidth);
+  cvData.columnAssign  = remapByOldIdx(newColumnAssignByOldIdx || cvData.columnAssign);
+
   renderEditPanel(); renderCustomizePanel(); renderRightPanel(); scheduleSave();
 }
 
-function onLayoutDragEnd() {
-  _layoutDragIdx = null;
-  document.querySelectorAll('.layout-chip').forEach(el => el.classList.remove('layout-chip-dragging'));
+let _layoutSortables = [];
+function initLayoutSortable() {
+  _layoutSortables.forEach(s => s.destroy());
+  _layoutSortables = [];
+  if (typeof Sortable === 'undefined') return;
+  document.querySelectorAll('.layout-zone-list').forEach(list => {
+    _layoutSortables.push(new Sortable(list, {
+      group: 'section-layout', // lets a chip cross from the sidebar list into the main list (and back)
+      handle: '.layout-chip-handle',
+      animation: 150,
+      onEnd: commitLayoutOrderFromDOM,
+    }));
+  });
 }
 
 function reorderSections(fromIdx, toIdx, targetCol) {
@@ -2861,15 +2903,20 @@ function markPresent(sectionIdx) {
 /* ============================================================
    DRAG-TO-REORDER SECTIONS
    ============================================================ */
-let dragSrcIdx=null, dragOverIdx=null;
-function onDragStart(e,idx){ dragSrcIdx=idx; e.dataTransfer.effectAllowed='move'; e.dataTransfer.setData('text/plain',String(idx)); setTimeout(()=>document.getElementById(`acc-${idx}`)?.classList.add('dragging'),0); }
-function onDragOver(e,idx){ e.preventDefault(); if(idx===dragOverIdx)return; dragOverIdx=idx; document.querySelectorAll('.sec-accordion').forEach(el=>el.classList.remove('drag-over')); if(idx!==dragSrcIdx)document.getElementById(`acc-${idx}`)?.classList.add('drag-over'); }
-function onDrop(e,idx){
-  e.preventDefault(); if(dragSrcIdx===null||dragSrcIdx===idx)return;
-  reorderSections(dragSrcIdx, idx);
-  dragSrcIdx=null; dragOverIdx=null;
+let _sectionSortable = null;
+function initSectionsSortable() {
+  if (_sectionSortable) { _sectionSortable.destroy(); _sectionSortable = null; }
+  const list = document.getElementById('sectionsList');
+  if (typeof Sortable === 'undefined' || !list) return;
+  _sectionSortable = new Sortable(list, {
+    handle: '.drag-handle',
+    animation: 150,
+    onEnd(evt) {
+      if (evt.oldIndex === evt.newIndex) return;
+      reorderSections(evt.oldIndex, evt.newIndex);
+    },
+  });
 }
-function onDragEnd(){ dragSrcIdx=null; dragOverIdx=null; document.querySelectorAll('.sec-accordion').forEach(el=>el.classList.remove('dragging','drag-over')); }
 
 /* ============================================================
    ACCORDION
@@ -3022,7 +3069,13 @@ function migrateHeader(){
    ============================================================ */
 function fitPaperZoom() {
   const wrap  = document.getElementById('cvPaperWrap');
-  const right = document.getElementById('editorRight');
+  // Read the actual current parent rather than hardcoding #editorRight —
+  // the mobile Preview modal (see openMobilePreview) moves this same
+  // live #cvPaperWrap node into its own full-screen container instead of
+  // cloning it, so the zoom calculation needs to size against WHICHEVER
+  // container it's currently sitting in, not always the desktop/mobile
+  // split-panel one.
+  const right = wrap ? wrap.parentElement : null;
   if (!wrap || !right) return;
 
   // .cv-paper-wrap's own CSS rule is `width: min(var(--cv-paper-w, 210mm),
@@ -3066,6 +3119,42 @@ function scheduleFitZoom() {
 }
 
 window.addEventListener('resize', scheduleFitZoom);
+
+/* ============================================================
+   MOBILE PREVIEW MODAL
+
+   On a phone, the edit form and the live preview stack vertically
+   (see the @media(max-width:800px) rules in main.css), so reaching the
+   preview means scrolling past the whole form. Opening this modal
+   MOVES the actual #cvPaperWrap node in (rather than cloning it), so
+   there's exactly one live preview element, updated by the exact same
+   render calls either way — nothing to keep in sync, and closing the
+   modal just moves it straight back to its normal spot in #editorRight.
+   fitPaperZoom() reads wrap.parentElement rather than a hardcoded
+   #editorRight reference specifically so this resizes correctly in
+   both places.
+   ============================================================ */
+function openMobilePreview() {
+  const wrap = document.getElementById('cvPaperWrap');
+  if (!wrap || !mobilePreviewBody) return;
+  mobilePreviewBody.appendChild(wrap);
+  mobilePreviewModal.classList.add('open');
+  document.body.style.overflow = 'hidden';
+  scheduleFitZoom();
+}
+
+function closeMobilePreview() {
+  const wrap = document.getElementById('cvPaperWrap');
+  const editorRight = document.getElementById('editorRight');
+  if (wrap && editorRight) editorRight.appendChild(wrap);
+  mobilePreviewModal.classList.remove('open');
+  document.body.style.overflow = '';
+  scheduleFitZoom();
+}
+
+if (mobilePreviewFab) mobilePreviewFab.addEventListener('click', openMobilePreview);
+if (mobilePreviewClose) mobilePreviewClose.addEventListener('click', closeMobilePreview);
+if (mobilePreviewDownload) mobilePreviewDownload.addEventListener('click', () => downloadBtn.click());
 
 /* ============================================================
    RESIZABLE PANEL DIVIDER

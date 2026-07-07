@@ -14,6 +14,12 @@
   <link rel="stylesheet" href="css/main.css">
   <!-- PDF generation library (replaces window.print — creates actual PDF file) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  <!-- Drag-to-reorder (sections, entries, section layout). Native HTML5
+       drag-and-drop only fires for mouse input — no touch browser (iOS
+       Safari, Chrome for Android) dispatches those events for touch, so
+       it silently did nothing on mobile. SortableJS handles mouse and
+       touch uniformly. -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.2/Sortable.min.js"></script>
   <!-- Hidden until auth-guard.js confirms sign-in — prevents a
        flash of editor content before the async auth check resolves -->
   <style>body{visibility:hidden}</style>
@@ -91,6 +97,27 @@
       </div>
     </div>
 
+  </div>
+
+  <!-- Mobile Preview button/modal: on a phone, the edit form and the
+       live preview stack vertically (see the @media(max-width:800px)
+       rules in main.css), so seeing the preview means scrolling past
+       the entire form first. This button jumps straight to a full-
+       screen view of the SAME live #cvPaperWrap node (moved in, not
+       cloned, so it can't drift out of sync — see openMobilePreview in
+       editor.js), matching the pattern FlowCV uses on mobile. Hidden
+       on desktop widths, where the preview is already visible
+       alongside the form. -->
+  <button class="mobile-preview-fab" id="mobilePreviewFab" type="button" title="Preview" aria-label="Preview CV">
+    <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+  </button>
+
+  <div class="mobile-preview-modal" id="mobilePreviewModal">
+    <button class="mobile-preview-close" id="mobilePreviewClose" type="button" aria-label="Close preview">
+      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
+    <div class="mobile-preview-modal-body" id="mobilePreviewBody"></div>
+    <button class="mobile-preview-download" id="mobilePreviewDownload" type="button">⬇ Download PDF</button>
   </div>
 
   <!-- Reimport Modal -->
