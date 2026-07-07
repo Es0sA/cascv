@@ -3,6 +3,23 @@
 Log of changes made to this repo by Claude Code sessions. Newest first.
 Commit hashes refer to `main`.
 
+## 2026-07-07
+
+- Added a "Sort by Date" button next to each section's Delete button
+  (`js/editor.js`), matching a feature on FlowCV. Reorders that
+  section's entries most-recent-or-current-first, using whichever date
+  field(s) that section type has (`startDate`/`endDate` for Work,
+  Education, Projects, Courses; `start`/`end` for Organisations; a
+  single `date` for Certifications, Awards, Publications, Declaration).
+  An entry with no end date (a current role) sorts as "now", ahead of
+  anything with an actual end date, via the existing `parseDateToMs`
+  helper. Only appears for sections that actually have a date field and
+  more than one entry — sections like Core Skills, Languages, and
+  References don't show it. Verified with Playwright: scrambled a set
+  of work entries, clicked the button, confirmed the resulting order
+  and the debounced autosave both come out correctly reverse
+  chronological.
+
 ## 2026-07-06 (even later)
 
 - Fixed the mobile preview not matching the true CV layout the way it

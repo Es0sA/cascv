@@ -529,6 +529,8 @@ function renderEditPanel() {
       ${stype==='custom' ? renderCustomSectionControls(section, i) : ''}
       ${def.useTextarea ? renderTextareaSection(section, i) : renderStructuredSection(section, i, def)}
       <div class="section-actions">
+        ${getSectionDateKeys(def) && (section.entries || []).length > 1 ? `
+        <button class="sec-action-btn" onclick="sortEntriesByDate(${i})" type="button" title="Reorder entries so the most recent (or current) comes first">📅 Sort by Date</button>` : ''}
         <button class="sec-action-btn sec-action-danger" onclick="deleteSection(${i})" type="button">🗑 Delete</button>
       </div>
     </div>
@@ -2773,6 +2775,54 @@ function toggleFieldVisibility(key) {
 function assignColumn(index, col) {
   cvData.columnAssign[index] = col;
   renderEditPanel(); renderRightPanel(); scheduleSave();
+}
+
+// Which of an entry's own fields represent its date range, if any — used
+// by the "Sort by Date" button to know both whether to show it at all
+// (sections like Skills/Languages/References have no date field) and
+// which keys to read per entry. Different section types name theirs
+// differently (startDate/endDate for Work/Education/Projects/Courses,
+// start/end for Organisations, a single date for Certifications/Awards/
+// Publications/Declaration), so this checks by key rather than by
+// section type.
+function getSectionDateKeys(def) {
+  if (!def || !def.fields) return null;
+  const keys = def.fields.map(f => f.key);
+  if (keys.includes('startDate') && keys.includes('endDate')) return { start:'startDate', end:'endDate' };
+  if (keys.includes('start')     && keys.includes('end'))     return { start:'start',     end:'end' };
+  if (keys.includes('date')) return { start:'date', end:'date' };
+  return null;
+}
+
+// Reorders a section's entries most-recent/current-first (reverse
+// chronological), matching the convention every CV reader expects and
+// what FlowCV's own "sort by date" button does. Ranks by end date
+// first (an entry with no end date is treated as ongoing/"Present" —
+// parseDateToMs already resolves a blank or "Present" string to right
+// now, which is exactly "still current" and belongs at the top), then
+// by start date to break ties between entries that ended the same way.
+function sortEntriesByDate(index) {
+  const section = cvData.parsed.sections[index];
+  const def = getSectionDef(section, index);
+  const dateKeys = getSectionDateKeys(def);
+  if (!dateKeys || !section.entries || section.entries.length < 2) return;
+
+  section.entries = section.entries
+    .map((entry, originalIndex) => ({ entry, originalIndex }))
+    .sort((a, b) => {
+      const bEnd = parseDateToMs(b.entry[dateKeys.end]   || b.entry[dateKeys.start] || '');
+      const aEnd = parseDateToMs(a.entry[dateKeys.end]   || a.entry[dateKeys.start] || '');
+      if (bEnd !== aEnd) return bEnd - aEnd;
+      const bStart = parseDateToMs(b.entry[dateKeys.start] || '');
+      const aStart = parseDateToMs(a.entry[dateKeys.start] || '');
+      if (bStart !== aStart) return bStart - aStart;
+      return a.originalIndex - b.originalIndex; // stable tie-break
+    })
+    .map(w => w.entry);
+
+  renderEditPanel();
+  renderRightPanel();
+  scheduleSave();
 }
 
 function deleteSection(index) {
