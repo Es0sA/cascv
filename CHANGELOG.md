@@ -3,6 +3,36 @@
 Log of changes made to this repo by Claude Code sessions. Newest first.
 Commit hashes refer to `main`.
 
+## 2026-07-07 (even later still)
+
+- `e11f188`: Reworked `js/parser.js` so CV import handles raw,
+  uncleaned resume text instead of requiring a pass through Claude to
+  clean it into an all-caps format first. Reverse-engineered what
+  FlowCV's competing import feature does under the hood (captured its
+  network traffic during a paste-text import): it turned out to be an
+  8.7 second server-side call with no external AI provider domain
+  contacted, strongly suggesting an LLM call proxied through their own
+  backend. That needs a paid API and a server to hold the key, neither
+  of which fits this project's zero-backend, zero-cost setup, so
+  instead made the existing client-side heuristic parser meaningfully
+  smarter: heading detection now recognizes title-case/sentence-case
+  section titles (not just all-caps) via a whole-phrase keyword match,
+  header parsing classifies lines by content (email/phone/URL pattern)
+  instead of assuming a fixed line order, date range parsing
+  understands "to" and "Date"/"Current"/"Now" as well as dashes and
+  "Present", and work/education entry grouping now handles headers
+  split across 2 or 3 lines without silently dropping or merging
+  entries. Also fixed a pre-existing bug where an all-caps name on the
+  first line could be mistaken for a section heading. Also fixed
+  `js/editor.js`'s entry description rich text toolbar: Bold/Italic/
+  Underline wrapped an entire multi-line selection in one marker pair,
+  which the preview renderer could never match since it converts each
+  line independently (and putting the marker before a leading bullet
+  character broke bullet detection for that line entirely); List only
+  ever bulleted the single line the cursor sat on. Both now operate
+  per line. Verified all of this against both the original cleaned
+  format and real raw resume text before pushing.
+
 ## 2026-07-07 (even later)
 
 - Self-hosted every font the app uses (`css/fonts.css` + `fonts/*.woff2`,
