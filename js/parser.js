@@ -1,7 +1,10 @@
 /* ============================================================
    CAS CV Builder — parser.js
-   Parses cleaned CV text into structured sections.
-   Built around the CAS CV format output by Claude.
+   Parses CV text into structured sections. Originally built around
+   the all-caps cleaned CV format output by Claude; also handles raw,
+   uncleaned resume text (title case headings, dates split across
+   several lines, no bullet markers) without needing that cleanup
+   step first.
    ============================================================ */
 
 /**
@@ -16,17 +19,70 @@ function parseCV(rawText) {
   // 2. Split into lines, trim whitespace, drop empty lines
   const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
 
-  // 3. Identify section headings
-  //    Rules: all letters are uppercase, no digits, no @ . - + symbols
-  //    Minimum 4 characters long
+  // 3. Identify section headings.
+  //    Two ways a line counts as a heading:
+  //    a) All-caps, no digits/@/+ (the original cleaned-by-Claude format).
+  //    b) The line, taken as a whole, matches one of a known set of
+  //       exact section-title phrases (Work Experience, Education,
+  //       Skills, etc, in whatever case). This lets raw, uncleaned
+  //       resume text (title case, sentence case) be recognized
+  //       without needing an all-caps pass through Claude first.
+  //       This deliberately uses a whole-phrase match rather than
+  //       detectSectionType's substring match below: substring
+  //       matching is fine once a line is already confirmed to be a
+  //       heading (to classify which type it is), but it is too loose
+  //       for deciding heading-ness in the first place. e.g. detecting
+  //       "project" anywhere in a line would wrongly flag a job title
+  //       like "Project Manager" as a new section.
+  function isKnownHeadingPhrase(line) {
+    const t = line.trim().toLowerCase().replace(/[:.,]+$/, '');
+    const knownHeadingPhrases = [
+      /^(work|professional|career)?\s*experience$/,
+      /^employment( history)?$/,
+      /^career history$/,
+      /^additional experience$/,
+      /^other experience$/,
+      /^education( and training)?$/,
+      /^academic (background|qualifications?)$/,
+      /^qualifications?$/,
+      /^certifications?( and professional development)?$/,
+      /^licenses?( and certifications?)?$/,
+      /^accreditations?$/,
+      /^(core |key )?skills$/,
+      /^competenc(y|ies)$/,
+      /^expertise$/,
+      /^languages?$/,
+      /^projects?$/,
+      /^awards?( and honou?rs?)?$/,
+      /^honou?rs?$/,
+      /^achievements?$/,
+      /^interests?$/,
+      /^hobbies$/,
+      /^references?$/,
+      /^publications?$/,
+      /^courses?( and training)?$/,
+      /^training$/,
+      /^organi[sz]ations?$/,
+      /^volunteer(ing| experience| work)?$/,
+      /^memberships?$/,
+      /^(professional )?(profile|summary|objective)$/,
+      /^about me$/,
+    ];
+    return knownHeadingPhrases.some(re => re.test(t));
+  }
+
   function isSectionHeading(line) {
-    if (line.length < 4) return false;
-    // Exclude lines with: email (@), phone (+), dates/numbers (\d), initials (.), hyphens (-)
-    if (/[@+\d.\-]/.test(line)) return false;
-    // Extract only letters and check they're all uppercase
+    if (line.length < 3 || line.length > 50) return false;
+
     const lettersOnly = line.replace(/[^A-Za-z]/g, '');
     if (!lettersOnly.length) return false;
-    return lettersOnly === lettersOnly.toUpperCase();
+
+    const isAllCaps = lettersOnly.length >= 4 &&
+      !/[@+\d]/.test(line) &&
+      lettersOnly === lettersOnly.toUpperCase();
+    if (isAllCaps) return true;
+
+    return isKnownHeadingPhrase(line);
   }
 
   // 4. Walk through lines and group into header + sections
@@ -35,8 +91,10 @@ function parseCV(rawText) {
   let currentSection = null;
   let foundFirstHeading = false;
 
-  for (const line of lines) {
-    if (isSectionHeading(line)) {
+  for (const [index, line] of lines.entries()) {
+    // The very first line of a resume is always the name, never a
+    // section heading, even if it happens to be written in all caps.
+    if (index > 0 && isSectionHeading(line)) {
       foundFirstHeading = true;
 
       // Save the previous section before starting a new one
@@ -69,20 +127,36 @@ function parseCV(rawText) {
 }
 
 /**
- * Parse header lines into { name, jobTitle, contact }
- * Typical structure:
- *   Line 0: FULL NAME
- *   Line 1: Job Title / Tagline
- *   Line 2+: Contact info (location, email, phone, LinkedIn)
+ * Parse header lines into { name, jobTitle, contact }.
+ * Rather than assuming a fixed line 0 / line 1 / line 2+ layout (which
+ * only holds for the cleaned-by-Claude format), classify each line: a
+ * line with an email, phone number, URL or linkedin/github handle is
+ * contact info regardless of position. The first non-contact line is
+ * the name, the second is the job title/tagline. This handles raw
+ * resume text where contact details may be split across several lines
+ * or appear before the tagline.
  */
 function parseHeader(lines) {
   if (!lines.length) return { name: '', jobTitle: '', contact: '' };
 
-  const name     = lines[0] || '';
-  const jobTitle = lines[1] || '';
-  const contact  = lines.slice(2).join(' | ');
+  const contactPattern = /@|linkedin\.com|github\.com|https?:\/\/|(?:^|\s)\+?\(?\d{2,4}\)?[\d\s().-]{5,}$/i;
 
-  return { name, jobTitle, contact };
+  let name = '', jobTitle = '';
+  const contactLines = [];
+
+  for (const line of lines) {
+    if (contactPattern.test(line)) {
+      contactLines.push(line);
+    } else if (!name) {
+      name = line;
+    } else if (!jobTitle) {
+      jobTitle = line;
+    } else {
+      contactLines.push(line);
+    }
+  }
+
+  return { name, jobTitle, contact: contactLines.join(' | ') };
 }
 
 /**
@@ -147,43 +221,96 @@ function detectSectionType(title) {
   return null;
 }
 
+// A single date token: "Jan 2020", "January 2020", or a bare year "2020".
+const DATE_TOKEN = '(?:[A-Za-z]{3,9}\\.?\\s+\\d{4}|\\d{4})';
+// An end-of-range token also allows the usual "still going" words.
+const END_TOKEN = `(?:${DATE_TOKEN}|Present|Current|Now|Date|Till Date|To Date)`;
+// Two date tokens joined by a dash (of any style) or the word "to".
+const DATE_RANGE_RE = new RegExp(
+  `(${DATE_TOKEN})\\s*(?:[\\u2013\\u2014-]|\\bto\\b)\\s*(${END_TOKEN})`, 'i'
+);
+
 function isMetaLine(line) {
-  return line.includes(' | ') && /(Present|\d{4})/i.test(line);
+  return DATE_RANGE_RE.test(line);
 }
 
 function isBulletLine(line) {
-  return /^[•–•\-\*]\s/.test(line.trim());
+  return /^[••–▪‣○\-\*]\s/.test(line.trim());
 }
 
 function parseMetaLine(line) {
-  // Parse: "Company | City | Jan 2020 – Present" or "Jan 2020 – Present | City"
-  const parts = line.split('|').map(p => p.trim());
-  let startDate = '', endDate = '', location = '', employer = '';
+  // Find the date range wherever it sits in the line (works for
+  // "Company | City | Jan 2020 - Present", "Jan 2020 - Present | City",
+  // and unpunctuated raw text like "Company, City  September 2025 to
+  // June 2026"). Text that appears BEFORE the date range is treated as
+  // employer/location; text AFTER it (e.g. a single-line entry like
+  // "Role, Company | Aug 2011 to Jul 2013. Did the thing.") is kept
+  // separately as trailing description text rather than mixed in with
+  // employer/location.
+  let startDate = '', endDate = '', location = '', employer = '', trailing = '';
 
-  parts.forEach(p => {
-    // Date range: "Jan 2020 – Present", "August 2021 – Present", or "2023 – 2024"
-    const range = p.match(/^(\w{3,9}\s+\d{4}|\d{4})\s*[–—-]\s*(\w{3,9}\s+\d{4}|\d{4}|Present)$/i);
-    if (range) {
-      startDate = range[1].trim();
-      endDate   = range[2].trim();
-    } else if (!startDate && /(Present|\d{4})/i.test(p)) {
-      startDate = p;
-    } else if (startDate && !location && !/\d{4}/.test(p)) {
-      location = p;
-    } else if (!employer && !/(Present|\d{4})/.test(p)) {
-      employer = p;
-    } else if (employer && !location && !/(Present|\d{4})/.test(p)) {
-      location = p;
+  const rangeMatch = line.match(DATE_RANGE_RE);
+  let before = line, after = '';
+  if (rangeMatch) {
+    startDate = rangeMatch[1].trim();
+    endDate   = rangeMatch[2].trim();
+    before = line.slice(0, rangeMatch.index);
+    after  = line.slice(rangeMatch.index + rangeMatch[0].length);
+  }
+
+  // Strip leftover separator punctuation from where the date used to sit.
+  before = before.replace(/^[\s|,–—-]+|[\s|,–—-]+$/g, '');
+  after  = after.replace(/^[\s|,.:;–—-]+/, '').trim();
+
+  if (before) {
+    // Prefer pipe-separated parts ("Company | City, State").
+    let parts = before.split(/\s*\|\s*/).filter(Boolean);
+    if (parts.length === 1) {
+      // Fall back to comma-separated ("Company, City, State").
+      parts = before.split(/\s*,\s*/).filter(Boolean);
     }
-  });
 
-  return { startDate, endDate, location, employer };
+    if (parts.length >= 2) {
+      employer = parts[0];
+      location = parts.slice(1).join(', ');
+    } else if (parts.length === 1) {
+      employer = parts[0];
+    }
+  }
+
+  if (after) trailing = after;
+
+  return { startDate, endDate, location, employer, trailing };
+}
+
+// How many plain (non-bullet, non-meta) lines ahead to check for a
+// meta (date) line when deciding whether a plain line starts a new
+// entry header block. The cleaned-by-Claude format puts title
+// immediately above a combined meta line (lookahead of 1); raw resume
+// text often splits employer and location onto their own line before
+// the date line (lookahead of 2: title, employer/location, then meta).
+const HEADER_LOOKAHEAD = 3;
+
+// True if a meta (date) line appears within the next `count` lines,
+// with nothing but plain (non-bullet) lines in between. Used to detect
+// "this plain line is the start of a new entry's header block" even
+// when the header spans more than 2 lines.
+function metaWithinLookahead(lines, fromIndex, count) {
+  for (let j = fromIndex; j < Math.min(lines.length, fromIndex + count); j++) {
+    const l = (lines[j] || '').trim();
+    if (!l) continue;
+    if (isBulletLine(l)) return false;
+    if (isMetaLine(l)) return true;
+  }
+  return false;
 }
 
 function linesToWorkEntries(lines) {
   const entries = [];
   let cur = null;
   let descLines = [];
+  let headerFieldsSet = 0; // how many plain lines have filled {jobTitle, employer/location} for cur
+  let headerDone = false;  // true once a meta (date) line has been consumed for cur
 
   function flush() {
     if (!cur) return;
@@ -191,43 +318,64 @@ function linesToWorkEntries(lines) {
     entries.push(cur);
     cur = null;
     descLines = [];
+    headerFieldsSet = 0;
+    headerDone = false;
   }
 
   for (let i = 0; i < lines.length; i++) {
-    const line  = lines[i].trim();
+    const line = lines[i].trim();
     if (!line) continue;
-
-    const nextLine = (lines[i + 1] || '').trim();
 
     if (isBulletLine(line)) {
       if (!cur) cur = { visible: true };
       descLines.push(line);
-    } else if (isMetaLine(line)) {
-      // Parse meta into current entry
+      continue;
+    }
+
+    if (isMetaLine(line)) {
+      // A second meta line for the same entry (no title line in
+      // between) means each meta line is actually its own single-line
+      // entry (e.g. "Role, Company | Aug 2011 to Jul 2013. Did the
+      // thing." repeated one per line, with no separate title line).
+      if (cur && headerDone) flush();
+
       if (!cur) cur = { visible: true };
       const meta = parseMetaLine(line);
       if (meta.employer)  cur.employer  = cur.employer  || meta.employer;
       if (meta.startDate) cur.startDate = meta.startDate;
       if (meta.endDate)   cur.endDate   = meta.endDate;
-      if (meta.location)  cur.location  = meta.location;
-    } else if (isMetaLine(nextLine)) {
-      // This line is a job title (next line is meta)
-      flush();
+      if (meta.location)  cur.location  = cur.location  || meta.location;
+      if (meta.trailing)  descLines.push(meta.trailing);
+      headerDone = true;
+      continue;
+    }
+
+    // Plain line: still inside the current entry's header block
+    // (title / employer / location) if no meta line and no
+    // description text has been seen yet for this entry.
+    const stillInHeader = cur && !headerDone && descLines.length === 0 && headerFieldsSet < 2;
+
+    if (!cur) {
       cur = { visible: true, jobTitle: line };
-    } else if (cur && !isBulletLine(line)) {
-      // Plain line after entry started — check if it's a company/subtitle
-      if (!cur.employer && !cur.startDate) {
-        cur.employer = line;
-      } else if (cur.jobTitle && !cur.employer) {
+      headerFieldsSet = 1;
+    } else if (stillInHeader) {
+      if (!cur.jobTitle) {
+        cur.jobTitle = line;
+      } else if (!cur.employer) {
         cur.employer = line;
       } else {
-        // Non-bullet description line
-        descLines.push(line);
+        cur.location = cur.location || line;
       }
-    } else {
-      // Standalone non-bullet, non-meta: start new entry
+      headerFieldsSet++;
+    } else if (metaWithinLookahead(lines, i, HEADER_LOOKAHEAD)) {
+      // A date line is coming up within the next couple of lines with
+      // no bullets in between: this plain line starts a new entry.
       flush();
       cur = { visible: true, jobTitle: line };
+      headerFieldsSet = 1;
+    } else {
+      // Plain description line (bullet markers weren't used).
+      descLines.push(line);
     }
   }
 
@@ -239,6 +387,8 @@ function linesToEducationEntries(lines) {
   const entries = [];
   let cur = null;
   let descLines = [];
+  let headerFieldsSet = 0;
+  let headerDone = false;
 
   function flush() {
     if (!cur) return;
@@ -246,32 +396,54 @@ function linesToEducationEntries(lines) {
     entries.push(cur);
     cur = null;
     descLines = [];
+    headerFieldsSet = 0;
+    headerDone = false;
   }
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i].trim();
     if (!line) continue;
-    const nextLine = (lines[i + 1] || '').trim();
 
     if (isBulletLine(line)) {
       if (!cur) cur = { visible: true };
       descLines.push(line);
-    } else if (isMetaLine(line)) {
+      continue;
+    }
+
+    if (isMetaLine(line)) {
+      if (cur && headerDone) flush();
+
       if (!cur) cur = { visible: true };
       const meta = parseMetaLine(line);
       if (meta.employer)  cur.school    = cur.school    || meta.employer;
       if (meta.startDate) cur.startDate = meta.startDate;
       if (meta.endDate)   cur.endDate   = meta.endDate;
-      if (meta.location)  cur.location  = meta.location;
-    } else if (isMetaLine(nextLine)) {
+      if (meta.location)  cur.location  = cur.location  || meta.location;
+      if (meta.trailing)  descLines.push(meta.trailing);
+      headerDone = true;
+      continue;
+    }
+
+    const stillInHeader = cur && !headerDone && descLines.length === 0 && headerFieldsSet < 2;
+
+    if (!cur) {
+      cur = { visible: true, degree: line };
+      headerFieldsSet = 1;
+    } else if (stillInHeader) {
+      if (!cur.degree) {
+        cur.degree = line;
+      } else if (!cur.school) {
+        cur.school = line;
+      } else {
+        cur.location = cur.location || line;
+      }
+      headerFieldsSet++;
+    } else if (metaWithinLookahead(lines, i, HEADER_LOOKAHEAD)) {
       flush();
       cur = { visible: true, degree: line };
-    } else if (cur) {
-      if (!cur.school) cur.school = line;
-      else descLines.push(line);
+      headerFieldsSet = 1;
     } else {
-      flush();
-      cur = { visible: true, degree: line };
+      descLines.push(line);
     }
   }
 
@@ -297,15 +469,55 @@ function linesToCertEntries(lines) {
 }
 
 function linesToSkillEntries(lines) {
-  return lines.filter(l => l.trim()).map(l => {
-    const line = l.trim();
+  const entries = [];
+  let pendingCategory = null; // a plain category-label line awaiting its list on the next line
+
+  function flushPending() {
+    if (pendingCategory) entries.push({ visible: true, skill: pendingCategory });
+    pendingCategory = null;
+  }
+
+  for (const raw of lines) {
+    const line = raw.trim();
+    if (!line) continue;
+
     // "Category: skill1 | skill2 | skill3" or "Category — skill1 | ..."
-    const split = line.match(/^([^:—–]+)[:\s—–]+(.+)$/);
+    // Requires an actual colon or dash separator, not just any space,
+    // so a plain category label with no punctuation isn't chopped in
+    // half at its last word.
+    const split = line.match(/^([^:—–|]+)[:—–]\s*(.+)$/);
     if (split) {
-      return { visible: true, skill: split[1].trim(), info: split[2].trim() };
+      flushPending();
+      entries.push({ visible: true, skill: split[1].trim(), info: split[2].trim() });
+      continue;
     }
-    return { visible: true, skill: line };
-  }).filter(e => e.skill);
+
+    if (pendingCategory) {
+      // A pipe-separated list right after a bare category label is
+      // that category's skill list (raw resumes often split "Category"
+      // and "skill1 | skill2 | ..." onto two separate lines).
+      if (line.includes('|')) {
+        entries.push({ visible: true, skill: pendingCategory, info: line });
+        pendingCategory = null;
+        continue;
+      }
+      // Otherwise the previous line was a standalone skill, not a
+      // category label; flush it and start considering this line.
+      flushPending();
+    }
+
+    if (line.includes('|')) {
+      // Bare pipe-separated list with no preceding category label.
+      entries.push({ visible: true, skill: line });
+    } else {
+      // Hold this line: it might be a standalone skill, or a category
+      // label whose list follows on the next line.
+      pendingCategory = line;
+    }
+  }
+
+  flushPending();
+  return entries.filter(e => e.skill);
 }
 
 function linesToProfileEntry(lines) {

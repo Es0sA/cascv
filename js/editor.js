@@ -886,35 +886,72 @@ function moveHeaderField(key, direction) {
 /* ============================================================
    RICH TEXT TOOLBAR — wraps selected text with markdown markers
    ============================================================ */
+
+// Wraps a single line's text with before/after markers, keeping any
+// leading bullet marker (added by rteBullet) outside the wrap. The
+// preview renderer detects bullet lines with /^[•–-]\s/ on the raw
+// line (see renderEntryDescriptionHtml below); if a marker like ** sat
+// in front of the bullet character, that regex would fail to match and
+// the whole line would silently fall back to plain-paragraph
+// rendering instead of a bullet.
+function wrapLinePreservingBullet(line, before, after) {
+  if (!line.trim()) return line;
+  const bulletMatch = line.match(/^([•–-]\s+)(.*)$/);
+  if (bulletMatch) {
+    return bulletMatch[1] + before + bulletMatch[2] + after;
+  }
+  return before + line + after;
+}
+
 function rteWrap(taId, before, after) {
   const ta = document.getElementById(taId);
   if (!ta) return;
   const start = ta.selectionStart, end = ta.selectionEnd;
-  const sel   = ta.value.slice(start, end) || 'text';
-  const newVal = ta.value.slice(0, start) + before + sel + after + ta.value.slice(end);
+  const sel = ta.value.slice(start, end) || 'text';
+
+  // Wrap each line of the selection individually rather than putting
+  // a single before/after pair around the whole block: the CV preview
+  // renders each description line as its own paragraph and converts
+  // markdown per line, so a marker pair spanning multiple lines would
+  // never match on any single line and would render as literal
+  // asterisks instead of bold/italic/underline.
+  const wrapped = sel.split('\n').map(line => wrapLinePreservingBullet(line, before, after)).join('\n');
+
+  const newVal = ta.value.slice(0, start) + wrapped + ta.value.slice(end);
   ta.value = newVal;
-  // Update bound entry data
-  const key = Object.keys(_editEntryData).find(() => true);
-  // Find which field this textarea maps to via its id suffix
   const fieldKey = taId.replace('entry-ta-', '');
   _editEntryData[fieldKey] = newVal;
   ta.focus();
-  ta.setSelectionRange(start + before.length, start + before.length + sel.length);
+  ta.setSelectionRange(start, start + wrapped.length);
   autoResize(ta);
 }
 
 function rteBullet(taId) {
   const ta = document.getElementById(taId);
   if (!ta) return;
-  const start = ta.selectionStart;
-  // Insert a bullet at the start of the current line
-  const before = ta.value.slice(0, start);
-  const lineStart = before.lastIndexOf('\n') + 1;
-  const newVal = ta.value.slice(0, lineStart) + '• ' + ta.value.slice(lineStart);
+  const start = ta.selectionStart, end = ta.selectionEnd;
+  const value = ta.value;
+
+  // Expand to cover every full line touched by the selection (not
+  // just the line the cursor happens to sit on), so bulleting a
+  // multi-line/multi-paragraph selection bullets every line in it.
+  const lineStart = value.lastIndexOf('\n', start - 1) + 1;
+  let lineEnd = value.indexOf('\n', end);
+  if (lineEnd === -1) lineEnd = value.length;
+
+  const block = value.slice(lineStart, lineEnd);
+  const bulleted = block.split('\n').map(line => {
+    if (!line.trim()) return line;
+    if (/^[•–-]\s/.test(line)) return line; // already bulleted
+    return '• ' + line;
+  }).join('\n');
+
+  const newVal = value.slice(0, lineStart) + bulleted + value.slice(lineEnd);
   ta.value = newVal;
   const fieldKey = taId.replace('entry-ta-', '');
   _editEntryData[fieldKey] = newVal;
   ta.focus();
+  ta.setSelectionRange(lineStart, lineStart + bulleted.length);
   autoResize(ta);
 }
 
