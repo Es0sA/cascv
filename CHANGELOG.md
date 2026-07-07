@@ -3,6 +3,37 @@
 Log of changes made to this repo by Claude Code sessions. Newest first.
 Commit hashes refer to `main`.
 
+## 2026-07-07 (even later)
+
+- Self-hosted every font the app uses (`css/fonts.css` + `fonts/*.woff2`,
+  29 files, ~1.1MB total) instead of loading them from Google Fonts'
+  CDN. Cas kept seeing the mobile preview/PDF render in a plain
+  fallback font that didn't match the desktop version or the chosen
+  font at all, even after the earlier font-loading-race fix. Root
+  cause this time: the font-race fix could wait for a font to finish
+  loading, but couldn't make an external network request to
+  `fonts.googleapis.com`/`fonts.gstatic.com` faster — on a slow or
+  flaky mobile connection that fetch can take a long time or fail
+  outright, and the browser just keeps showing the fallback font for
+  however long that takes. Removing the external dependency entirely
+  is the only way to make font rendering as reliable as the rest of
+  the (already same-origin) site, regardless of network conditions.
+  Downloaded the Latin-subset `.woff2` for every family in the
+  `FONTS`/`NAME_FONTS` lists (`js/editor.js`) plus the app's own UI
+  fonts (Playfair Display, DM Sans) directly from Google's CDN with a
+  script (fetches each family's CSS with a Chrome User-Agent to get
+  real `.woff2` URLs, since Google's API sniffs the UA to decide which
+  format to serve), generated matching `@font-face` rules, and replaced
+  the Google Fonts `<link>` tag in all 5 HTML pages with one link to
+  `css/fonts.css`. Verified with Playwright: launched with the proxy
+  disabled and every non-localhost request blocked outright (so any
+  remaining dependency on Google's CDN would hard-fail), confirmed
+  every font the test CV used (Playfair Display, DM Sans, PT Serif)
+  still reported `status: 'loaded'` and rendered correctly, and reran
+  the full existing regression suite (pagination, PDF export on both
+  viewports, Sort by Date, all three drag-reorder systems, the mobile
+  Preview modal) with no regressions.
+
 ## 2026-07-07 (later)
 
 - Fixed drag-to-reorder not working on mobile at all (sections, entries

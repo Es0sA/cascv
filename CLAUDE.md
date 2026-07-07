@@ -51,6 +51,26 @@ The app lets Cas build, customize, and export CVs as PDF, plus run an ATS
   branch. Any push to `main` goes live within roughly a minute.
 - PDF generation: `html2pdf.js` loaded from a CDN (`cdnjs.cloudflare.com`)
   in `editor.html` and `dashboard.html`.
+- Drag-to-reorder (sections, entries, Section Layout chips, all in
+  `editor.html`): `SortableJS`, also loaded from `cdnjs.cloudflare.com`.
+  A past version used native HTML5 drag-and-drop, which no touch
+  browser fires for touch input (mouse-only by spec) — silently did
+  nothing on a phone. Don't go back to that.
+- Fonts are self-hosted (`css/fonts.css` + `fonts/*.woff2`), NOT loaded
+  from Google Fonts' CDN. This used to be a `<link>` to
+  `fonts.googleapis.com` in every page's `<head>`; on a slow/unreliable
+  mobile connection that external fetch could take a long time or fail
+  outright, during which text renders in a fallback font that doesn't
+  match the chosen one or the downloaded PDF. Self-hosting removes that
+  dependency: the font files load from the exact same place as
+  everything else. Latin subset only (this app is aimed at
+  English-language CVs). If a new font is ever added to the
+  `FONTS`/`NAME_FONTS` arrays in `editor.js`, it needs its `.woff2`
+  file(s) added under `fonts/` and a matching `@font-face` rule added to
+  `css/fonts.css` (fetch from `https://fonts.googleapis.com/css2?family=
+  Name:wght@400;700&display=swap` with a modern browser User-Agent
+  string to get real URLs back, since Google's API sniffs the UA to
+  decide which format to serve).
 
 ## File structure and what each file does
 
@@ -76,6 +96,13 @@ css/
                      below before touching CSS specificity-sensitive
                      things.
   ats.css            Styling for the ATS checker specifically.
+  fonts.css           Self-hosted @font-face declarations for every
+                     font in the Customize > Font pickers, plus the
+                     app's own UI fonts (Playfair Display, DM Sans).
+                     See the "Tech stack" note on fonts above before
+                     touching this or adding a new font.
+
+fonts/                The actual .woff2 font files fonts.css points at.
 
 js/
   firebase-init.js   Single source of truth for the Firebase app and
