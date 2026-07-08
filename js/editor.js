@@ -251,7 +251,7 @@ async function ensureFontsReady() {
   const stacks = [cvSettings.bodyFont, cvSettings.nameFont].filter(f => f && f !== 'inherit');
   const specs = [];
   stacks.forEach(stack => {
-    specs.push(`400 16px ${stack}`, `700 16px ${stack}`, `italic 400 16px ${stack}`);
+    specs.push(`400 16px ${stack}`, `700 16px ${stack}`, `italic 400 16px ${stack}`, `italic 700 16px ${stack}`);
   });
   try {
     await Promise.all(specs.map(spec => document.fonts.load(spec).catch(() => {})));
@@ -367,6 +367,14 @@ async function exportPaginatedPdf(pw, ph, isLetter) {
     document.body.appendChild(wrap);
     await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
 
+    // PNG looked like a safer bet than JPEG here (JPEG is lossy, and a
+    // rare bad encode is one plausible way to get the "solid stripes of
+    // wrong colors" some downloads showed), but this bundled jsPDF
+    // version embeds PNGs as fully uncompressed raw RGBA with no Flate
+    // filter at all: a single page ballooned from ~500KB to ~14MB, a
+    // 2-page CV to nearly 30MB. That guaranteed, severe bloat (broken
+    // email attachments, rejected job-portal uploads) is a worse trade
+    // than the rare corruption it might have fixed, so this stays JPEG.
     const opt = {
       margin: 0,
       image: { type: 'jpeg', quality: 0.98 },
@@ -393,6 +401,12 @@ async function exportPaginatedPdf(pw, ph, isLetter) {
       pdf.addPage([pw, ph], 'portrait');
       pdf.addImage(imgData, 'JPEG', 0, 0, pw, ph);
     }
+    // Explicitly drop the canvas's backing store rather than waiting on
+    // GC: several large (scale:2) canvases created back-to-back in
+    // this loop otherwise pile up in memory across pages, which on
+    // memory-constrained mobile devices is a plausible contributor to
+    // the intermittent garbled-capture reports.
+    canvas.width = canvas.height = 0;
   }
   pdf.save(`${cvData.name || 'CV'}.pdf`);
 }
@@ -1430,12 +1444,19 @@ function renderCustomizePanel() {
     custRow('Body Font',`<div class="font-select-wrap"><select class="cust-select" onchange="onFontChange('bodyFont',this.value)">${FONTS.map(f=>`<option value="${escapeAttr(f.value)}" ${cvSettings.bodyFont===f.value?'selected':''}>${f.label}</option>`).join('')}</select><div class="font-preview-strip" style="font-family:${escapeAttr(cvSettings.bodyFont)}">The quick brown fox jumps over the lazy dog.</div></div>`) +
     custRow('Name Font', `<div class="font-select-wrap"><select class="cust-select" onchange="onFontChange('nameFont',this.value)">${NAME_FONTS.map(f=>`<option value="${escapeAttr(f.value)}" ${cvSettings.nameFont===f.value?'selected':''}>${f.label}</option>`).join('')}</select><div class="font-preview-strip" style="font-family:${escapeAttr(nameFontObj.preview)};font-size:1.05rem;font-weight:700">Your Name Here</div></div>`);
 
+  // Labels name the actual on-CV element each slider controls, not the
+  // internal setting key: "Job Title" used to label the titleFontSize
+  // slider, which only resizes the one tagline under your name, while
+  // the per-entry job titles inside Work Experience etc. (what most
+  // people picture when they hear "job title") are entryFontSize,
+  // labeled "Entry Header", a pairing that reads backwards and was
+  // the actual source of "these sliders don't match what they adjust."
   const fontSizeHtml =
     custRow('Base',             slider('baseFontSize',   9,  14, 0.5,'pt')) +
     custRow('Full Name',        slider('nameFontSize',  14,  34,   1,'pt')) +
-    custRow('Job Title',        slider('titleFontSize',  9,  16,   1,'pt')) +
+    custRow('Header Tagline',   slider('titleFontSize',  9,  16,   1,'pt')) +
     custRow('Section Headings', slider('headingFontSize',7,  14, 0.5,'pt')) +
-    custRow('Entry Header',     slider('entryFontSize',  9,  14, 0.5,'pt'));
+    custRow('Job Titles',       slider('entryFontSize',  9,  14, 0.5,'pt'));
 
   const spacingHtml =
     custRow('Line Height',         slider('lineHeight',    1.2,2.0,0.05,'')) +
@@ -3200,6 +3221,23 @@ function scheduleFitZoom() {
 }
 
 window.addEventListener('resize', scheduleFitZoom);
+
+// Mobile Safari resolves the real size of a `position:fixed; inset:0`
+// container (like the preview modal) asynchronously: the address bar
+// collapsing/expanding, or the modal's display:none -> flex switch, can
+// leave clientWidth reporting a stale/zero value for a moment even
+// after requestAnimationFrame fires. That's what made the preview
+// modal look broken on open and only "snap" correct after some other
+// action forced a fresh layout. A ResizeObserver sidesteps guessing at
+// timing entirely: whenever the wrap's actual parent settles at its
+// real size (whenever that happens), we re-fit against it.
+if (typeof ResizeObserver !== 'undefined') {
+  const _paperZoomObserver = new ResizeObserver(() => scheduleFitZoom());
+  ['editorRight', 'mobilePreviewBody'].forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) _paperZoomObserver.observe(el);
+  });
+}
 
 /* ============================================================
    MOBILE PREVIEW MODAL

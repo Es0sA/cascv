@@ -2480,12 +2480,19 @@ input {
   padding-bottom: 6px;
 }
 
-/* Lines above AND below */
+/* Lines above AND below, hugging the heading text's own width (not
+   the full column): a full-width frame only reads as centered
+   framing when the text happens to be centered; with left-aligned
+   text a full-width frame leaves a long empty line trailing off past
+   the actual word, which looks like a mistake rather than a style. */
 .hs-frame .cvp-sec-heading {
+  width: fit-content;
+  max-width: 100%;
   border-top: 1px solid #999 !important;
   border-bottom: 1px solid #999 !important;
   padding-top: 3px;
   padding-bottom: 3px;
+  padding-right: 2px;
 }
 
 /* Heading sits on a soft filled band */

@@ -70,7 +70,17 @@ The app lets Cas build, customize, and export CVs as PDF, plus run an ATS
   `css/fonts.css` (fetch from `https://fonts.googleapis.com/css2?family=
   Name:wght@400;700&display=swap` with a modern browser User-Agent
   string to get real URLs back, since Google's API sniffs the UA to
-  decide which format to serve).
+  decide which format to serve). If the font is one of the `FONTS`
+  (body font) options, it also needs italic 400/700 faces (same fetch,
+  with `ital,wght@1,400;1,700`): the default Subtitle Style italicizes
+  entry employer/date/location text, and several templates italicize
+  the job title, so any body font without a real italic `@font-face`
+  silently falls back to the browser's synthesized (sheared) italic,
+  which html2canvas renders with different metrics/weight than native
+  text. That mismatch is what made entry titles and company names look
+  smaller and duller specifically in downloaded PDFs, on whichever CVs
+  happened to use a body font missing its italic face. `NAME_FONTS`
+  entries don't need italic since nothing italicizes the name.
 
 ## File structure and what each file does
 
@@ -281,6 +291,37 @@ absent.
    template, you must add matching `.cv-paper.t-yourvalue { ... }` CSS
    rules. The thumbnail auto-reflects them; there is no separate image
    asset to create or maintain. Do not reintroduce static preview images.
+
+6. `pdf.addImage(dataURL, 'PNG', ...)` in the bundled jsPDF (inside
+   `html2pdf.bundle.min.js`) embeds PNG images as fully uncompressed raw
+   RGBA with no Flate filter applied at all, not the PNG's own
+   compressed bytes. A single A4 page at `scale:2` balloons from roughly
+   500KB to about 14MB; a 2-page CV export hit nearly 30MB. JPEG doesn't
+   have this problem (its own DCT-compressed bytes get embedded more or
+   less directly), which is why both PDF export functions in
+   `editor.js` (`exportPaginatedPdf`, `exportFlowingPdf`) use
+   `image: { type: 'jpeg', quality: 0.98 }` and not PNG, even though PNG
+   would otherwise be the safer, simpler choice (lossless, no risk of a
+   bad DCT encode). If a future session is tempted to switch to PNG to
+   dodge a JPEG-related bug, measure the resulting file size on a real
+   multi-page CV first: it is a 10 to 30x regression, confirmed in this
+   session before it shipped.
+
+7. `fitPaperZoom()` (the CSS-`zoom`-based preview shrink, used by both
+   the desktop split panel and the mobile Preview modal) must not rely
+   on a single `requestAnimationFrame` to measure its container's real
+   size. A `position:fixed; inset:0` container's actual size (the
+   mobile Preview modal, going from `display:none` to `display:flex`)
+   can settle asynchronously on mobile Safari, so one rAF-timed
+   measurement can read a stale or zero width, especially on the second
+   or later time the modal opens. `fitPaperZoom`'s call sites are backed
+   by a `ResizeObserver` on `#editorRight` and `#mobilePreviewBody` (see
+   the bottom of the "MOBILE PREVIEW MODAL" section in `editor.js`) that
+   re-fits whenever the container's real size actually changes, instead
+   of guessing at timing. Don't remove that observer in favor of manual
+   `scheduleFitZoom()` calls alone; they're still there for the
+   immediate/synchronous cases, but the observer is what makes reopening
+   the modal reliable.
 
 ## Playwright MCP is set up for real browser testing
 

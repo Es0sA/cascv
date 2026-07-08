@@ -3,6 +3,56 @@
 Log of changes made to this repo by Claude Code sessions. Newest first.
 Commit hashes refer to `main`.
 
+## 2026-07-08 (later)
+
+- Fixed a batch of bugs reported after the Heading Style rework:
+  - **Mobile Preview modal reflowed/oversized instead of showing a true
+    miniature, and broke again specifically on reopen.** Root cause:
+    `fitPaperZoom()` measured its container's size with a single
+    `requestAnimationFrame`, but a `position:fixed; inset:0` container
+    (the modal) can settle its real size asynchronously on mobile
+    Safari, so that one-shot measurement could read a stale/zero width,
+    especially the second time the modal opened. Replaced with a
+    `ResizeObserver` on `#editorRight`/`#mobilePreviewBody` that re-fits
+    whenever the container's real size actually changes. Verified with
+    Playwright: identical zoom/width across open, close, reopen x3.
+  - **Frame heading style only looked right when the heading text was
+    centered.** Its top/bottom lines spanned the full column width, so
+    left-aligned text left a long empty line trailing past the word.
+    Added `width: fit-content` (matching the existing Short style).
+  - **Entry job titles and company names rendered smaller and duller
+    than the rest of the CV, specifically in downloaded PDFs.** Root
+    cause: the font self-hosting pass only fetched upright/normal
+    weights; the default Subtitle Style italicizes entry
+    employer/date/location text (and several templates italicize the
+    job title), so italic text silently fell back to the browser's
+    synthesized (sheared) italic, which html2canvas renders with
+    different metrics/weight than native browser text. Fetched and
+    added real italic 400/700 `.woff2` faces for all 16 body-eligible
+    self-hosted font families (20 new files). Verified with Playwright:
+    the real italic face now loads and renders identically in both the
+    live preview and the exported PDF.
+  - **Font Size sliders in Customize felt disconnected from what they
+    controlled.** The CSS cascade itself was correct (Base applies
+    everywhere except the four elements with their own dedicated
+    slider, no compounding), but "Job Title" only resized the header
+    tagline under the name, while the per-entry job titles most people
+    mean by "job title" were controlled by "Entry Header," an unclear
+    technical label. Renamed to "Header Tagline" and "Job Titles".
+  - **PDF export intermittently produced a fully garbled/striped image
+    instead of the CV.** Could not get a deterministic repro in this
+    session. Added canvas memory hygiene (explicitly zeroing each
+    page's canvas dimensions right after use instead of leaving several
+    large `scale:2` canvases to pile up across a multi-page export) as
+    a best-effort mitigation, since memory pressure on mobile devices
+    is the most plausible remaining explanation. While investigating
+    this, discovered and reverted a PNG-encoding change that looked
+    like a safer fix for the same bug but actually caused a severe,
+    guaranteed regression: this bundled jsPDF embeds PNGs as fully
+    uncompressed raw RGBA with no compression at all, ballooning a
+    2-page CV from under 1MB to nearly 30MB. Stayed on JPEG. See
+    CLAUDE.md's Known Gotchas #6 and #7 for details on both of these.
+
 ## 2026-07-08
 
 - Fixed Customize > Heading Style doing nothing on most templates, and
