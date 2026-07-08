@@ -3,6 +3,47 @@
 Log of changes made to this repo by Claude Code sessions. Newest first.
 Commit hashes refer to `main`.
 
+## 2026-07-08
+
+- Fixed Customize > Heading Style doing nothing on most templates, and
+  reworked its options to match FlowCV's picker (Cas's reference).
+  Root cause: about 20 templates hardcoded their own section-heading
+  border in CSS (`.cv-paper.t-xxx .cvp-sec-heading { border-…:
+  … !important }`) at higher specificity than the `.hs-*` heading-style
+  classes, so on those templates clicking any Heading Style option
+  changed nothing; separately, the Accent Line toggle (on by default)
+  recolored every heading border to the accent color, collapsing
+  Underline/Line/Double/Dotted into near-identical looks. Changes:
+  - Heading decoration (borders/underlines/backgrounds) now lives ONLY
+    in the `hs-*` classes (`css/main.css`); template rules keep their
+    colors/typography but no longer declare competing borders.
+  - Each template's signature decoration moved into a
+    `TEMPLATE_HEADING_DEFAULTS` map (`js/editor.js`): picking a
+    template applies its signature heading style the same way it
+    already applies its accent color, and the user's own pick
+    afterwards genuinely sticks, on every template.
+  - New picker with 9 visually distinct options modeled on FlowCV:
+    Underline, Line, Short, Dash, Frame, Boxed, Bar, Wavy, Plain.
+    Legacy values (bold/overline/double/dotted) still render for CVs
+    that saved them, just no longer offered. Dash uses a
+    linear-gradient and Wavy an SVG background tile instead of
+    text-decoration/pseudo-elements specifically so html2canvas
+    captures them in the PDF exactly as the preview shows.
+  - One-time per-CV migration: a stored headingStyle of 'underline'
+    (the old untouched default) maps to the template's signature style
+    on first load after this ships, guarded by a persisted flag, so
+    every existing CV looks exactly the same as before; explicit picks
+    made after that survive reloads untouched.
+  - Sidebar templates' colored panels get light-on-dark variants of
+    the boxed band, dash, and wavy pigments so headings stay visible.
+  Verified with Playwright: all 9 styles produce distinct computed
+  decorations on a plain template; picks apply and stick on decorated
+  templates (atlantic-blue, editorial-rule); template switching applies
+  the signature default; the migration preserves an old CV's look on a
+  decorated template while an explicit pick survives reload; dash,
+  wavy, and boxed all render correctly in actual exported PDFs; and
+  the standard pagination/PDF regression suite still passes.
+
 ## 2026-07-07 (even later still)
 
 - `e11f188`: Reworked `js/parser.js` so CV import handles raw,

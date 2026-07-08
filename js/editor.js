@@ -1306,6 +1306,35 @@ const ALL_TEMPLATES = [
 // instead of leaving the user with a mismatched single-column layout.
 const SIDEBAR_TEMPLATES = ['atlantic-blue', 'corporate-panel', 'cobalt-edge', 'obsidian-edge', 'neutral-gray'];
 
+// Each template's signature section-heading decoration, expressed as a
+// Heading Style value. Template CSS used to hardcode its own heading
+// borders with higher specificity than the hs-* classes, which is
+// exactly why the Customize > Heading Style picker silently did
+// nothing on most templates. Now the hs-* classes are the only source
+// of heading decoration; picking a template applies its signature
+// style through this map (same pattern as the template's accent
+// color), and the user's own pick afterwards actually sticks.
+// Templates not listed default to 'underline' (the original base look).
+const TEMPLATE_HEADING_DEFAULTS = {
+  'condensed-rule': 'line',
+  'split-rule': 'frame',
+  'editorial-rule': 'bar',
+  'sage-line': 'bar',
+  'blue-steel': 'line',
+  'clear-banner': 'underline',
+  'hunter-green': 'line',
+  'saffron-line': 'underline',
+  'atlantic-blue': 'line',
+  'corporate-panel': 'line',
+  'cobalt-edge': 'line',
+  'obsidian-edge': 'bar',
+  'neutral-gray': 'line',
+  'framed-border': 'line',
+};
+function templateHeadingDefault(template) {
+  return TEMPLATE_HEADING_DEFAULTS[template] || 'underline';
+}
+
 /* ============================================================
    TEMPLATE THUMBNAILS — real live-rendered miniatures.
 
@@ -1320,7 +1349,11 @@ const SIDEBAR_TEMPLATES = ['atlantic-blue', 'corporate-panel', 'cobalt-edge', 'o
    the thumbnail picks it up automatically, no image asset needed.
    ============================================================ */
 function templateThumb(tpl) {
-  const hs = cvSettings.headingStyle || 'underline';
+  // Thumbnails preview each template's own signature heading style,
+  // not the currently-active one — the card should show what you GET
+  // by clicking it (which also applies that heading default, see
+  // setSetting), not a blend of this template with another's styling.
+  const hs = templateHeadingDefault(tpl.value);
   const hc = cvSettings.headingCase  || 'upper';
   const acHead = cvSettings.accentHeadings ? 'ac-headings' : '';
   const acLine = cvSettings.accentLine ? 'ac-line' : '';
@@ -1411,18 +1444,24 @@ function renderCustomizePanel() {
     custRow('Left & Right Margin', slider('marginLR',      6,  25,   1,'mm')) +
     custRow('Top & Bottom Margin', slider('marginTB',      6,  25,   1,'mm'));
 
-  const headingStyles = [{value:'underline',label:'Underline'},{value:'line',label:'Line'},{value:'bold',label:'Bold'},{value:'bar',label:'Bar'},{value:'overline',label:'Overline'},{value:'double',label:'Double'},{value:'dotted',label:'Dotted'}];
+  // Each option's mini preview reproduces the actual decoration its
+  // hs-* class draws (see the HEADING STYLES block in main.css), so
+  // what the button shows is what the CV gets — on every template.
+  const headingStyles = [
+    {value:'underline', label:'Underline', deco:'border-bottom:1px solid #888;padding-bottom:2px;display:block'},
+    {value:'line',      label:'Line',      deco:'border-bottom:2px solid #888;padding-bottom:2px;display:block'},
+    {value:'short',     label:'Short',     deco:'border-bottom:2.5px solid #888;padding-bottom:2px;width:fit-content'},
+    {value:'dash',      label:'Dash',      deco:'background-image:linear-gradient(#888,#888);background-size:14px 2.5px;background-repeat:no-repeat;background-position:left bottom;padding-bottom:5px;display:block'},
+    {value:'frame',     label:'Frame',     deco:'border-top:1px solid #888;border-bottom:1px solid #888;padding:2px 0;display:block'},
+    {value:'boxed',     label:'Boxed',     deco:'background:#d9d9de;padding:2px 5px;border-radius:2px;display:block'},
+    {value:'bar',       label:'Bar',       deco:'border-left:2.5px solid #888;padding-left:5px;display:block'},
+    {value:'wavy',      label:'Wavy',      deco:`background-image:url(&quot;data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='4' viewBox='0 0 12 4'%3E%3Cpath d='M0 3 Q 3 0.5 6 3 T 12 3' fill='none' stroke='%23888' stroke-width='1.2'/%3E%3C/svg%3E&quot;);background-repeat:repeat-x;background-position:left bottom;padding-bottom:5px;width:fit-content`},
+    {value:'none',      label:'Plain',     deco:'display:block'},
+  ];
   let hsHtml = `<div class="hs-grid">`;
   headingStyles.forEach(hs => {
     const active = cvSettings.headingStyle===hs.value?'active':'';
-    let inner='';
-    if(hs.value==='underline') inner=`<div class="hs-preview"><div class="hs-preview-label" style="border-bottom:1px solid #888;padding-bottom:2px">SECTION</div><div class="hs-preview-lines"><div class="hs-preview-line"></div><div class="hs-preview-line"></div></div></div>`;
-    else if(hs.value==='line') inner=`<div class="hs-preview"><div class="hs-preview-label">SECTION</div><div class="hs-preview-bar"></div><div class="hs-preview-lines"><div class="hs-preview-line"></div><div class="hs-preview-line"></div></div></div>`;
-    else if(hs.value==='bold') inner=`<div class="hs-preview"><div class="hs-preview-label" style="font-weight:900;font-size:8px;color:#555">SECTION</div><div class="hs-preview-lines" style="margin-top:3px"><div class="hs-preview-line"></div><div class="hs-preview-line"></div></div></div>`;
-    else if(hs.value==='bar') inner=`<div class="hs-preview" style="flex-direction:row;align-items:stretch;gap:5px"><div class="hs-bar-side"></div><div style="display:flex;flex-direction:column;gap:2px;flex:1"><div class="hs-preview-label">SECTION</div><div class="hs-preview-lines"><div class="hs-preview-line"></div><div class="hs-preview-line"></div></div></div></div>`;
-    else if(hs.value==='overline') inner=`<div class="hs-preview"><div class="hs-preview-label" style="border-top:2px solid #888;padding-top:3px">SECTION</div><div class="hs-preview-lines"><div class="hs-preview-line"></div><div class="hs-preview-line"></div></div></div>`;
-    else if(hs.value==='double') inner=`<div class="hs-preview"><div class="hs-preview-label" style="border-bottom:3px double #888;padding-bottom:2px">SECTION</div><div class="hs-preview-lines"><div class="hs-preview-line"></div><div class="hs-preview-line"></div></div></div>`;
-    else inner=`<div class="hs-preview"><div class="hs-preview-label" style="border-bottom:1.5px dotted #888;padding-bottom:2px">SECTION</div><div class="hs-preview-lines"><div class="hs-preview-line"></div><div class="hs-preview-line"></div></div></div>`;
+    const inner = `<div class="hs-preview"><div class="hs-preview-label" style="${hs.deco}">SECTION</div><div class="hs-preview-lines"><div class="hs-preview-line"></div><div class="hs-preview-line"></div></div></div>`;
     hsHtml+=`<button class="hs-btn ${active}" onclick="setSetting('headingStyle','${hs.value}')" type="button">${inner}<span class="hs-btn-label">${hs.label}</span></button>`;
   });
   hsHtml+=`</div>`;
@@ -1689,6 +1728,11 @@ function setSetting(key, value) {
   cvSettings[key] = value;
   if (key==='template') {
     const t=ALL_TEMPLATES.find(t=>t.value===value); if(t&&t.accent) cvSettings.accentColor=t.accent;
+    // Apply the template's signature heading decoration (see
+    // TEMPLATE_HEADING_DEFAULTS) the same way its accent color is
+    // applied: the template is a style preset, and the user can then
+    // override the heading style independently afterwards.
+    cvSettings.headingStyle = templateHeadingDefault(value);
     // These templates already have a permanent colored side panel baked
     // into their CSS, so force the matching column mode automatically
     // rather than leaving the layout mismatched until the user notices.
@@ -3263,6 +3307,22 @@ async function initEditor() {
   cvData.customSectionIcon = cvData.customSectionIcon || {};
 
   cvSettings = Object.assign({}, DEFAULTS, cvData.settings || {});
+
+  // One-time visual-compatibility mapping for CVs saved before heading
+  // decoration moved from template CSS into the hs-* classes: every CV
+  // back then stored headingStyle 'underline' (the untouched default),
+  // but what actually SHOWED on decorated templates was the template's
+  // own hardcoded border (the picker was being overridden — that was
+  // the bug). Mapping the stored default to the template's signature
+  // style preserves exactly what those CVs looked like. Guarded by a
+  // persisted flag so it runs once per CV — after that, a stored
+  // 'underline' is a deliberate pick and must survive reloads.
+  if (!cvSettings.headingStyleMigrated) {
+    if (cvSettings.headingStyle === 'underline') {
+      cvSettings.headingStyle = templateHeadingDefault(cvSettings.template);
+    }
+    cvSettings.headingStyleMigrated = true;
+  }
 
   document.title = `CAS CV Builder — ${cvData.name}`;
   cvNameDisplay.textContent = cvData.name;
