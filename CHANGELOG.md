@@ -3,6 +3,40 @@
 Log of changes made to this repo by Claude Code sessions. Newest first.
 Commit hashes refer to `main`.
 
+## 2026-07-08 (even later)
+
+- Fixed a second batch of bugs found while testing the previous fixes
+  live:
+  - **Header Tagline (the Font Size slider renamed from "Job Title"
+    last round) still did nothing on some templates.** Same class of
+    bug as the earlier Heading Style fix: 5 templates (Executive,
+    Refined, Precision Line, Atlantic Blue, Corporate Panel) hardcoded
+    `.cvp-jobtitle`'s font-size as `calc(var(--cv-base) * N) !important`
+    at higher CSS specificity than the slider's own rule, silently
+    overriding it on those templates only. Stripped the hardcoded size
+    from all 5, keeping their color/style. Verified the slider now
+    works across all 7 templates tested.
+  - **Frame and Boxed heading styles stayed left-aligned even when
+    FlowCV's reference shows them centered.** Added `width:
+    fit-content` + `margin: 0 auto` + `text-align: center` to both, so
+    they render as a centered badge/frame regardless of the section
+    body's own text alignment.
+  - **Added per-section icons, shown directly on the CV** (a FlowCV
+    parity request): every section already had a sensible default icon
+    internally (used only in the app's own Add Content / Section Layout
+    UI until now); added a new opt-in "Section Icons" toggle (Customize
+    > Style, off by default so existing saved CVs don't change
+    appearance without asking) that shows each section's icon next to
+    its heading on the actual CV, plus a dropdown in every section's
+    Edit-panel header (not just Custom Section, which already had one)
+    to change it.
+  - **Investigated but did not resolve:** a report that a short
+    trailing section moves entirely to the next page despite visible
+    blank space at the bottom of the previous page. Could not reproduce
+    with synthetic test data at several content lengths and template/
+    font/setting combinations matching the screenshot. Needs the actual
+    CV content or settings to pin down; left as an open item.
+
 ## 2026-07-08 (later)
 
 - Fixed a batch of bugs reported after the Heading Style rework:

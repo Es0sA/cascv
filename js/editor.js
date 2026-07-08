@@ -170,7 +170,11 @@ const CUSTOM_SKILL_FIELDS = [
   { key:'info',  label:'Sub-skills / Info', type:'textarea', placeholder:'Specific skills, tools, methods...' },
   { key:'level', label:'Skill Level', type:'select', options: ['', 'Beginner', 'Intermediate', 'Advanced', 'Expert'] }
 ];
-const CUSTOM_SECTION_ICONS = ['✏️','🎯','🛠️','💡','📌','🔖','📊','🎨','🎵','⚡','🌟','🔧','📱','💻','🎬','🏋️','🌍','🚀','🏆','📚','🏢','👥','🏅','🧠'];
+// Every standard section type's own default icon (👤💼🎓 etc, see
+// SECTION_TYPES above) plus a set of extras for Custom Section /
+// re-picking on any section: one shared list so the dropdown always
+// includes whatever icon a section already has, standard or not.
+const CUSTOM_SECTION_ICONS = ['👤','💼','🎓','🧠','🏅','🌍','🚀','🏆','📚','🏢','📰','👥','⭐','✍️','✏️','🎯','🛠️','💡','📌','🔖','📊','🎨','🎵','⚡','🌟','🔧','📱','💻','🎬','🏋️'];
 
 // Single source of truth for "what field set / icon does this section
 // actually use right now" — every renderer should call this instead of
@@ -196,14 +200,34 @@ function getEffectiveStype(sec, i) {
 function getSectionDef(sec, i) {
   const stype = sec.type || 'custom';
   const baseDef = SECTION_TYPES[stype] || SECTION_TYPES.custom;
+  // Every section type ships a sensible default icon (SECTION_TYPES'
+  // own icon), but any section, not just Custom Section, can override
+  // it via the icon dropdown in its accordion header: cvData
+  // .customSectionIcon is keyed by section index, not by type, so it
+  // doubles as the single override store for both.
+  const icon = cvData.customSectionIcon[i] || baseDef.icon;
   if (stype === 'custom') {
     const subtype = cvData.customSectionType[i];
-    const icon = cvData.customSectionIcon[i] || baseDef.icon;
     if (subtype === 'normal') return { label: baseDef.label, icon, fields: CUSTOM_NORMAL_FIELDS, useTextarea: false };
     if (subtype === 'skill')  return { label: baseDef.label, icon, fields: CUSTOM_SKILL_FIELDS,  useTextarea: false };
     return { ...baseDef, icon };
   }
-  return baseDef;
+  return { ...baseDef, icon };
+}
+
+function setSectionIcon(i, icon) {
+  cvData.customSectionIcon[i] = icon;
+  renderEditPanel();
+  renderRightPanel();
+  scheduleSave();
+}
+
+// Shared by both heading-rendering call sites (real pagination's
+// buildSectionUnits and the flowing/two-col/sidebar path's
+// renderSectionPreview) so the icon only ever needs wiring up once.
+function sectionHeadingInnerHTML(name, icon) {
+  const iconHtml = (cvSettings.showSectionIcons && icon) ? `<span class="cvp-sec-icon">${escapeHtml(icon)}</span>` : '';
+  return iconHtml + escapeHtml(name);
 }
 
 /* ---- DEFAULTS ---- */
@@ -214,7 +238,7 @@ const DEFAULTS = {
   headingFontSize:10, entryFontSize:11, lineHeight:1.55, letterSpacing:0,
   sectionSpacing:11, marginLR:13, marginTB:11, headingStyle:'underline',
   headingCase:'upper', subtitleStyle:'normal', dateStyle:'normal', locationStyle:'normal', listStyle:'bullet',
-  dateFormat:'Month YYYY', showDuration:false, skillStyle:'text',
+  dateFormat:'Month YYYY', showDuration:false, skillStyle:'text', showSectionIcons:false,
   accentColor:'#1a1a1a', colorBg:'#ffffff',
   colorSidebarBg:'#f0f4f8', colorText:'#1a1a1a', accentName:false,
   accentTitle:false, accentHeadings:true, accentLine:true, accentDates:false,
@@ -533,6 +557,10 @@ function renderEditPanel() {
       <div class="accordion-title-row">
         <span class="drag-handle" onclick="event.stopPropagation()">⠿</span>
         <span class="accordion-index">${i + 1}</span>
+        <select class="sec-icon-select" onclick="event.stopPropagation()" onchange="event.stopPropagation();setSectionIcon(${i},this.value)" title="Section icon">
+          ${CUSTOM_SECTION_ICONS.includes(def.icon) ? '' : `<option value="${escapeAttr(def.icon)}" selected>${def.icon}</option>`}
+          ${CUSTOM_SECTION_ICONS.map(ic => `<option value="${ic}" ${def.icon===ic?'selected':''}>${ic}</option>`).join('')}
+        </select>
         <input class="accordion-rename" type="text" value="${escapeAttr(name)}"
                onclick="event.stopPropagation()" onkeydown="event.stopPropagation()"
                oninput="event.stopPropagation();renameSectionHandler(${i},this.value)">
@@ -1496,6 +1524,7 @@ function renderCustomizePanel() {
     custRow('List Style',     toggleGroup([{label:'• Bullet',value:'bullet'},{label:'– Hyphen',value:'hyphen'}],'listStyle')) +
     custRow('Date Format',    toggleGroup([{label:'Month YYYY',value:'Month YYYY'},{label:'Mon YYYY',value:'Mon YYYY'},{label:'MM/YYYY',value:'MM/YYYY'},{label:'MM.YYYY',value:'MM.YYYY'},{label:'YYYY',value:'YYYY'}],'dateFormat')) +
     custRow('Duration',`<label class="cust-toggle-row"><input type="checkbox" ${cvSettings.showDuration?'checked':''} onchange="toggleBool('showDuration',this.checked)"><span class="cust-toggle-slider"></span><span class="cust-toggle-label">Show job duration (e.g. 2 yrs 3 mos)</span></label>`) +
+    custRow('Section Icons',`<label class="cust-toggle-row"><input type="checkbox" ${cvSettings.showSectionIcons?'checked':''} onchange="toggleBool('showSectionIcons',this.checked)"><span class="cust-toggle-slider"></span><span class="cust-toggle-label">Show an icon next to each section heading (pick each one in the Edit tab)</span></label>`) +
     custRow('Skill Display',  toggleGroup([{label:'Text',value:'text'},{label:'Bars',value:'bars'},{label:'Dots',value:'dots'}],'skillStyle'));
 
   let colorGrid=`<div class="color-grid">`;
@@ -1786,7 +1815,7 @@ function stepSlider(key, delta, min, max, step, suffix) {
 }
 function toggleBool(key,val){
   cvSettings[key]=val;
-  if (key==='showDuration') { renderRightPanel(); }
+  if (key==='showDuration' || key==='showSectionIcons') { renderRightPanel(); }
   else if (key==='summaryInHeader') { renderEditPanel(); renderRightPanel(); renderCustomizePanel(); }
   else applySettings();
   scheduleSave();
@@ -2151,9 +2180,9 @@ function buildHeaderUnit(header, sections, variant) {
 function buildSectionUnits(sec, i, units, sectionMeta) {
   const name = cvData.sectionNames[i] !== undefined ? cvData.sectionNames[i] : sec.title;
   sectionMeta[i] = { name };
-  units.push({ html: `<div class="cvp-sec-heading">${escapeHtml(name)}</div>`, sectionIndex: i, isHeading: true });
-
   const def   = getSectionDef(sec, i);
+  units.push({ html: `<div class="cvp-sec-heading">${sectionHeadingInnerHTML(name, def.icon)}</div>`, sectionIndex: i, isHeading: true });
+
   const renderStype = getEffectiveStype(sec, i);
   if (def && !def.useTextarea && sec.entries && sec.entries.length) {
     // Process per-entry (not the whole section's HTML flattened
@@ -2605,7 +2634,7 @@ function renderSectionPreview(sec, i) {
   }
 
   return `<div class="cvp-section" id="preview-sec-${i}">
-    <div class="cvp-sec-heading">${escapeHtml(name)}</div>
+    <div class="cvp-sec-heading">${sectionHeadingInnerHTML(name, def.icon)}</div>
     <div class="cvp-sec-content" id="preview-content-${i}">${body}</div>
   </div>`;
 }
