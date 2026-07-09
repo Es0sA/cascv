@@ -399,10 +399,23 @@ async function exportPaginatedPdf(pw, ph, isLetter) {
     // 2-page CV to nearly 30MB. That guaranteed, severe bloat (broken
     // email attachments, rejected job-portal uploads) is a worse trade
     // than the rare corruption it might have fixed, so this stays JPEG.
+    //
+    // quality 0.98 measured out LARGER than a lossless PNG of the same
+    // page (a flat white background with dark text barely compresses
+    // as JPEG at near-zero quantization) while adding lossy artifacts
+    // for no size benefit. 0.85 is visually indistinguishable from the
+    // source at normal reading zoom (checked side by side) and roughly
+    // halves the file size. scale dropped from 2 to 1.5 for the same
+    // reason and to cut the per-page canvas's pixel count (and so its
+    // GPU memory footprint) by more than half, which should also lower
+    // the odds of hitting the driver-level canvas-capture corruption
+    // some downloads showed (unreproducible in this sandbox's software
+    // rendering; 1.5x is still ~144 DPI at true page width, well above
+    // print-quality).
     const opt = {
       margin: 0,
-      image: { type: 'jpeg', quality: 0.98 },
-      html2canvas: { scale: 2, useCORS: true, allowTaint: true, logging: false,
+      image: { type: 'jpeg', quality: 0.85 },
+      html2canvas: { scale: 1.5, useCORS: true, allowTaint: true, logging: false,
                      x: 0, y: 0, scrollX: 0, scrollY: 0,
                      windowWidth: pageClone.scrollWidth, windowHeight: pageClone.scrollHeight },
       jsPDF: { unit: 'mm', format: isLetter ? [pw, ph] : 'a4', orientation: 'portrait' },
@@ -421,12 +434,12 @@ async function exportPaginatedPdf(pw, ph, isLetter) {
       const n = pdf.internal.getNumberOfPages();
       for (let p = n; p > 1; p--) pdf.deletePage(p);
     } else {
-      const imgData = canvas.toDataURL('image/jpeg', 0.98);
+      const imgData = canvas.toDataURL('image/jpeg', 0.85);
       pdf.addPage([pw, ph], 'portrait');
       pdf.addImage(imgData, 'JPEG', 0, 0, pw, ph);
     }
     // Explicitly drop the canvas's backing store rather than waiting on
-    // GC: several large (scale:2) canvases created back-to-back in
+    // GC: several large (scale:1.5) canvases created back-to-back in
     // this loop otherwise pile up in memory across pages, which on
     // memory-constrained mobile devices is a plausible contributor to
     // the intermittent garbled-capture reports.
@@ -469,8 +482,11 @@ async function exportFlowingPdf(pw, ph, isLetter) {
     const opt = {
       margin:     0,
       filename:   `${cvData.name || 'CV'}.pdf`,
-      image:      { type: 'jpeg', quality: 0.98 },
-      html2canvas:{ scale: 2, useCORS: true, allowTaint: true, logging: false,
+      // See exportPaginatedPdf's comment: 0.85/1.5 measured smaller than
+      // 0.98/2 with no visible quality loss, and cuts canvas pixel count
+      // (so GPU memory footprint) by more than half.
+      image:      { type: 'jpeg', quality: 0.85 },
+      html2canvas:{ scale: 1.5, useCORS: true, allowTaint: true, logging: false,
                     x: 0, y: 0, scrollX: 0, scrollY: 0,
                     windowWidth: clone.scrollWidth, windowHeight: clone.scrollHeight },
       jsPDF:      { unit: 'mm', format: isLetter ? [pw, ph] : 'a4', orientation: 'portrait' },

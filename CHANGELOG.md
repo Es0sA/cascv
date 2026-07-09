@@ -3,6 +3,35 @@
 Log of changes made to this repo by Claude Code sessions. Newest first.
 Commit hashes refer to `main`.
 
+## 2026-07-09 (later)
+
+- **PDF export: shrank JPEG quality (0.98 to 0.85) and html2canvas scale
+  (2 to 1.5) in both export paths.** Cas reported downloads that were
+  both corrupted (a page rendering as solid diagonal color stripes,
+  like the striped-PDF report from a previous round) and unnecessarily
+  large. Measuring the actual per-page canvas output confirmed the
+  size problem directly: at quality 0.98, the JPEG for a typical page
+  came out LARGER than a lossless PNG of the same page (780KB vs
+  582KB) since a flat white background with dark text barely benefits
+  from JPEG's compression at that near-zero quantization setting, while
+  still paying the lossy-artifact cost for nothing. Dropping to 0.85
+  (checked side by side, no visible difference at normal reading zoom)
+  plus scale 1.5 (still print-quality at roughly 144 DPI) cut a real
+  test download from 987KB to 414KB.
+  - The corruption itself could not be reproduced in this session's
+    sandboxed headless Chromium (both the raw html2canvas capture and
+    the assembled PDF came out perfect on repeated tries), which points
+    to it being a GPU/driver-specific canvas rendering artifact on
+    Cas's actual machine rather than a deterministic code bug. Cutting
+    the canvas pixel count by more than half (scale 1.5 vs 2) reduces
+    GPU memory/texture pressure during capture, which is the standard
+    mitigation for this class of hardware-dependent corruption, but
+    this is a risk-reduction step, not a confirmed fix. Needs live
+    confirmation from Cas; if it recurs, worth knowing whether it
+    happens on every download or only sometimes, and whether disabling
+    hardware acceleration in Chrome (chrome://settings > System) makes
+    it stop, since that would confirm the GPU theory.
+
 ## 2026-07-09
 
 - **Fixed the real cause of the "blank space on one page, content
