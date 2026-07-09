@@ -1790,15 +1790,25 @@ function setSetting(key, value) {
     else if (SIDEBAR_TEMPLATES.includes(prevTemplate)) cvSettings.columns = '1';
   }
   renderCustomizePanel();
-  if (key==='listStyle'||key==='columns'||key==='dateFormat'||key==='template'||key==='headerPosition'||key==='iconStyle'||key==='workTitleOrder'||key==='eduTitleOrder'||key==='photoShape') { renderEditPanel(); renderRightPanel(); } else applySettings();
+  if (key==='listStyle'||key==='columns'||key==='dateFormat'||key==='template'||key==='headerPosition'||key==='iconStyle'||key==='workTitleOrder'||key==='eduTitleOrder'||key==='photoShape') { renderEditPanel(); renderRightPanel(); }
+  else { applySettings(); if (isPaginatedLayout()) scheduleRepaginate(); }
   scheduleSave();
 }
+// applySettings() only re-styles the .cv-page elements from whichever
+// pagination pass last ran; it doesn't re-measure page breaks. Every
+// control below (font size, spacing, margins, body/name font) changes
+// content height or line wrapping, so a multi-page CV needs a real
+// repagination pass after the change settles, or a section that no
+// longer needs to spill to the next page stays stuck there, leaving
+// blank space behind on the page before it. scheduleRepaginate() is the
+// same debounced reconciliation pass already used for text edits.
 function onSlider(key, value, suffix) {
   cvSettings[key]=value;
   const el=document.getElementById(`val-${key}`);
   if(el){ const d=key==='lineHeight'||key==='letterSpacing'?value.toFixed(2):(Number.isInteger(value)?value:value.toFixed(1)); el.textContent=d+(suffix||''); }
   updateSegBars(key, parseFloat(document.getElementById(`range-${key}`)?.min ?? 0), parseFloat(document.getElementById(`range-${key}`)?.max ?? 100));
   applySettings(); scheduleSave();
+  if (isPaginatedLayout()) scheduleRepaginate();
 }
 function stepSlider(key, delta, min, max, step, suffix) {
   let next = Math.round((cvSettings[key] + delta) / step) * step;
@@ -1812,6 +1822,7 @@ function stepSlider(key, delta, min, max, step, suffix) {
   if (el) { const d = step < 1 ? next.toFixed(2) : Math.round(next); el.textContent = d + (suffix||''); }
   updateSegBars(key, min, max);
   applySettings(); scheduleSave();
+  if (isPaginatedLayout()) scheduleRepaginate();
 }
 function toggleBool(key,val){
   cvSettings[key]=val;
@@ -1820,7 +1831,7 @@ function toggleBool(key,val){
   else applySettings();
   scheduleSave();
 }
-function onFontChange(key,value){ cvSettings[key]=value; applySettings(); scheduleSave(); renderCustomizePanel(); }
+function onFontChange(key,value){ cvSettings[key]=value; applySettings(); scheduleSave(); renderCustomizePanel(); if (isPaginatedLayout()) scheduleRepaginate(); }
 function onColorPickerInput(hex){ cvSettings.accentColor=hex; const h=document.getElementById('colorHexInput'); if(h)h.value=hex; applySettings(); scheduleSave(); renderCustomizePanel(); }
 function onColorHexInput(val){ const c=val.trim(); if(/^#[0-9a-fA-F]{6}$/.test(c)){cvSettings.accentColor=c; const s=document.getElementById('colorPickerSwatch'); if(s)s.value=c; applySettings(); scheduleSave(); renderCustomizePanel();} }
 function onPerColorInput(key,hex){ cvSettings[key]=hex; applySettings(); scheduleSave(); }
