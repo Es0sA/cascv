@@ -340,6 +340,21 @@ cvPaper.innerHTML = '<p class="cv-loading-text">Loading CV…</p>';
 downloadBtn.addEventListener('click', async () => {
   if (typeof html2pdf === 'undefined') { window.print(); return; }
 
+  // A text edit, font change, etc. schedules a debounced repagination
+  // pass (scheduleRepaginate, 200ms) rather than re-laying-out the
+  // preview instantly on every keystroke. If Download PDF is clicked
+  // inside that 200ms window (very easy to do on mobile: type, then
+  // immediately tap Download), #cvPaper's .cv-page elements are still
+  // whatever the PREVIOUS layout pass produced, missing whatever
+  // content the latest edit just pushed onto a new page. Force any
+  // pending pass to run synchronously right now, before reading
+  // #cvPaper, so the export always reflects the latest edit.
+  if (typeof _repaginateTimeout !== 'undefined' && _repaginateTimeout) {
+    clearTimeout(_repaginateTimeout);
+    _repaginateTimeout = null;
+    renderRightPanel();
+  }
+
   const isLetter = cvSettings.paperFormat === 'Letter';
   const [pw, ph] = isLetter ? [215.9, 279.4] : [210, 297];
 
@@ -420,6 +435,17 @@ async function exportPaginatedPdf(pw, ph, isLetter) {
                      windowWidth: pageClone.scrollWidth, windowHeight: pageClone.scrollHeight },
       jsPDF: { unit: 'mm', format: isLetter ? [pw, ph] : 'a4', orientation: 'portrait' },
     };
+    // Measured BEFORE capture, same way exportFlowingPdf measures its
+    // clone: true rendered content height in mm, independent of
+    // html2canvas/jsPDF's own pixel math. Used below to tell a genuine
+    // rounding-noise overflow (a fraction of a mm, per
+    // PAGE_FIT_TOLERANCE_MM in measureAndPaginate) apart from actual
+    // content that didn't fit — deleting the former is safe, deleting
+    // the latter would silently drop real CV content.
+    const clonePxPerMm     = pageClone.clientWidth / pw;
+    const cloneContentMmH  = pageClone.scrollHeight / clonePxPerMm;
+    const OVERFLOW_TOLERANCE_MM = 3;
+
     const worker = html2pdf().set(opt).from(pageClone);
     const canvas = await worker.toCanvas().get('canvas');
     document.body.removeChild(wrap);
@@ -430,9 +456,16 @@ async function exportPaginatedPdf(pw, ph, isLetter) {
       // step, can land a hair over one physical page's worth of
       // pixels (canvas-height rounding) and get a phantom near-blank
       // 2nd page tacked on internally — trim it back to exactly 1,
-      // same safety net the fallback export already relies on.
-      const n = pdf.internal.getNumberOfPages();
-      for (let p = n; p > 1; p--) pdf.deletePage(p);
+      // same safety net the fallback export already relies on. Only
+      // do this when the measured overflow is truly just rounding
+      // noise (within OVERFLOW_TOLERANCE_MM); a bigger overflow means
+      // this .cv-page's content genuinely didn't fit in one page, and
+      // whatever html2pdf auto-paginated onto a 2nd+ internal page is
+      // real CV content, not blank filler, so it must be kept.
+      if (cloneContentMmH <= ph + OVERFLOW_TOLERANCE_MM) {
+        const n = pdf.internal.getNumberOfPages();
+        for (let p = n; p > 1; p--) pdf.deletePage(p);
+      }
     } else {
       const imgData = canvas.toDataURL('image/jpeg', 0.85);
       pdf.addPage([pw, ph], 'portrait');
