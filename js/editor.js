@@ -2242,6 +2242,21 @@ function buildLayoutUnits(parsed) {
 // PDF export handler below), then walks them in order splitting into
 // a new page whenever the next unit would overflow the current page's
 // usable content height. Returns an array of page-sized unit arrays.
+// Small slack subtracted from the true usable height before comparing:
+// probe.clientWidth (used to derive pxPerMm) and the live page's own
+// mm-based CSS width can round to slightly different sub-pixel values,
+// and margin collapsing between a section's own top margin and its
+// wrapper's can shift a rendered height by a fraction of a pixel too.
+// With zero tolerance, that noise alone can tip a unit that visually
+// still has room over the usable-height threshold, bumping the rest of
+// a short trailing section to a new page while real blank space remains
+// on the current one. 1mm of slack absorbs that noise; a paginated
+// page's height is a floor (min-height, not max-height; see the
+// SIDEBAR TEMPLATES comment in main.css), so on the rare occasion this
+// lets a page run a hair over its target height, it just grows slightly
+// rather than clipping content.
+const PAGE_FIT_TOLERANCE_MM = 1;
+
 function measureAndPaginate(units, pw, ph, marginLR, marginTB, classString, sectionMeta) {
   const probe = document.createElement('div');
   probe.className = classString;
@@ -2261,7 +2276,7 @@ function measureAndPaginate(units, pw, ph, marginLR, marginTB, classString, sect
   document.body.appendChild(probe);
 
   const pxPerMm = probe.clientWidth / pw;
-  const usablePageHeightPx = (ph - marginTB * 2) * pxPerMm;
+  const usablePageHeightPx = (ph - marginTB * 2) * pxPerMm + PAGE_FIT_TOLERANCE_MM * pxPerMm;
 
   // Measure by actually rendering each candidate page through
   // unitsToPageHTML — the exact same .cvp-section/.cvp-sec-heading/
@@ -2374,7 +2389,7 @@ function measureColumnAndPaginate(units, pw, ph, marginTB, classString, sectionM
   document.body.appendChild(probe);
 
   const pxPerMm = probe.clientWidth / pw;
-  const usablePageHeightPx = (ph - marginTB * 2) * pxPerMm;
+  const usablePageHeightPx = (ph - marginTB * 2) * pxPerMm + PAGE_FIT_TOLERANCE_MM * pxPerMm;
   const colClass      = column === 'sidebar' ? 'cv-sidebar-col' : 'cv-main-col';
   const otherColClass = column === 'sidebar' ? 'cv-main-col'    : 'cv-sidebar-col';
 
@@ -2496,7 +2511,7 @@ function measureSidebarPanelAndPaginate(units, pw, ph, classString, sectionMeta,
   document.body.appendChild(probe);
 
   const pxPerMm = probe.clientWidth / pw;
-  const usablePageHeightPx = ph * pxPerMm;
+  const usablePageHeightPx = ph * pxPerMm + PAGE_FIT_TOLERANCE_MM * pxPerMm;
 
   const pages = [[]];
   units.forEach(u => {
@@ -2535,7 +2550,7 @@ function measureSidebarMainAndPaginate(units, pw, ph, classString, sectionMeta) 
   document.body.appendChild(probe);
 
   const pxPerMm = probe.clientWidth / pw;
-  const usablePageHeightPx = ph * pxPerMm;
+  const usablePageHeightPx = ph * pxPerMm + PAGE_FIT_TOLERANCE_MM * pxPerMm;
 
   const pages = [[]];
   units.forEach(u => {

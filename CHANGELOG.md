@@ -3,6 +3,24 @@
 Log of changes made to this repo by Claude Code sessions. Newest first.
 Commit hashes refer to `main`.
 
+## 2026-07-09
+
+- **Pagination: added a 1mm measurement tolerance to the page-fit check**
+  in `js/editor.js` (all four measure-and-paginate functions: single
+  column, two column, sidebar panel, sidebar main). Could not get a
+  direct repro of the previously reported "short trailing section jumps
+  to a new page despite visible blank space" bug, but reading
+  `measureAndPaginate()` closely found the check had zero slack: a unit
+  that overflows the usable height by even a sub-pixel (from probe vs.
+  live-page mm-to-px rounding differences, or margin collapsing) gets
+  bumped to a new page in full, even though the true remaining space was
+  effectively the same as what fits. Since a paginated page's height is
+  a floor (`min-height`, not `max-height`), letting a page run up to 1mm
+  over its target on the rare occasion this tolerance is used just makes
+  it slightly taller rather than clipping anything. This is a targeted
+  robustness fix for the likely cause, not a confirmed fix verified
+  against the original report; still needs live confirmation.
+
 ## 2026-07-08 (even later)
 
 - Fixed a second batch of bugs found while testing the previous fixes
