@@ -3,6 +3,48 @@
 Log of changes made to this repo by Claude Code sessions. Newest first.
 Commit hashes refer to `main`.
 
+## 2026-07-10 (later)
+
+- `c9b160f` Made the mobile Preview button show the actual generated
+  PDF instead of a live CSS approximation of it. Reported by Cas: the
+  name wrapped onto multiple lines in the mobile preview but stayed on
+  one line in the downloaded PDF, and the preview filled the page
+  edge to edge while the PDF had proper margins. Investigated live on
+  the deployed site with a real CV in a narrow viewport; the zoom/
+  width math in `fitPaperZoom()` checked out correctly, which pointed
+  to a WebKit/iOS-Safari-specific rendering quirk (same category as
+  the font-boosting bug below) not reproducible outside a real device.
+  Rather than keep chasing CSS fixes blind, changed the approach:
+  `exportPaginatedPdf`/`exportFlowingPdf` (`js/editor.js`) gained a
+  `mode` param so they can return `pdf.output('blob')` instead of
+  triggering a save, and the mobile Preview modal now generates the
+  real PDF this way and displays it in an iframe. Since it's the
+  literal same file Download PDF produces, it can never visually
+  disagree with it, on any device. Also hid the live CSS preview panel
+  (`.editor-right`, `css/main.css`) entirely on mobile per Cas's
+  suggestion: it was the exact thing prone to this drift, and is now
+  redundant since the Preview button shows the real thing;
+  `#cvPaperWrap` still renders invisibly there as the export source.
+  Desktop's side-by-side live preview is unaffected. Verified with a
+  local test harness (real `editor.html` markup, Firebase/Firestore
+  stubbed out): confirmed a valid PDF blob (`%PDF-` header) reaches the
+  iframe with no console errors, then had Cas confirm on his own phone
+  before merging. Files changed: `css/main.css`, `js/editor.js`.
+
+- `24fe5fe` Fixed iOS Safari inflating the font size of some entry
+  text (e.g. an employer or school name) on mobile while the date/
+  location text right next to it, sharing the exact same font-size
+  CSS rule, rendered at the correct size. Root cause: iOS Safari
+  auto-inflates the font size of some text blocks on narrow viewports
+  ("text size adjust" / font boosting) based on its own column-width
+  heuristics, applied independently per element; `main.css` never
+  opted out of this WebKit-only behavior. Added the standard
+  `-webkit-text-size-adjust: 100%` / `text-size-adjust: 100%` reset to
+  the `html` rule. Could not reproduce the behavior in this session's
+  Firefox-based testing tools (it's WebKit-specific), so pushed to a
+  branch and had Cas confirm on his own phone before merging to main.
+  File changed: `css/main.css`.
+
 ## 2026-07-10
 
 - `09f0a15` Fixed `dashboard.js`'s `downloadCV()` (the gallery card
