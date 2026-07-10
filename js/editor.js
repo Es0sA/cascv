@@ -3280,7 +3280,7 @@ function migrateHeader(){
     parts.forEach(p=>{
       if (!h.email    && /@/.test(p))                    h.email    = p;
       else if (!h.phone    && /[\d\s+()-]{7,}/.test(p)) h.phone    = p;
-      else if (!h.location && !h.phone && !/@/.test(p)) h.location = p;
+      else if (!h.location && !/@/.test(p))              h.location = p;
     });
   }
 }

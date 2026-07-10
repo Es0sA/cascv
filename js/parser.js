@@ -287,9 +287,10 @@ function parseMetaLine(line) {
 // meta (date) line when deciding whether a plain line starts a new
 // entry header block. The cleaned-by-Claude format puts title
 // immediately above a combined meta line (lookahead of 1); raw resume
-// text often splits employer and location onto their own line before
-// the date line (lookahead of 2: title, employer/location, then meta).
-const HEADER_LOOKAHEAD = 3;
+// text can split title, employer, and location onto three separate
+// lines before the date line, so the scan needs to reach 4 lines
+// ahead (title, employer, location, then meta) to still find it.
+const HEADER_LOOKAHEAD = 4;
 
 // True if a meta (date) line appears within the next `count` lines,
 // with nothing but plain (non-bullet) lines in between. Used to detect
@@ -353,7 +354,7 @@ function linesToWorkEntries(lines) {
     // Plain line: still inside the current entry's header block
     // (title / employer / location) if no meta line and no
     // description text has been seen yet for this entry.
-    const stillInHeader = cur && !headerDone && descLines.length === 0 && headerFieldsSet < 2;
+    const stillInHeader = cur && !headerDone && descLines.length === 0 && headerFieldsSet < 3;
 
     if (!cur) {
       cur = { visible: true, jobTitle: line };
@@ -424,7 +425,7 @@ function linesToEducationEntries(lines) {
       continue;
     }
 
-    const stillInHeader = cur && !headerDone && descLines.length === 0 && headerFieldsSet < 2;
+    const stillInHeader = cur && !headerDone && descLines.length === 0 && headerFieldsSet < 3;
 
     if (!cur) {
       cur = { visible: true, degree: line };
