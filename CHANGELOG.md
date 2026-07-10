@@ -3,6 +3,28 @@
 Log of changes made to this repo by Claude Code sessions. Newest first.
 Commit hashes refer to `main`.
 
+## 2026-07-10 (even later)
+
+- `6fe469f` Audited the whole repo (all three .md files, all PRs and
+  branches) for undone or stale work, at Cas's request. Found and fixed:
+  a genuinely never-merged fix sitting in a stale draft PR (#7, opened
+  2026-07-03): switching template/columns/header position now resets
+  the live preview panel's scroll to the top (a shorter new template
+  could otherwise leave the view scrolled past its own end, looking
+  like content was missing). The draft's original approach no longer
+  worked as-is since `renderRightPanel()` gained its own scroll-
+  preserving logic (with a deferred `requestAnimationFrame` restore) in
+  a later session, which silently clobbered a same-tick `scrollTop = 0`;
+  fixed by giving `renderRightPanel()` an explicit `resetScroll` param
+  instead. Also corrected three stale claims in `CLAUDE.md` (PDF export
+  quality said `0.98`, actually `0.85`; the Mobile Preview Modal section
+  still described the old CSS-zoom mechanism replaced earlier this
+  session; the Playwright section said Chrome, only Firefox works in
+  this environment) and checked off README's pagination checklist item
+  (completed 2026-07-03, never marked done). Closed PR #7 and deleted it
+  and one other now-fully-merged stale branch. Files changed:
+  `CLAUDE.md`, `README.md`, `js/editor.js`.
+
 ## 2026-07-10 (later)
 
 - `c9b160f` Made the mobile Preview button show the actual generated
