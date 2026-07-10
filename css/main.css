@@ -48,6 +48,17 @@ html {
   font-size: 16px;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  /* iOS Safari auto-inflates the font size of some text blocks on
+     narrow viewports ("text size adjust" / font boosting), based on
+     its own column-width heuristics, independently per element. This
+     is why a longer italic line (e.g. an employer name) could render
+     visibly larger than a short one right next to it (e.g. a date)
+     even though both share the exact same font-size CSS, and only on
+     an actual phone, never on desktop or in emulated mobile viewports
+     that don't implement this WebKit-only behavior. Locking it to
+     100% makes every element render at its actual declared size. */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
 body {
