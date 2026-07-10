@@ -300,28 +300,76 @@ absent.
    have this problem (its own DCT-compressed bytes get embedded more or
    less directly), which is why both PDF export functions in
    `editor.js` (`exportPaginatedPdf`, `exportFlowingPdf`) use
-   `image: { type: 'jpeg', quality: 0.98 }` and not PNG, even though PNG
+   `image: { type: 'jpeg', quality: 0.85 }` and not PNG, even though PNG
    would otherwise be the safer, simpler choice (lossless, no risk of a
-   bad DCT encode). If a future session is tempted to switch to PNG to
+   bad DCT encode). Quality was later dropped from an initial `0.98` to
+   `0.85`, and `html2canvas`'s `scale` from `2` to `1.5`, once it turned
+   out `0.98` measured out LARGER than a lossless PNG of the same page
+   for this flat-background, dark-text content (paying for lossy
+   compression while getting none of its benefit); real test downloads
+   went from roughly 987KB to 414KB. `js/dashboard.js`'s separate
+   `downloadCV()` export path uses the same `0.85`/`1.5` values now too
+   (see gotcha below on the two PDF-export implementations existing in
+   the first place). If a future session is tempted to switch to PNG to
    dodge a JPEG-related bug, measure the resulting file size on a real
    multi-page CV first: it is a 10 to 30x regression, confirmed in this
-   session before it shipped.
+   session before it shipped. If tempted to raise quality/scale back up,
+   measure file size before and after on a real multi-page CV first.
 
-7. `fitPaperZoom()` (the CSS-`zoom`-based preview shrink, used by both
-   the desktop split panel and the mobile Preview modal) must not rely
-   on a single `requestAnimationFrame` to measure its container's real
-   size. A `position:fixed; inset:0` container's actual size (the
-   mobile Preview modal, going from `display:none` to `display:flex`)
-   can settle asynchronously on mobile Safari, so one rAF-timed
-   measurement can read a stale or zero width, especially on the second
-   or later time the modal opens. `fitPaperZoom`'s call sites are backed
-   by a `ResizeObserver` on `#editorRight` and `#mobilePreviewBody` (see
-   the bottom of the "MOBILE PREVIEW MODAL" section in `editor.js`) that
-   re-fits whenever the container's real size actually changes, instead
-   of guessing at timing. Don't remove that observer in favor of manual
-   `scheduleFitZoom()` calls alone; they're still there for the
-   immediate/synchronous cases, but the observer is what makes reopening
-   the modal reliable.
+7. `fitPaperZoom()` (the CSS-`zoom`-based preview shrink, used by the
+   desktop split panel) must not rely on a single `requestAnimationFrame`
+   to measure its container's real size. A `position:fixed; inset:0`
+   container's actual size can settle asynchronously on some mobile
+   browsers, so one rAF-timed measurement can read a stale or zero
+   width. `fitPaperZoom`'s call sites are backed by a `ResizeObserver` on
+   `#editorRight` that re-fits whenever the container's real size
+   actually changes, instead of guessing at timing. Don't remove that
+   observer in favor of manual `scheduleFitZoom()` calls alone. Note
+   this no longer matters for the mobile Preview modal specifically
+   (see the note on the Mobile Preview Modal below): it shows the actual
+   generated PDF now, not a zoomed `#cvPaperWrap`, so this whole class of
+   zoom/timing bug can't recur there anymore, only in the desktop
+   split-panel view `#editorRight` still uses.
+
+8. Two separate PDF-export implementations existing (`editor.js`'s
+   `exportPaginatedPdf`/`exportFlowingPdf` and `dashboard.js`'s
+   `downloadCV()`, used by the gallery card's Download button) is a real
+   trap: a fix applied to one (quality/scale settings, a font-load-race
+   guard, a stale-repagination flush) silently does not apply to the
+   other unless done twice. This already happened once: `dashboard.js`
+   kept the old `quality:0.98`/`scale:2` settings and a flat
+   `setTimeout(400)` font wait for a while after `editor.js` moved to
+   `0.85`/`1.5` and a real `ensureFontsReady()` wait, producing a larger,
+   sometimes differently-paginated PDF depending on which download
+   button was used for the exact same CV. If you fix something in one
+   file's PDF export, check whether the other file's export needs the
+   same fix before considering the bug closed.
+
+## Mobile Preview Modal
+
+The mobile Preview button (`#mobilePreviewFab`/`#mobilePreviewModal` in
+`editor.html`, `openMobilePreview()`/`closeMobilePreview()` in
+`editor.js`) generates the actual PDF (the same
+`exportPaginatedPdf`/`exportFlowingPdf` functions Download PDF uses,
+called with a `'blob'` mode that returns `pdf.output('blob')` instead of
+triggering a save) and displays it in an iframe, rather than showing a
+live CSS re-creation of the CV shrunk down to fit the screen. An earlier
+version did the latter (moved the live `#cvPaperWrap` into the modal and
+shrank it with `fitPaperZoom()`), but that meant the preview and the
+downloaded PDF could visually disagree on real mobile Safari in ways
+that were not reproducible in this project's testing tools (see the
+Playwright note below): reported cases included an entry's employer/
+school name wrapping onto extra lines in the preview but not the PDF,
+and the preview filling the page edge to edge while the PDF had its
+normal margins. Rendering the actual PDF instead makes this category of
+bug structurally impossible: the preview IS the download, byte for
+byte, so it cannot disagree with itself. The live CSS preview panel
+(`#editorRight`) is hidden entirely on mobile now (see the
+`@media(max-width:800px)` rule for `.editor-right` in `main.css`) since
+it would otherwise be a redundant, less trustworthy second preview,
+though `#cvPaperWrap` still renders invisibly inside it either way, as
+the export source both PDF functions clone from. Desktop's side-by-side
+live preview is unaffected by any of this.
 
 ## Playwright MCP is set up for real browser testing
 
@@ -333,12 +381,42 @@ screenshots rather than reasoning about CSS/JS blind. This already caught
 a real bug (the `.cv-paper` min-width/max-width conflict above) that pure
 code review missed across several attempts. Use it.
 
-One caveat: Playwright launches a fresh, clean Chrome profile with no
-existing localStorage or Firebase auth session. It will not automatically
-have access to Cas's existing saved CVs or be already logged in. You'll
-need to sign in within that session (Cas can type his own credentials
-when a login page appears) or test against fresh/new CVs created within
-the automated session itself.
+Caveats:
+- In this environment the Chrome distribution the default `playwright`
+  MCP server expects is not installed (`mcp__playwright__browser_*`
+  tools error with "Chromium distribution 'chrome' is not found").
+  `mcp__playwright-firefox__browser_*` (Firefox) is the variant that
+  actually works here; use that one.
+- Playwright normally launches a fresh, clean profile with no existing
+  localStorage or Firebase auth session, so it won't automatically have
+  access to Cas's existing saved CVs or be already logged in. Cas can
+  type his own credentials when a login page appears, or you can test
+  against fresh/new CVs created within the automated session itself.
+  There is also a saved Firebase session at
+  `/home/es0sa/.cascv-playwright-session.json` (outside this repo,
+  owner-read-only, captured with Cas's explicit consent) that restores
+  a real logged-in dashboard/editor session without asking him to log
+  in again: read that file's contents and pass it as
+  `context: await browser.newContext({ storageState: <that JSON> })`.
+  Firebase Auth's session lives in IndexedDB, not plain
+  localStorage/cookies, so Playwright's `storageState()` needs the
+  `{ indexedDB: true }` option to capture or restore it; the plain
+  default omits it silently. If that file is missing, stale (Cas
+  changed his password or signed out elsewhere), or this is a
+  differently-scoped session where using it isn't appropriate, fall
+  back to asking Cas to log in.
+- One class of bug is fundamentally not reproducible with these tools:
+  WebKit/iOS-Safari-only rendering quirks (this project has hit two:
+  the font-boosting bug and the mobile-preview-vs-PDF mismatch, both
+  documented above). Firefox, and even a Firefox context emulating an
+  iPhone viewport/user agent, does not reproduce these; the underlying
+  CSS/JS math can check out perfectly in testing and still be wrong on
+  a real iPhone. When a reported bug is mobile-only and doesn't
+  reproduce here, say so plainly rather than assuming the code is fine,
+  and consider pushing a fix to a branch (via a
+  `https://raw.githack.com/Es0sA/cascv/<branch>/<page>.html` link, which
+  serves any branch's raw files with correct content-types, no deploy
+  needed) for Cas to verify on his own phone before merging to `main`.
 
 ## Coding conventions and standing preferences
 

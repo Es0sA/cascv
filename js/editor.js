@@ -1851,8 +1851,17 @@ function setSetting(key, value) {
     else if (SIDEBAR_TEMPLATES.includes(prevTemplate)) cvSettings.columns = '1';
   }
   renderCustomizePanel();
-  if (key==='listStyle'||key==='columns'||key==='dateFormat'||key==='template'||key==='headerPosition'||key==='iconStyle'||key==='workTitleOrder'||key==='eduTitleOrder'||key==='photoShape') { renderEditPanel(); renderRightPanel(); }
-  else { applySettings(); if (isPaginatedLayout()) scheduleRepaginate(); }
+  if (key==='listStyle'||key==='columns'||key==='dateFormat'||key==='template'||key==='headerPosition'||key==='iconStyle'||key==='workTitleOrder'||key==='eduTitleOrder'||key==='photoShape') {
+    renderEditPanel();
+    // Template/columns/headerPosition can drastically change page count
+    // and height, so those three reset scroll to the top instead of
+    // preserving the old position (see renderRightPanel's resetScroll
+    // param): staying scrolled to the same pixel position after
+    // switching (e.g. from a taller multi-page template to a shorter
+    // one) can leave the view past the new template's own end, making it
+    // look like the top space is missing when it's simply off-screen.
+    renderRightPanel(key==='template'||key==='columns'||key==='headerPosition');
+  } else { applySettings(); if (isPaginatedLayout()) scheduleRepaginate(); }
   scheduleSave();
 }
 // applySettings() only re-styles the .cv-page elements from whichever
@@ -2020,15 +2029,19 @@ function updatePageBreaks() {
    ============================================================ */
 let _paginationMultiPageSections = new Set();
 
-function renderRightPanel() {
+function renderRightPanel(resetScroll) {
   // Replacing cvPaper's innerHTML destroys and recreates every child node,
   // which can reset the scroll position of the ancestor scrollable panel
   // (#editorRight) — same class of bug as the one already worked around
   // in renderEditPanel for the left panel. Save/restore here too, so
   // saving an entry, renaming a section, etc. doesn't jump the preview
-  // back to page 1.
+  // back to page 1. Pass resetScroll=true (template/columns/header
+  // position changes, which can drastically change page count/height)
+  // to restore to the top instead of wherever the panel happened to be
+  // scrolled; otherwise a shorter new template can leave the view
+  // scrolled past its own end, looking like content is missing above.
   const rightScrollEl = document.getElementById('editorRight');
-  const rightSavedTop = rightScrollEl ? rightScrollEl.scrollTop : 0;
+  const rightSavedTop = resetScroll ? 0 : (rightScrollEl ? rightScrollEl.scrollTop : 0);
 
   const mode = getPaginationMode();
   if (mode === 'single' || mode === 'twocol' || mode === 'sidebar') {

@@ -45,8 +45,9 @@ not deleted. See `CLAUDE.md` for details before touching this.
 - [x] PDF export
 - [x] ATS keyword checker
 - [x] Firestore migration (CV data synced across devices, off localStorage)
-- [x] Real pagination (single-column templates split correctly across PDF pages)
-- [ ] Real pagination for two-column layouts and the 5 sidebar templates
+- [x] Real pagination (single-column, two-column, and the 5 sidebar
+      templates all split correctly across PDF pages; Mix layout is the
+      one deliberate exception, still on the older flowing pagination)
 
 See `CLAUDE.md` for full technical context, and `CHANGELOG.md` for a
 log of changes made by Claude Code sessions.
