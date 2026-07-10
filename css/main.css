@@ -1647,11 +1647,15 @@ input {
   justify-content: center;
   padding: 56px 12px 84px;
 }
-/* The live #cvPaperWrap gets moved in here (see openMobilePreview in
-   editor.js) — fitPaperZoom() sizes it against whichever element is
-   its current parent, so it naturally fills this body instead of the
-   desktop split-panel it normally sits in. */
-.mobile-preview-modal-body .cv-paper-wrap { flex-shrink: 0; }
+/* The actual generated PDF gets shown here as an iframe (see
+   openMobilePreview in editor.js), not a live CSS re-creation of it. */
+.mobile-preview-pdf-frame {
+  width: 100%;
+  height: 100%;
+  border: none;
+  background: #fff;
+  border-radius: 4px;
+}
 
 .mobile-preview-close {
   position: fixed;
@@ -1712,9 +1716,17 @@ input {
     border-bottom: 1px solid var(--border-subtle);
   }
 
+  /* The live CSS preview is a zoomed-down approximation, not the real
+     PDF, and can drift from it on some mobile browsers (font-size
+     rendering quirks, zoom/layout interactions). Hiding it here rather
+     than fixing every such drift means the ONLY mobile preview is the
+     one behind the Preview button (see openMobilePreview in editor.js),
+     which renders and displays the actual PDF, guaranteeing it always
+     matches what Download PDF produces. #cvPaperWrap keeps rendering
+     invisibly inside this hidden panel either way: it's still the
+     source element exportPaginatedPdf/exportFlowingPdf clone from. */
   .editor-right {
-    padding: 20px 12px;
-    min-height: 500px;
+    display: none;
   }
 
   .editor-cv-name {

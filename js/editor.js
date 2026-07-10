@@ -390,7 +390,7 @@ downloadBtn.addEventListener('click', async () => {
 // (html2pdf's own pixel-height-based pagination and our CSS `after`
 // hint don't reliably reconcile with each other). This has zero such
 // ambiguity: one canvas in, one page out, one at a time.
-async function exportPaginatedPdf(pw, ph, isLetter) {
+async function exportPaginatedPdf(pw, ph, isLetter, mode) {
   const pageEls = Array.from(cvPaper.querySelectorAll('.cv-page'));
   if (!pageEls.length) return;
 
@@ -478,6 +478,12 @@ async function exportPaginatedPdf(pw, ph, isLetter) {
     // the intermittent garbled-capture reports.
     canvas.width = canvas.height = 0;
   }
+  // 'blob' mode is used by the mobile Preview modal (see
+  // openMobilePreview): it renders the actual PDF this function always
+  // produces, rather than a separately-styled live approximation of it,
+  // so the preview and the download can never visually disagree with
+  // each other.
+  if (mode === 'blob') return pdf.output('blob');
   pdf.save(`${cvData.name || 'CV'}.pdf`);
 }
 
@@ -485,7 +491,7 @@ async function exportPaginatedPdf(pw, ph, isLetter) {
 // clones the whole flowing #cvPaper, snaps its height to an exact page
 // multiple to avoid html2canvas/jsPDF rounding producing a near-blank
 // trailing page, and trims any stray extra page as a safety net.
-async function exportFlowingPdf(pw, ph, isLetter) {
+async function exportFlowingPdf(pw, ph, isLetter, mode) {
   const wrap = document.createElement('div');
   wrap.style.cssText = `position:fixed;top:0;left:0;width:${pw}mm;z-index:-9999;opacity:0;pointer-events:none;`;
   const clone = cvPaper.cloneNode(true);
@@ -528,12 +534,18 @@ async function exportFlowingPdf(pw, ph, isLetter) {
 
     const worker = html2pdf().set(opt).from(clone);
     await worker.toPdf();
+    let resultBlob = null;
     await worker.get('pdf').then((pdf) => {
       // Safety net: if rounding still produced extra trailing
       // page(s) beyond what the content actually needs, drop them.
       const total = pdf.internal.getNumberOfPages();
       for (let p = total; p > pageCount; p--) pdf.deletePage(p);
+      // See exportPaginatedPdf's comment: 'blob' mode is the mobile
+      // Preview modal rendering the actual PDF instead of a separately
+      // styled approximation of it.
+      if (mode === 'blob') resultBlob = pdf.output('blob');
     });
+    if (mode === 'blob') return resultBlob;
     await worker.save();
   } finally {
     document.body.removeChild(wrap);
@@ -3326,53 +3338,74 @@ function scheduleFitZoom() {
 
 window.addEventListener('resize', scheduleFitZoom);
 
-// Mobile Safari resolves the real size of a `position:fixed; inset:0`
-// container (like the preview modal) asynchronously: the address bar
-// collapsing/expanding, or the modal's display:none -> flex switch, can
-// leave clientWidth reporting a stale/zero value for a moment even
-// after requestAnimationFrame fires. That's what made the preview
-// modal look broken on open and only "snap" correct after some other
-// action forced a fresh layout. A ResizeObserver sidesteps guessing at
-// timing entirely: whenever the wrap's actual parent settles at its
-// real size (whenever that happens), we re-fit against it.
+// Re-fits whenever #editorRight actually settles at its real size (a
+// dragged-narrow desktop panel, mainly), instead of guessing at timing
+// with a fixed delay.
 if (typeof ResizeObserver !== 'undefined') {
   const _paperZoomObserver = new ResizeObserver(() => scheduleFitZoom());
-  ['editorRight', 'mobilePreviewBody'].forEach((id) => {
-    const el = document.getElementById(id);
-    if (el) _paperZoomObserver.observe(el);
-  });
+  const editorRightEl = document.getElementById('editorRight');
+  if (editorRightEl) _paperZoomObserver.observe(editorRightEl);
 }
 
 /* ============================================================
    MOBILE PREVIEW MODAL
 
-   On a phone, the edit form and the live preview stack vertically
-   (see the @media(max-width:800px) rules in main.css), so reaching the
-   preview means scrolling past the whole form. Opening this modal
-   MOVES the actual #cvPaperWrap node in (rather than cloning it), so
-   there's exactly one live preview element, updated by the exact same
-   render calls either way — nothing to keep in sync, and closing the
-   modal just moves it straight back to its normal spot in #editorRight.
-   fitPaperZoom() reads wrap.parentElement rather than a hardcoded
-   #editorRight reference specifically so this resizes correctly in
-   both places.
+   Renders and displays the actual PDF (the same file Download PDF
+   produces), rather than a live CSS approximation of it, so this can
+   never visually disagree with what actually gets downloaded. The
+   live #cvPaperWrap panel is hidden entirely on mobile (see the
+   @media(max-width:800px) rule for .editor-right in main.css) and
+   still renders invisibly there purely as the export source
+   exportPaginatedPdf/exportFlowingPdf clone from.
    ============================================================ */
-function openMobilePreview() {
-  const wrap = document.getElementById('cvPaperWrap');
-  if (!wrap || !mobilePreviewBody) return;
-  mobilePreviewBody.appendChild(wrap);
+let _mobilePreviewObjectUrl = null;
+
+async function openMobilePreview() {
+  if (!mobilePreviewBody) return;
   mobilePreviewModal.classList.add('open');
   document.body.style.overflow = 'hidden';
-  scheduleFitZoom();
+  mobilePreviewBody.innerHTML = '<p class="cv-loading-text">Generating preview…</p>';
+
+  try {
+    // Same staleness guard as the Download PDF handler: force any
+    // pending debounced repagination pass to run now, so the preview
+    // reflects the latest edit rather than whatever layout pass ran
+    // 200ms ago.
+    if (typeof _repaginateTimeout !== 'undefined' && _repaginateTimeout) {
+      clearTimeout(_repaginateTimeout);
+      _repaginateTimeout = null;
+      renderRightPanel();
+    }
+    await ensureFontsReady();
+
+    const isLetter = cvSettings.paperFormat === 'Letter';
+    const [pw, ph] = isLetter ? [215.9, 279.4] : [210, 297];
+    const blob = isPaginatedLayout()
+      ? await exportPaginatedPdf(pw, ph, isLetter, 'blob')
+      : await exportFlowingPdf(pw, ph, isLetter, 'blob');
+
+    if (_mobilePreviewObjectUrl) URL.revokeObjectURL(_mobilePreviewObjectUrl);
+    _mobilePreviewObjectUrl = URL.createObjectURL(blob);
+    mobilePreviewBody.innerHTML = '';
+    const frame = document.createElement('iframe');
+    frame.className = 'mobile-preview-pdf-frame';
+    frame.title = 'CV preview';
+    frame.src = _mobilePreviewObjectUrl;
+    mobilePreviewBody.appendChild(frame);
+  } catch (err) {
+    console.error('Preview generation failed:', err);
+    mobilePreviewBody.innerHTML = '<p class="cv-loading-text">Could not generate preview. Please try again.</p>';
+  }
 }
 
 function closeMobilePreview() {
-  const wrap = document.getElementById('cvPaperWrap');
-  const editorRight = document.getElementById('editorRight');
-  if (wrap && editorRight) editorRight.appendChild(wrap);
   mobilePreviewModal.classList.remove('open');
   document.body.style.overflow = '';
-  scheduleFitZoom();
+  mobilePreviewBody.innerHTML = '';
+  if (_mobilePreviewObjectUrl) {
+    URL.revokeObjectURL(_mobilePreviewObjectUrl);
+    _mobilePreviewObjectUrl = null;
+  }
 }
 
 if (mobilePreviewFab) mobilePreviewFab.addEventListener('click', openMobilePreview);
