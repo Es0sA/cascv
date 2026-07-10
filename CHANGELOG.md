@@ -3,6 +3,30 @@
 Log of changes made to this repo by Claude Code sessions. Newest first.
 Commit hashes refer to `main`.
 
+## 2026-07-10
+
+- `09f0a15` Fixed `dashboard.js`'s `downloadCV()` (the gallery card
+  Download button), a separate PDF-export implementation from
+  `editor.js`'s that never received either of the fixes below it.
+  Reported by Cas comparing a PDF downloaded from the editor (correct,
+  282KB, 1 page) against the same CV downloaded from the dashboard on
+  his phone (777KB, 2 pages, same content otherwise intact). Root
+  cause: `downloadCV()` still used the old `quality:0.98`/`scale:2`
+  settings, and waited on a flat `setTimeout(..., 400)` instead of a
+  real font-load check before capturing, so a slower mobile connection
+  could still be mid-font-fetch past 400ms, baking fallback-font
+  metrics into both the raster and the page-break measurement (tipping
+  otherwise-1-page content onto 2 pages). Brought `downloadCV()` in
+  line with `editor.js`: same `0.85`/`1.5` quality/scale, and a new
+  `ensureFontsReady()` (same pattern as `editor.js`'s) awaited before
+  capture. Verified locally: built a test harness serving the repo
+  statically, stubbed `cachedCVs`/auth so `downloadCV()` could run
+  without real Firestore/Firebase, and used Playwright to intercept the
+  blob `html2pdf`/`jsPDF` hands to `URL.createObjectURL` (the download
+  itself can't be inspected directly in this sandbox). The exact CV
+  content from Cas's report now produces a 1-page, ~225KB PDF, matching
+  the editor's export. File changed: `js/dashboard.js`.
+
 ## 2026-07-09 (later)
 
 - **PDF export: shrank JPEG quality (0.98 to 0.85) and html2canvas scale
