@@ -13,6 +13,26 @@
 // actions like download/delete don't need a fresh Firestore read.
 let cachedCVs = [];
 
+// Waits for the actual fonts a CV uses to finish loading before a PDF
+// capture, instead of a flat setTimeout guess. A fixed delay can still
+// fire before a slow (mobile data) font fetch resolves, which bakes the
+// fallback font's slightly different metrics into both the raster and
+// the page-break measurement, sometimes tipping content onto an extra
+// page compared to the same CV on a faster connection. See editor.js's
+// ensureFontsReady for the same pattern.
+async function ensureFontsReady(bodyFont, nameFont) {
+  if (!(document.fonts && document.fonts.load)) return;
+  const stacks = [bodyFont, nameFont].filter(f => f && f !== 'inherit');
+  const specs = [];
+  stacks.forEach(stack => {
+    specs.push(`400 16px ${stack}`, `700 16px ${stack}`, `italic 400 16px ${stack}`, `italic 700 16px ${stack}`);
+  });
+  try {
+    await Promise.all(specs.map(spec => document.fonts.load(spec).catch(() => {})));
+    await document.fonts.ready;
+  } catch { /* best-effort; fall through and render with whatever's loaded */ }
+}
+
 // Elements
 const logoutBtn     = document.getElementById('logoutBtn');
 const newCvBtn      = document.getElementById('newCvBtn');
@@ -253,13 +273,20 @@ function downloadCV(id) {
   const btn = event.target.closest('button');
   if (btn) { btn.textContent = '⏳ Generating…'; btn.disabled = true; }
 
-  setTimeout(async () => {
+  (async () => {
     try {
+      await ensureFontsReady(settings.bodyFont, settings.nameFont);
+      // quality/scale match editor.js's PDF export (see that file's
+      // comment): 0.98 JPEG measured larger than a lossless PNG of the
+      // same page for this flat-background, dark-text content, so it
+      // was paying for lossy compression while getting none of its
+      // benefit. 0.85/1.5 cuts file size substantially with no visible
+      // quality loss at normal zoom.
       await html2pdf().set({
         margin: 0,
         filename: `${cv.name||'CV'}.pdf`,
-        image: { type:'jpeg', quality:0.98 },
-        html2canvas: { scale:2, useCORS:true, logging:false, x:0, y:0, scrollX:0, scrollY:0, windowWidth: paper.scrollWidth },
+        image: { type:'jpeg', quality:0.85 },
+        html2canvas: { scale:1.5, useCORS:true, logging:false, x:0, y:0, scrollX:0, scrollY:0, windowWidth: paper.scrollWidth },
         jsPDF: { unit:'mm', format:'a4', orientation:'portrait' },
         pagebreak: { mode:['css'], avoid:'.cvp-bullet,.cvp-entry-title,.cvp-entry-meta' }
       }).from(paper).save();
@@ -267,7 +294,7 @@ function downloadCV(id) {
       document.body.removeChild(wrap);
       if (btn) { btn.textContent = 'Download'; btn.disabled = false; }
     }
-  }, 400);
+  })();
 }
 
 async function deleteCV(id) {
