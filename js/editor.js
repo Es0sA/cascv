@@ -3373,7 +3373,14 @@ if (typeof ResizeObserver !== 'undefined') {
    still renders invisibly there purely as the export source
    exportPaginatedPdf/exportFlowingPdf clone from.
    ============================================================ */
-let _mobilePreviewObjectUrl = null;
+function blobToDataUrl(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload  = () => resolve(reader.result);
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(blob);
+  });
+}
 
 async function openMobilePreview() {
   if (!mobilePreviewBody) return;
@@ -3385,28 +3392,36 @@ async function openMobilePreview() {
   // a multi-page CV, even though the downloaded file had every page.
   // The PDF itself was fine (confirmed live: a 2-page CV's blob really
   // does contain 2 page objects); the bug was in HOW it was previewed.
+  // Three approaches were tried before this one landed:
   //
-  // First attempt embedded the PDF in an <iframe>, relying on the
-  // phone's PDF viewer to render and scroll INSIDE that constrained
-  // nested frame — known to not reliably scroll past page 1 on mobile.
-  // Second attempt opened the blob in a NEW tab via window.open() to
-  // get the browser's own full PDF viewer instead of an embedded one;
-  // that traded the page-1-only bug for a worse one Cas hit on real
-  // iOS Safari (screenshot: the new tab just stayed on about:blank).
-  // Root cause: Safari does not reliably navigate a window.open()-
-  // created tab to a blob: URL created by the OPENER document — a
-  // separate, well-documented Safari-specific restriction, unrelated
-  // to popup blocking (the tab opens fine; it just never loads the
-  // blob into it).
+  // 1. Embedded the PDF in an <iframe>, relying on the phone's PDF
+  //    viewer to render and scroll INSIDE that constrained nested
+  //    frame — known to not reliably scroll past page 1 on mobile.
+  // 2. Opened a blob: URL in a NEW tab via window.open(), to get the
+  //    browser's own full PDF viewer instead of an embedded one.
+  //    Broke worse on real iOS Safari (the new tab just stayed on
+  //    about:blank): Safari does not reliably navigate a
+  //    window.open()-created tab to a blob: URL created by the
+  //    OPENER document.
+  // 3. Navigated THIS SAME tab to the blob: URL instead (no second
+  //    browsing context to fail to cross into). Cas tested this on
+  //    three real mobile browsers: worked on Chrome, but Safari and
+  //    Firefox both still failed (blank / page-1-only again). That
+  //    pattern is the tell: Firefox on iOS is required by Apple to run
+  //    on WebKit, not real Gecko, so "Safari and Firefox both broken,
+  //    Chrome fine" means the real culprit is WebKit's blob: URL
+  //    handling for PDFs specifically, not anything about a second tab
+  //    at all — the previous fix's own diagnosis (a window.open()
+  //    cross-context restriction) was too narrow; the underlying
+  //    problem is broader than that one code path.
   //
-  // Fix: don't use a second browsing context at all. Navigate THIS
-  // same tab to the blob URL. Since the blob is being used in the
-  // exact document that created it, there's no cross-context
-  // restriction to hit, on any browser. The user leaves the CV editor
-  // SPA and lands on Safari's/Chrome's own full native PDF view (full
-  // multi-page scroll, zoom, page count, all provided by the browser
-  // itself), and uses the browser's own Back button to return to
-  // editing, exactly like tapping a plain download link.
+  // Fix: don't use a blob: URL at all. Convert the PDF to a data: URI
+  // (self-contained, no separate blob-store fetch/indirection for the
+  // browser to mishandle) and navigate to that instead. This is the
+  // standard workaround for WebKit's various blob-URL-plus-PDF quirks.
+  // The user leaves the CV editor SPA to view it and uses the
+  // browser's own Back button to return, same as tapping a plain
+  // download link would.
   try {
     // Same staleness guard as the Download PDF handler: force any
     // pending debounced repagination pass to run now, so the preview
@@ -3425,14 +3440,7 @@ async function openMobilePreview() {
       ? await exportPaginatedPdf(pw, ph, isLetter, 'blob')
       : await exportFlowingPdf(pw, ph, isLetter, 'blob');
 
-    // Deliberately not revoking any previous object URL here before
-    // navigating: this document is about to be torn down by the
-    // navigation itself, and revoking right before that risks racing
-    // the navigation's own load of the new URL. The browser reclaims
-    // blob URLs automatically once the document that created them is
-    // gone, so there's nothing to clean up manually in this path.
-    _mobilePreviewObjectUrl = URL.createObjectURL(blob);
-    window.location.href = _mobilePreviewObjectUrl;
+    window.location.href = await blobToDataUrl(blob);
   } catch (err) {
     console.error('Preview generation failed:', err);
     mobilePreviewBody.innerHTML = '<p class="cv-loading-text">Could not generate preview. Please try again.</p>';
@@ -3443,10 +3451,6 @@ function closeMobilePreview() {
   mobilePreviewModal.classList.remove('open');
   document.body.style.overflow = '';
   mobilePreviewBody.innerHTML = '';
-  if (_mobilePreviewObjectUrl) {
-    URL.revokeObjectURL(_mobilePreviewObjectUrl);
-    _mobilePreviewObjectUrl = null;
-  }
 }
 
 if (mobilePreviewFab) mobilePreviewFab.addEventListener('click', openMobilePreview);

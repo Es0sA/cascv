@@ -100,14 +100,18 @@
   <!-- Mobile Preview button/modal: on a phone, the edit form and the
        live preview stack vertically (see the @media(max-width:800px)
        rules in main.css), so seeing the preview means scrolling past
-       the entire form first. This button generates the actual PDF and
-       navigates THIS tab to it (see openMobilePreview in editor.js),
-       showing the browser's own full native PDF viewer rather than
-       anything rendered here: neither embedding it in an iframe nor
-       opening it in a separate new tab held up on real mobile Safari
-       (see the Mobile Preview Modal section of CLAUDE.md for both
-       failures). The modal itself is just a brief loading state while
-       the PDF is generated, shown right up until the tab navigates
+       the entire form first. This button generates the actual PDF,
+       converts it to a data: URI, and navigates THIS tab to it (see
+       openMobilePreview/blobToDataUrl in editor.js), showing the
+       browser's own full native PDF viewer rather than anything
+       rendered here: embedding it in an iframe, opening a blob: URL in
+       a separate new tab, and even navigating this same tab to a
+       blob: URL all held up in this project's own testing but broke
+       on real mobile Safari/Firefox in three separate rounds (see the
+       Mobile Preview Modal section of CLAUDE.md for all three
+       failures) before the data: URI approach held up. The modal
+       itself is just a brief loading state while the PDF is
+       generated, shown right up until the tab navigates
        away. Hidden on desktop widths, where the preview is already visible
        alongside the form. -->
   <button class="mobile-preview-fab" id="mobilePreviewFab" type="button" title="Preview" aria-label="Preview CV">

@@ -371,41 +371,56 @@ though `#cvPaperWrap` still renders invisibly inside it either way, as
 the export source both PDF functions clone from. Desktop's side-by-side
 live preview is unaffected by any of this.
 
-The generated PDF is opened by navigating the SAME tab to it
-(`window.location.href = objectUrl`), not displayed inline via an
-`<iframe>` in the modal, and not opened in a separate new tab either.
-Both of those were tried and both broke on real mobile Safari:
-- First version embedded the PDF in an iframe; Cas reported the
-  preview only ever showed page 1 of a multi-page CV (confirmed the
-  PDF blob itself genuinely had every page; only the preview rendering
-  was affected). Mobile PDF viewers, especially iOS Safari's, are known
-  to not reliably support scrolling past the first page when the PDF is
-  embedded in a nested `<iframe>` rather than viewed as its own full
-  page/tab.
-- Second version opened the blob in a new tab via `window.open()`, to
-  get the browser's own full PDF viewer instead of an embedded one.
-  Cas hit a different, worse failure on real iOS Safari: the new tab
-  just stayed on `about:blank` and never showed anything. Root cause:
-  Safari does not reliably navigate a `window.open()`-created tab to a
-  `blob:` URL created by the OPENER document. This is a separate,
-  well-documented Safari-specific restriction, unrelated to popup
-  blocking (the tab opens fine; it just never loads the blob into it).
-  Neither this project's Firefox-based Playwright testing nor a
-  headless environment's default blob-PDF handling caught this: the
-  `window.open()` call itself succeeded with no console error, so it
-  looked fixed until tested on a real iPhone.
+The generated PDF is opened by navigating the SAME tab to a `data:`
+URI of it (`window.location.href = dataUri`, built via `blobToDataUrl()`
+in `editor.js`, a `FileReader.readAsDataURL()` wrapper), not displayed
+inline via an `<iframe>` in the modal, not opened in a separate new
+tab, and not even navigated to as a `blob:` URL. All three of those
+were tried, in that order, and all three broke on real mobile testing
+before this one held up:
+1. Embedded the PDF in an iframe; Cas reported the preview only ever
+   showed page 1 of a multi-page CV (confirmed the PDF blob itself
+   genuinely had every page; only the preview rendering was affected).
+   Mobile PDF viewers are known to not reliably support scrolling past
+   the first page when embedded in a nested `<iframe>` rather than
+   viewed as their own full page/tab.
+2. Opened the blob in a new tab via `window.open()`, to get the
+   browser's own full PDF viewer instead of an embedded one. Broke
+   worse on real iOS Safari: the new tab just stayed on `about:blank`.
+   Root cause: Safari does not reliably navigate a `window.open()`-
+   created tab to a `blob:` URL created by the OPENER document, a
+   separate, well-documented Safari-specific restriction unrelated to
+   popup blocking (the tab opens fine; it just never loads the blob
+   into it).
+3. Navigated THIS SAME tab to the `blob:` URL instead (no second
+   browsing context to fail to cross into). Cas tested this on three
+   real mobile browsers: worked on Chrome, but Safari AND Firefox both
+   still failed (blank / page-1-only again). That's the tell: Firefox
+   on iOS is required by Apple to run on WebKit, not real Gecko, so
+   "Safari and Firefox both broken, Chrome fine" means the actual
+   culprit is WebKit's `blob:` URL handling for PDFs specifically, not
+   the second-browsing-context theory step 2's fix was built on — that
+   diagnosis was too narrow.
 
-Navigating the CURRENT tab avoids both problems at once: there's no
-embedded iframe to fail to scroll, and no second browsing context for
-the blob URL to fail to cross into, since it's used in the exact
-document that created it. The trade-off is that the user leaves the CV
-editor SPA to view the PDF and has to use the browser's own Back
-button to return, same as tapping a plain download link would. Don't
-try to `URL.revokeObjectURL()` the blob before navigating to it (the
-document is about to be torn down by the navigation anyway, and
-revoking right before that risks racing the navigation's own load of
-it); the browser reclaims it automatically once the document that
-created it is gone.
+None of these three were catchable by this project's Firefox-based
+Playwright testing or a headless environment's default blob-PDF
+handling: every step's code ran without a console error and looked
+correct until tested on a real phone. If a future mobile PDF-preview
+bug shows up again, treat "works here, fails on-device" as the
+expected starting position for this feature, not a surprise, and get
+Cas to test on real hardware early rather than iterating blind.
+
+Converting to a `data:` URI instead of using a `blob:` URL at all sidesteps
+the whole class of blob-store-related quirks above: a data URI is fully
+self-contained (the bytes are IN the URL, base64-encoded), so there's
+no separate blob-store fetch/indirection left for the browser to
+mishandle. The trade-off is the same as with same-tab blob navigation:
+the user leaves the CV editor SPA to view the PDF and has to use the
+browser's own Back button to return, same as tapping a plain download
+link would. A ~680KB PDF becomes a ~900KB data URI (base64 overhead);
+comfortably inside every modern mobile browser's data URI size limit,
+but if CVs ever grow dramatically larger, that ~33% size tax is worth
+remembering.
 
 ## Playwright MCP is set up for real browser testing
 
