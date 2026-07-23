@@ -3,6 +3,32 @@
 Log of changes made to this repo by Claude Code sessions. Newest first.
 Commit hashes refer to `main`.
 
+## 2026-07-23 (even later)
+
+- `6f51d73` Fixed wasted blank space at the bottom of a page when a
+  whole small trailing section (e.g. a 2-line Achievements section)
+  gets stranded alone on the next page. Cas reported this with a
+  screenshot; confirmed on a real downloaded PDF the blank gap measured
+  ~38mm, more than double what the stranded section needed. Root cause:
+  the real-pagination greedy forward walk (measureAndPaginate/
+  measureColumnAndPaginate in `js/editor.js`) is usually tight, but this
+  exact CV/settings paginated differently in this project's Firefox-
+  based testing than in Cas's real Safari download, pointing at
+  cross-browser text-measurement variance occasionally tipping a
+  borderline unit the wrong way, in a way that compounds. Added a
+  second pass after the greedy walk: for every adjacent pair of
+  resulting pages, remeasure them combined with a fresh probe, and
+  merge if they genuinely fit together, self-correcting regardless of
+  what caused the original split to be conservative. Safe by
+  construction (a merge only happens when a real remeasurement
+  confirms the fit); verified on a CV that genuinely needs 2 pages that
+  nothing gets wrongly merged and no content is lost. Applied to both
+  the single-column and two-column pagination paths; deliberately left
+  the sidebar-template path alone (it composites two independently
+  paginated streams by page index, and merging within just one risks
+  breaking that alignment without a sidebar-template CV to verify
+  against). File changed: `js/editor.js`.
+
 ## 2026-07-23 (later)
 
 - `bb20e48` Fixed the actual root cause behind the header-spacing bug
