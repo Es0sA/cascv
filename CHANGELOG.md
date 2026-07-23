@@ -3,6 +3,32 @@
 Log of changes made to this repo by Claude Code sessions. Newest first.
 Commit hashes refer to `main`.
 
+## 2026-07-23 (latest, continued)
+
+- `4457e97` Cas asked for a general Playwright-driven audit for other
+  bugs after the Core Skills fix below. Compared `dashboard.js`'s
+  `downloadCV()` against `editor.js`'s `renderEntryHTML` for every
+  section type and found the same class of bug in four more places,
+  plus one bigger structural gap:
+  - Certifications, Languages, Awards/Publications/Interests, and
+    References entries were each silently dropping specific fields
+    their own generic fallback logic didn't know about (date/info for
+    certifications, the entire entry for languages, title links and
+    issuer/publisher for awards, and name links/position/company/email/
+    phone for references). Added a dedicated branch for each, mirroring
+    editor.js's actual output exactly.
+  - Bigger: `downloadCV()` hardcoded a single flowing column
+    (`cols-1`) regardless of the CV's actual Columns setting, and never
+    consulted `columnAssign` at all. Any 2-column or sidebar-template
+    CV (Atlantic Blue, Corporate Panel, Cobalt Edge, Obsidian Edge,
+    Neutral Gray) downloaded from the Dashboard with every section
+    dumped into one plain column — the entire layout was lost, not
+    just some content. Mirrored editor.js's real two-column/sidebar
+    markup structure. Verified directly: rendered Cas's one 2-column
+    CV (Atlantic Blue) with the fix and confirmed the colored sidebar
+    panel and main column both now appear correctly. File changed:
+    `js/dashboard.js`.
+
 ## 2026-07-23 (latest)
 
 - `3eed116` Fixed the Dashboard download silently dropping skill-list
