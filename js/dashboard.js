@@ -221,6 +221,20 @@ function downloadCV(id) {
           if (e.date) body += `<p class="cvp-entry-meta">${esc(e.date)}</p>`;
           return;
         }
+        // Skills section (the Skills form's skill/info/level fields —
+        // see editor.js's renderEntryHTML for the stype==='skills' case
+        // this mirrors). Reported by Cas: Core Skills entries downloaded
+        // from the Dashboard showed only the bold category label
+        // ("Sales and Business Development") with nothing after it —
+        // the actual skill list lives in entry.info, a field this
+        // function otherwise never looks at (only desc/summary, which
+        // skill entries don't use), so it was silently dropped.
+        if (sec.type === 'skills' || (sec.type === 'custom' && (cv.customSectionType||{})[i] === 'skill')) {
+          const skill = e.skill||''; const info = e.info||''; const level = e.level||'';
+          if (skill&&info) body += `<p class="cvp-line"><strong class="cvp-cat">${esc(skill)}:</strong> ${esc(info)}</p>`;
+          else if (skill)  body += `<p class="cvp-line"><strong class="cvp-cat">${esc(skill)}</strong>${level?' — '+esc(level):''}</p>`;
+          return;
+        }
         const title   = e.jobTitle||e.degree||e.title||e.skill||e.name||'';
         const sub     = e.employer||e.school||e.role||e.provider||e.organisation||'';
         const subLink = e.employerLink||e.schoolLink||e.providerLink||e.organisationLink||'';
