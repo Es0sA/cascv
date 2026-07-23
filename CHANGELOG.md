@@ -3,6 +3,33 @@
 Log of changes made to this repo by Claude Code sessions. Newest first.
 Commit hashes refer to `main`.
 
+## 2026-07-23 (later)
+
+- `bb20e48` Fixed the actual root cause behind the header-spacing bug
+  logged just below: Cas reported that increasing the Margin (top/
+  bottom) slider in Customize pushed the name further off the top of
+  the page on the banner-header templates, the opposite of what the
+  slider should do. Found live: each of the 5 banner templates has a
+  `.cv-paper.t-X { padding-top: 0 !important; }` rule so the header can
+  own the top inset itself, but the header's own rule still had
+  `margin-top: calc(var(--cv-margin-tb) * -1)` left over from before
+  that padding-top:0 rule existed, when the negative margin's job was
+  to cancel the page's own top padding. With nothing left to cancel,
+  the header just drifts further above the true page top as the
+  setting grows. Verified live (Playwright): header position relative
+  to the page top went from +43px at the CV's saved 12mm setting to
+  -101px at 50mm with the old CSS; a margin-top:0 override made it sit
+  flush at 0 regardless of the setting. Changed `margin-top` to a flat
+  `0` on `.cvp-header` for all 5 templates (Hunter Green, Blue Steel,
+  Corporate, Clear Banner, Silver Banner), leaving the still-needed
+  negative left/right margins and the bottom margin untouched. Also
+  confirmed this is the real root cause of the previous commit's
+  PDF-only fix: html2canvas was rendering that same orphaned negative
+  margin as compressed padding rather than an off-page drift, and this
+  CSS fix alone reproduces the identical corrected PDF output without
+  the earlier JS workaround, which stays in place as a now-inert safety
+  net. File changed: `css/main.css`.
+
 ## 2026-07-23
 
 - `e01511b` Fixed the name rendering almost flush against the top edge
