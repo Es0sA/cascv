@@ -3,6 +3,54 @@
 Log of changes made to this repo by Claude Code sessions. Newest first.
 Commit hashes refer to `main`.
 
+## 2026-07-23 (latest)
+
+- `3eed116` Fixed the Dashboard download silently dropping skill-list
+  content in Core Skills entries. Cas reported the Dashboard download's
+  text color looked different from the Editor download's; direct
+  testing ruled out any actual difference in accent-color computation
+  between the two, so rendered both exports as real images and compared
+  them directly instead. The "color" difference was missing content:
+  Dashboard's version showed only the bold category labels ("Sales and
+  Business Development") with nothing after them, Editor's showed the
+  full "Category: Skill | Skill | Skill..." line. Losing the plain text
+  after the colon shifts a section from mostly-black-with-a-green-label
+  to solid bold-green, reading as a color difference at a glance even
+  though no color value changed. Root cause: `dashboard.js`'s
+  `downloadCV()` has its own simplified, hand-rolled per-entry renderer
+  (a known separate implementation from `editor.js`'s), and it never
+  learned skill-type entries store their content in `skill`/`info`/
+  `level` fields rather than the `desc`/`summary` every other entry
+  type uses — `info` (the actual skill list) was silently never read.
+  Added a dedicated skills-entry branch mirroring editor.js's own
+  output. Verified directly: re-rendered Core Skills with the fix and
+  confirmed the full skill list matches the Editor export's HTML. File
+  changed: `js/dashboard.js`.
+
+- `155b516` Two fixes bundled together, found investigating why the
+  wasted-space pagination fix wasn't applying to the Editor's Download
+  PDF button, consistently across Safari, Firefox, and Chrome on Cas's
+  iPhone (all three run on WebKit there, so "broken on all three"
+  pointed at one shared engine issue, not three separate bugs).
+  1. `ensureFontsReady()` (both `js/editor.js` and `js/dashboard.js`
+     have their own copy) passed the CV's full font-family value,
+     fallback list and all, straight into `FontFaceSet.load()`, whose
+     font argument is a CSS font shorthand meant to name the ONE font
+     being requested — a fallback list there is out of spec and
+     inconsistently parsed across browsers, silently failing to trigger
+     the real font's fetch on at least one. Both copies now extract
+     just the primary family name first. Confirmed this fixed the
+     Editor download (now 1 page, matching Dashboard); the wasted-space
+     fix itself (previous entry) was correct all along; the font
+     detection feeding it accurate measurements was the missing piece.
+  2. Separately: `dashboard.js`'s `cachedCVs` is only populated once,
+     when the script first runs; a phone's native back gesture can
+     restore the dashboard from the browser's back-forward cache
+     without re-running any script, leaving Download stuck on settings
+     from before a since-made edit. Added a `pageshow` listener that
+     re-fetches specifically on a bfcache restore (`event.persisted`).
+  Files changed: `js/editor.js`, `js/dashboard.js`.
+
 ## 2026-07-23 (even later)
 
 - `6f51d73` Fixed wasted blank space at the bottom of a page when a
