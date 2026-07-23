@@ -2384,6 +2384,38 @@ function measureAndPaginate(units, pw, ph, marginLR, marginTB, classString, sect
       pages[pageIdx] = candidate;
     }
   });
+
+  // Second pass: reported by Cas as a large, genuinely wasted blank
+  // area at the bottom of a page, with a whole small trailing section
+  // (e.g. a 2-line Achievements section) stranded alone on the next
+  // page. Measured directly against a real downloaded PDF: the gap was
+  // ~38mm, more than double what that trailing section needed — too
+  // large to be the sub-pixel measurement noise PAGE_FIT_TOLERANCE_MM
+  // absorbs, and not reproducible identically across browsers (this
+  // exact CV/settings paginated differently in this project's
+  // Firefox-based testing than in the real Safari download that showed
+  // the bug), pointing at cross-engine text-measurement variance tipping
+  // a borderline unit the wrong way during the forward walk above.
+  // Rather than chase exactly which unit's measurement was off and by
+  // how much, just check the actual result with a fresh, real
+  // measurement: for every adjacent pair of pages, remeasure them
+  // combined, and merge if they genuinely fit together. This is
+  // self-correcting regardless of what caused the original estimate to
+  // be conservative, and safe by construction: a merge only happens
+  // when a real remeasurement, done the exact same way as every other
+  // fit check here, confirms the combined content truly fits within one
+  // page. Iterating backward so a merge can cascade (several short
+  // trailing pages collapsing into one) without skipping a pair.
+  for (let i = pages.length - 1; i > 0; i--) {
+    const combined = pages[i - 1].concat(pages[i]);
+    probe.innerHTML = unitsToPageHTML(combined, sectionMeta, i - 1);
+    const combinedHeight = probe.getBoundingClientRect().height;
+    if (combinedHeight <= usablePageHeightPx) {
+      pages[i - 1] = combined;
+      pages.splice(i, 1);
+    }
+  }
+
   document.body.removeChild(probe);
   return pages;
 }
@@ -2492,6 +2524,23 @@ function measureColumnAndPaginate(units, pw, ph, marginTB, classString, sectionM
       pages[pageIdx] = candidate;
     }
   });
+
+  // Same self-correcting merge-back pass as measureAndPaginate (see its
+  // comment for the full story: a real downloaded PDF showed ~38mm of
+  // wasted blank space with a whole small trailing section stranded
+  // alone on the next page, more than the fixed 1mm tolerance can
+  // explain). Applies here too since a two-column layout's columns
+  // paginate through this exact same forward-walk logic.
+  for (let i = pages.length - 1; i > 0; i--) {
+    const combined = pages[i - 1].concat(pages[i]);
+    probe.innerHTML = `<div class="cv-two-col-wrap"><div class="${colClass}">${unitsToPageHTML(combined, sectionMeta, i - 1)}</div><div class="${otherColClass}"></div></div>`;
+    const combinedHeight = probe.querySelector('.' + colClass).getBoundingClientRect().height;
+    if (combinedHeight <= usablePageHeightPx) {
+      pages[i - 1] = combined;
+      pages.splice(i, 1);
+    }
+  }
+
   document.body.removeChild(probe);
   return pages;
 }
