@@ -195,7 +195,7 @@ function downloadCV(id) {
     titleFontSize:12, headingFontSize:10, entryFontSize:11, lineHeight:1.55,
     sectionSpacing:11, marginLR:13, marginTB:11, bodyFont:'Calibri, Arial, sans-serif',
     nameFont:'inherit', listStyle:'bullet', colorBg:'#ffffff', colorText:'#1a1a1a',
-    headerAlign:'left'
+    headerAlign:'left', headerPosition:'top', columns:1, twoColWidth:32
   }, cv.settings || {});
 
   const parsed  = cv.parsed || {};
@@ -235,6 +235,41 @@ function downloadCV(id) {
           else if (skill)  body += `<p class="cvp-line"><strong class="cvp-cat">${esc(skill)}</strong>${level?' — '+esc(level):''}</p>`;
           return;
         }
+        // Found auditing this function against editor.js's renderEntryHTML
+        // after the skills bug above: certifications, languages, awards/
+        // publications/interests, and references entries each store their
+        // content in their own specific field names too (not the generic
+        // title/employer/desc fields the fallback branch below reads), so
+        // they were silently dropping data the exact same way skills was.
+        if (sec.type === 'certifications') {
+          const name = e.name||''; const nameLink = e.nameLink||'';
+          const nameHtml = nameLink ? `<a href="${esc(nameLink)}" target="_blank" rel="noopener">${esc(name)}</a>` : esc(name);
+          const date = e.date||''; const info = e.info||'';
+          if (name||date||info) body += `<p class="cvp-line"><strong>${nameHtml}</strong>${date?' — Date: '+esc(date):''}${info?'<br>'+esc(info):''}</p>`;
+          return;
+        }
+        if (sec.type === 'languages') {
+          if (e.language) body += `<p class="cvp-line">${esc(e.language)}${e.proficiency?' — '+esc(e.proficiency):''}</p>`;
+          return;
+        }
+        if (sec.type === 'awards' || sec.type === 'publications' || sec.type === 'interests') {
+          const title = e.title||e.interest||''; const titleLink = e.titleLink||e.interestLink||'';
+          const titleHtml = titleLink ? `<a href="${esc(titleLink)}" target="_blank" rel="noopener">${esc(title)}</a>` : esc(title);
+          const sub = [e.issuer||e.publisher, e.date||''].filter(Boolean).join(' — ');
+          const desc = e.desc||'';
+          if (title) body += `<p class="cvp-entry-title">${titleHtml}</p>`;
+          if (sub)   body += `<p class="cvp-entry-meta">${esc(sub)}</p>`;
+          if (desc)  body += `<p class="cvp-line">${esc(desc)}</p>`;
+          return;
+        }
+        if (sec.type === 'references') {
+          const nameLink = e.nameLink||'';
+          const nameHtml = nameLink ? `<a href="${esc(nameLink)}" target="_blank" rel="noopener">${esc(e.name||'')}</a>` : esc(e.name||'');
+          if (e.name) body += `<p class="cvp-entry-title">${nameHtml}</p>`;
+          if (e.position||e.company) body += `<p class="cvp-entry-meta">${esc([e.position,e.company].filter(Boolean).join(', '))}</p>`;
+          if (e.email||e.phone) body += `<p class="cvp-line">${esc([e.email,e.phone].filter(Boolean).join(' | '))}</p>`;
+          return;
+        }
         const title   = e.jobTitle||e.degree||e.title||e.skill||e.name||'';
         const sub     = e.employer||e.school||e.role||e.provider||e.organisation||'';
         const subLink = e.employerLink||e.schoolLink||e.providerLink||e.organisationLink||'';
@@ -263,21 +298,65 @@ function downloadCV(id) {
     return `<div class="cvp-section"><div class="cvp-sec-heading">${esc(name)}</div><div class="cvp-sec-content">${body}</div></div>`;
   }
 
-  const cvHtml = `
-    <div class="cvp-header" style="text-align:${settings.headerAlign}">
-      <div class="cvp-name">${esc(h.name||'')}</div>
-      ${h.jobTitle&&!hidden['jobTitle']?`<div class="cvp-jobtitle">${esc(h.jobTitle)}</div>`:''}
-      ${contact?`<div class="cvp-contact">${esc(contact)}</div>`:''}
-    </div>
-    <hr class="cvp-divider">
-    <div class="cv-sections-area">${(parsed.sections||[]).map((s,i)=>renderSec(s,i)).join('')}</div>`;
+  // Found auditing this function against editor.js after the skills/
+  // certifications/etc. content-mapping bugs above: this function ALSO
+  // hardcoded a single flowing column ('cols-1', one <div
+  // class="cv-sections-area">) regardless of the CV's actual Columns
+  // setting, completely ignoring columnAssign (which sections go in the
+  // sidebar vs main column). For any 2-column or sidebar-template CV
+  // (Atlantic Blue, Corporate Panel, Cobalt Edge, Obsidian Edge, Neutral
+  // Gray — see SIDEBAR_TEMPLATES), the Dashboard download would have
+  // dumped every section into one plain column, losing the entire
+  // layout, not just some field content. Mirrors editor.js's
+  // buildCVHTML structure (SIDEBAR_TEMPLATES list, the sidebar
+  // template's header-IS-the-colored-panel markup with sections nested
+  // in .cvp-header-sections, and the generic two-column
+  // .cv-two-col-wrap > .cv-sidebar-col + .cv-main-col split) using this
+  // function's own renderSec for each section either way.
+  const SIDEBAR_TEMPLATES = ['atlantic-blue', 'corporate-panel', 'cobalt-edge', 'obsidian-edge', 'neutral-gray'];
+  const isTwoCol = String(settings.columns) === '2';
+  const isSidebarTemplate = isTwoCol && SIDEBAR_TEMPLATES.includes(settings.template);
+  const columnAssign = cv.columnAssign || {};
+  const allSecs    = (parsed.sections||[]).map((s,i)=>({s,i}));
+  const sidebarSecs = allSecs.filter(({i})=>columnAssign[i]==='sidebar');
+  const mainSecs    = allSecs.filter(({i})=>(columnAssign[i]||'main')==='main');
+
+  const headerInner = `
+    <div class="cvp-name">${esc(h.name||'')}</div>
+    ${h.jobTitle&&!hidden['jobTitle']?`<div class="cvp-jobtitle">${esc(h.jobTitle)}</div>`:''}
+    ${contact?`<div class="cvp-contact">${esc(contact)}</div>`:''}`;
+
+  let cvHtml;
+  if (isSidebarTemplate) {
+    cvHtml = `
+      <div class="cvp-header" style="text-align:${settings.headerAlign}">
+        ${headerInner}
+        <div class="cvp-header-sections">${sidebarSecs.map(({s,i})=>renderSec(s,i)).join('')}</div>
+      </div>
+      ${mainSecs.map(({s,i})=>renderSec(s,i)).join('')}`;
+  } else if (isTwoCol) {
+    const headerPos = settings.headerPosition;
+    const headerInColumn = headerPos === 'left' || headerPos === 'right';
+    const headerBlockInColumn = `<div class="cvp-header cvp-header-incolumn">${headerInner}</div>`;
+    cvHtml = `
+      ${headerInColumn ? '' : `<div class="cvp-header" style="text-align:${settings.headerAlign}">${headerInner}</div><hr class="cvp-divider">`}
+      <div class="cv-two-col-wrap">
+        <div class="cv-sidebar-col">${headerInColumn&&headerPos==='left' ?headerBlockInColumn:''}${sidebarSecs.map(({s,i})=>renderSec(s,i)).join('')}</div>
+        <div class="cv-main-col">${headerInColumn&&headerPos==='right'?headerBlockInColumn:''}${mainSecs.map(({s,i})=>renderSec(s,i)).join('')}</div>
+      </div>`;
+  } else {
+    cvHtml = `
+      <div class="cvp-header" style="text-align:${settings.headerAlign}">${headerInner}</div>
+      <hr class="cvp-divider">
+      <div class="cv-sections-area">${allSecs.map(({s,i})=>renderSec(s,i)).join('')}</div>`;
+  }
 
   // Render in an off-screen fixed container so html2canvas captures it cleanly
   const wrap  = document.createElement('div');
   wrap.style.cssText = 'position:fixed;top:0;left:0;width:210mm;z-index:-9999;opacity:0;pointer-events:none;';
   const paper = document.createElement('div');
   paper.className = ['cv-paper',`t-${settings.template}`,`hs-${settings.headingStyle}`,
-    `hc-${settings.headingCase}`,`cols-1`,
+    `hc-${settings.headingCase}`, isTwoCol?'cols-2':'cols-1',
     settings.accentHeadings?'ac-headings':'', settings.accentLine?'ac-line':''].filter(Boolean).join(' ');
   paper.innerHTML = cvHtml;
   paper.style.cssText = `width:210mm;min-height:297mm;background:${settings.colorBg};color:${settings.colorText};font-family:${settings.bodyFont};font-size:${settings.baseFontSize}px;line-height:${settings.lineHeight};padding:${settings.marginTB}mm ${settings.marginLR}mm;box-sizing:border-box;`;
@@ -290,6 +369,7 @@ function downloadCV(id) {
   paper.style.setProperty('--cv-section-gap',    settings.sectionSpacing  +'px');
   paper.style.setProperty('--cv-margin-lr',      settings.marginLR        +'mm');
   paper.style.setProperty('--cv-margin-tb',      settings.marginTB        +'mm');
+  paper.style.setProperty('--cv-col-width',      settings.twoColWidth     +'%');
   wrap.appendChild(paper);
   document.body.appendChild(wrap);
   neutralizeHeaderBleed(paper);
