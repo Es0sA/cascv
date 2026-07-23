@@ -371,31 +371,41 @@ though `#cvPaperWrap` still renders invisibly inside it either way, as
 the export source both PDF functions clone from. Desktop's side-by-side
 live preview is unaffected by any of this.
 
-The generated PDF is opened in a new browser tab (`window.open()`),
-not displayed inline via an `<iframe>` in the modal. An earlier version
-did embed it in an iframe; Cas reported that on mobile, the preview
-only ever showed page 1 of a multi-page CV (confirmed the PDF blob
-itself genuinely had every page; only the preview rendering was
-affected). Mobile PDF viewers, especially iOS Safari's, are known to
-not reliably support scrolling past the first page when the PDF is
-embedded in a nested `<iframe>` rather than viewed as its own full
-page/tab. Opening the blob in a new tab hands it to the browser's own
-first-class PDF viewer instead (the same one used for any normal PDF),
-which already handles multi-page scroll/zoom correctly. Two details
-that matter if you touch this again:
-- `window.open('', '_blank')` is called synchronously, before the
-  `await`s that generate the PDF, and only pointed at the real blob URL
-  once generation finishes (`previewTab.location = url`). Calling
-  `window.open()` only after the async PDF generation is done gets
-  silently blocked by mobile popup blockers, since by then it no longer
-  counts as a direct response to the user's tap.
-- The object URL is deliberately NOT revoked immediately after handing
-  it to the new tab. `URL.revokeObjectURL()` running synchronously
-  right after `previewTab.location = url` can race the new tab's own,
-  separate, asynchronous fetch of that URL and break its load on a
-  slower connection. It's revoked a few seconds later instead
-  (`setTimeout`), after the new tab has had time to actually load the
-  file.
+The generated PDF is opened by navigating the SAME tab to it
+(`window.location.href = objectUrl`), not displayed inline via an
+`<iframe>` in the modal, and not opened in a separate new tab either.
+Both of those were tried and both broke on real mobile Safari:
+- First version embedded the PDF in an iframe; Cas reported the
+  preview only ever showed page 1 of a multi-page CV (confirmed the
+  PDF blob itself genuinely had every page; only the preview rendering
+  was affected). Mobile PDF viewers, especially iOS Safari's, are known
+  to not reliably support scrolling past the first page when the PDF is
+  embedded in a nested `<iframe>` rather than viewed as its own full
+  page/tab.
+- Second version opened the blob in a new tab via `window.open()`, to
+  get the browser's own full PDF viewer instead of an embedded one.
+  Cas hit a different, worse failure on real iOS Safari: the new tab
+  just stayed on `about:blank` and never showed anything. Root cause:
+  Safari does not reliably navigate a `window.open()`-created tab to a
+  `blob:` URL created by the OPENER document. This is a separate,
+  well-documented Safari-specific restriction, unrelated to popup
+  blocking (the tab opens fine; it just never loads the blob into it).
+  Neither this project's Firefox-based Playwright testing nor a
+  headless environment's default blob-PDF handling caught this: the
+  `window.open()` call itself succeeded with no console error, so it
+  looked fixed until tested on a real iPhone.
+
+Navigating the CURRENT tab avoids both problems at once: there's no
+embedded iframe to fail to scroll, and no second browsing context for
+the blob URL to fail to cross into, since it's used in the exact
+document that created it. The trade-off is that the user leaves the CV
+editor SPA to view the PDF and has to use the browser's own Back
+button to return, same as tapping a plain download link would. Don't
+try to `URL.revokeObjectURL()` the blob before navigating to it (the
+document is about to be torn down by the navigation anyway, and
+revoking right before that risks racing the navigation's own load of
+it); the browser reclaims it automatically once the document that
+created it is gone.
 
 ## Playwright MCP is set up for real browser testing
 

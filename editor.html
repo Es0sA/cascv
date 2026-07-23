@@ -101,12 +101,14 @@
        live preview stack vertically (see the @media(max-width:800px)
        rules in main.css), so seeing the preview means scrolling past
        the entire form first. This button generates the actual PDF and
-       opens it in a new tab using the browser's own full PDF viewer
-       (see openMobilePreview in editor.js) rather than embedding it in
-       an iframe here, since mobile PDF viewers embedded via iframe are
-       unreliable about scrolling past the first page. The modal itself
-       is just a brief loading state while the PDF is generated. Hidden
-       on desktop widths, where the preview is already visible
+       navigates THIS tab to it (see openMobilePreview in editor.js),
+       showing the browser's own full native PDF viewer rather than
+       anything rendered here: neither embedding it in an iframe nor
+       opening it in a separate new tab held up on real mobile Safari
+       (see the Mobile Preview Modal section of CLAUDE.md for both
+       failures). The modal itself is just a brief loading state while
+       the PDF is generated, shown right up until the tab navigates
+       away. Hidden on desktop widths, where the preview is already visible
        alongside the form. -->
   <button class="mobile-preview-fab" id="mobilePreviewFab" type="button" title="Preview" aria-label="Preview CV">
     <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>

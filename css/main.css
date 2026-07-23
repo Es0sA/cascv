@@ -1647,21 +1647,10 @@ input {
   justify-content: center;
   padding: 56px 12px 84px;
 }
-/* The real PDF opens in a new tab (see openMobilePreview in editor.js)
-   using the browser's own full PDF viewer, not embedded in an iframe
-   here: mobile PDF viewers embedded via iframe are unreliable about
-   scrolling past the first page. This link only appears in the rare
-   case that tab was popup-blocked. */
-.mobile-preview-open-link {
-  display: inline-block;
-  margin-top: 40px;
-  padding: 14px 24px;
-  background: var(--gold);
-  color: #0D1117;
-  font-weight: 600;
-  border-radius: 999px;
-  text-decoration: none;
-}
+/* The modal itself now only ever shows a brief "Generating preview…"
+   message (see openMobilePreview in editor.js): once the PDF is ready,
+   the whole tab navigates to it, so the user sees the browser's own
+   full native PDF viewer, not anything rendered inside this modal. */
 
 .mobile-preview-close {
   position: fixed;
