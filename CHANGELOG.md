@@ -3,6 +3,44 @@
 Log of changes made to this repo by Claude Code sessions. Newest first.
 Commit hashes refer to `main`.
 
+## 2026-07-23
+
+- `e01511b` Fixed the name rendering almost flush against the top edge
+  of the header band in downloaded PDFs on the dark "banner" header
+  templates (Hunter Green, Blue Steel, Corporate, Clear Banner, Silver
+  Banner), reported by Cas with side-by-side photos of his editor
+  preview vs. the actual downloaded PDF. Logged into Cas's account with
+  Playwright to reproduce the exact reported CV/template live rather
+  than guess: confirmed the compressed spacing is real and reproducible
+  (not a font-loading race, which is the usual suspect for this kind of
+  preview/PDF drift in this codebase; ruled out by forcing a guaranteed-
+  loaded fallback font and an artificial delay before capture, neither
+  of which changed the result). Root cause: these templates bleed their
+  header background to the true page edge using a negative top/left/
+  right margin that exactly cancels the page's own padding, which
+  renders correctly in a real browser but is not reliably replicated by
+  html2canvas (used by all three of this app's PDF-capture code paths).
+  Rather than restructure the CSS across every affected template (a
+  bigger, riskier change touching the same `.cv-paper` sizing rules
+  `CLAUDE.md` already flags as fragile), added a shared
+  `neutralizeHeaderBleed()` helper (`js/parser.js`, loaded by both
+  `dashboard.html` and `editor.html`) that runs only on the detached
+  clone used for PDF capture, converting the negative-margin bleed into
+  a zero-margin layout before html2canvas ever sees it; the live,
+  on-screen preview is untouched. Wired into all three PDF export
+  implementations per the project's own documented gotcha about that
+  duplication (`exportPaginatedPdf`/`exportFlowingPdf` in `js/editor.js`,
+  `downloadCV()` in `js/dashboard.js`); the mobile Preview modal reuses
+  the editor.js functions in blob mode, so it's covered too. Verified
+  live: the gap between the header top and the name went from a
+  compressed ~17px (matching the reported bug) to a comfortable ~43px,
+  with no page-count regression, and confirmed the fix correctly no-ops
+  on templates without the bleed trick, including the sidebar-panel
+  templates (Atlantic Blue, Corporate Panel, Cobalt Edge, Obsidian Edge,
+  Neutral Gray), which turned out to be a structurally different layout,
+  not banner-bleed, despite superficially similar dark-header styling.
+  Files changed: `js/parser.js`, `js/editor.js`, `js/dashboard.js`.
+
 ## 2026-07-10 (even later)
 
 - `6fe469f` Audited the whole repo (all three .md files, all PRs and

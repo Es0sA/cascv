@@ -567,3 +567,47 @@ function smartMigrate(sections) {
 
   return sections;
 }
+
+/* ============================================================
+   PDF EXPORT — shared header-bleed fix
+
+   Several templates (the dark "banner" headers: Silver Banner,
+   Corporate, Blue Steel, Clear Banner, Hunter Green, Atlantic Blue,
+   Corporate Panel, Cobalt Edge, Obsidian Edge, Neutral Gray, Photo
+   Card) make their .cvp-header bleed to the true edge of the page
+   using a negative top/left/right margin that exactly cancels out
+   the page's own padding (see the `.cv-paper.t-*  .cvp-header` rules
+   in main.css). That works perfectly in a real browser, but
+   html2canvas (used by both editor.js's PDF export and dashboard.js's
+   downloadCV()) does not reliably replicate negative-margin layout:
+   it renders the header's vertical padding compressed, so the name
+   ends up sitting much closer to the top of the banner than it does
+   in the live preview or than the CSS asks for. Reported by Cas:
+   the name looked almost cut off at the top in a downloaded PDF that
+   used Hunter Green, even though the live editor preview looked fine.
+
+   Confirmed via a live A/B capture (same DOM, same fonts, only the
+   negative margin removed) that the compression is specific to the
+   negative-margin technique, not a font-loading race or a scale
+   issue. The fix: on the DETACHED CLONE used for PDF capture only
+   (never on the live, on-screen DOM), convert the negative-margin
+   bleed into a zero-margin layout before html2canvas ever sees it,
+   by removing the header's negative top margin and clearing the
+   page's own top padding to match (the header keeps its own
+   template-defined padding-top, which still insets the name from
+   the true page edge). Call this on every pageClone/wrap element
+   right after it's attached to the document, before html2canvas
+   captures it.
+   ============================================================ */
+function neutralizeHeaderBleed(pageEl) {
+  const header = pageEl.querySelector(':scope > .cvp-header');
+  if (!header) return;
+  const bleedTop = parseFloat(getComputedStyle(header).marginTop);
+  if (!(bleedTop < 0)) return; // only templates using the bleed trick have a negative margin here
+  // Left/right bleed is untouched: it measured correctly in html2canvas's
+  // capture (only the vertical padding was compressed), and zeroing it
+  // here would double-pad the header horizontally against the page's own
+  // still-intact left/right padding.
+  header.style.marginTop = '0px';
+  pageEl.style.paddingTop = '0px';
+}
