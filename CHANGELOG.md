@@ -3,6 +3,36 @@
 Log of changes made to this repo by Claude Code sessions. Newest first.
 Commit hashes refer to `main`.
 
+## 2026-07-23 (final)
+
+- `b90a16e` Fixed a phantom blank trailing PDF page, reported by Cas
+  across three different templates: a whole extra page with nothing on
+  it, even when the visible content plainly all fit on one page.
+  `exportPaginatedPdf` already had a safety net for exactly this class
+  of bug (html2pdf's own internal auto-slicing of a single page
+  occasionally producing a near-blank 2nd page from canvas-height
+  rounding), but it decided whether to trim by comparing a DOM-based
+  height measurement against the page height plus a fixed 3mm
+  tolerance — measured live that the real overflow in cases like this
+  can be up to ~100px, far more than "3mm of rounding noise", because
+  the DOM measurement and html2canvas's own pixel rendering of the
+  same content can disagree by much more than a few mm depending on
+  the browser/device (the same class of cross-measurement gap this
+  session hit repeatedly elsewhere: font-loading detection, the
+  pagination merge-back fix). Replaced the distance guess with a real
+  pixel check: sample the actual captured canvas below one page's
+  worth of height, and trim only if every sampled pixel is close to
+  the background color — exact, not a proxy, so it can't be fooled by
+  measurement drift in either direction. New `isCanvasTailBlank()`/
+  `hexToRgb()` helpers in `js/editor.js`. Verified the logic runs
+  correctly end-to-end but could not reproduce Cas's exact scenario in
+  this project's Firefox-based tooling (consistent with the cross-
+  engine variance that caused the bug); needs his confirmation on a
+  real download. Scoped to `exportPaginatedPdf` only (all three
+  reported templates are single-column); `exportFlowingPdf` uses a
+  different pre-sizing strategy and wasn't implicated. File changed:
+  `js/editor.js`.
+
 ## 2026-07-23 (latest, continued)
 
 - `4457e97` Cas asked for a general Playwright-driven audit for other
