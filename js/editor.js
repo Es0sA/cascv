@@ -397,6 +397,42 @@ downloadBtn.addEventListener('click', async () => {
   }
 });
 
+// Samples the canvas region below one page's worth of height and
+// reports whether it's blank (all pixels close to the page's own
+// background color). Used to decide whether html2pdf's internal
+// auto-slicing tacked on a genuinely empty trailing page (safe to
+// delete) versus real content that just didn't fit (must be kept) —
+// see exportPaginatedPdf's use of this below for why a fixed mm-based
+// distance guess wasn't reliable enough on its own. Strides through
+// the region rather than checking every pixel (a truly blank area
+// matches at every sampled point; a page with real text has non-
+// background ink scattered densely enough that even a coarse stride
+// catches it almost immediately) — this stays fast even on a large,
+// high-scale canvas.
+function isCanvasTailBlank(canvas, fromY, bgRgb) {
+  if (fromY >= canvas.height) return true;
+  const ctx = canvas.getContext('2d');
+  const height = canvas.height - fromY;
+  const { data, width } = ctx.getImageData(0, fromY, canvas.width, height);
+  const tolerance = 14; // per-channel RGB slack for anti-aliasing/dithering noise
+  const strideX = 3, strideY = 3;
+  for (let y = 0; y < height; y += strideY) {
+    for (let x = 0; x < width; x += strideX) {
+      const idx = (y * width + x) * 4;
+      const r = data[idx], g = data[idx + 1], b = data[idx + 2];
+      if (Math.abs(r - bgRgb[0]) > tolerance || Math.abs(g - bgRgb[1]) > tolerance || Math.abs(b - bgRgb[2]) > tolerance) {
+        return false;
+      }
+    }
+  }
+  return true;
+}
+
+function hexToRgb(hex) {
+  const h = (hex || '#ffffff').replace('#', '');
+  return [parseInt(h.slice(0, 2), 16) || 255, parseInt(h.slice(2, 4), 16) || 255, parseInt(h.slice(4, 6), 16) || 255];
+}
+
 // Real-pagination export: each .cv-page is rendered to its own canvas
 // and assembled into the PDF explicitly via jsPDF's own addPage/
 // addImage, instead of handing html2pdf the whole document and hoping
@@ -451,17 +487,6 @@ async function exportPaginatedPdf(pw, ph, isLetter, mode) {
                      windowWidth: pageClone.scrollWidth, windowHeight: pageClone.scrollHeight },
       jsPDF: { unit: 'mm', format: isLetter ? [pw, ph] : 'a4', orientation: 'portrait' },
     };
-    // Measured BEFORE capture, same way exportFlowingPdf measures its
-    // clone: true rendered content height in mm, independent of
-    // html2canvas/jsPDF's own pixel math. Used below to tell a genuine
-    // rounding-noise overflow (a fraction of a mm, per
-    // PAGE_FIT_TOLERANCE_MM in measureAndPaginate) apart from actual
-    // content that didn't fit — deleting the former is safe, deleting
-    // the latter would silently drop real CV content.
-    const clonePxPerMm     = pageClone.clientWidth / pw;
-    const cloneContentMmH  = pageClone.scrollHeight / clonePxPerMm;
-    const OVERFLOW_TOLERANCE_MM = 3;
-
     const worker = html2pdf().set(opt).from(pageClone);
     const canvas = await worker.toCanvas().get('canvas');
     document.body.removeChild(wrap);
@@ -472,13 +497,36 @@ async function exportPaginatedPdf(pw, ph, isLetter, mode) {
       // step, can land a hair over one physical page's worth of
       // pixels (canvas-height rounding) and get a phantom near-blank
       // 2nd page tacked on internally — trim it back to exactly 1,
-      // same safety net the fallback export already relies on. Only
-      // do this when the measured overflow is truly just rounding
-      // noise (within OVERFLOW_TOLERANCE_MM); a bigger overflow means
-      // this .cv-page's content genuinely didn't fit in one page, and
-      // whatever html2pdf auto-paginated onto a 2nd+ internal page is
-      // real CV content, not blank filler, so it must be kept.
-      if (cloneContentMmH <= ph + OVERFLOW_TOLERANCE_MM) {
+      // same safety net the fallback export already relies on.
+      //
+      // Originally this compared the clone's own DOM-measured height
+      // (getBoundingClientRect-based, in mm) against the page height
+      // plus a small fixed tolerance (3mm), on the theory that a tiny
+      // overflow means rounding noise (safe to trim) and a bigger one
+      // means real content that didn't fit (must keep). Reported by
+      // Cas across three different templates: a whole trailing PDF
+      // page that was completely blank on screen, meaning the real
+      // overflow at capture time was well beyond 3mm of "noise" (up to
+      // ~100px measured live) even though the actual content plainly
+      // fit on one page. The DOM-based measurement and html2canvas's
+      // own pixel rendering of the exact same content can disagree by
+      // much more than a few mm depending on the browser/device — this
+      // project has hit that exact class of cross-measurement gap
+      // repeatedly (see CLAUDE.md's font-loading and pagination
+      // history) — so a fixed small mm tolerance isn't a reliable
+      // signal for "was this just rounding".
+      //
+      // Instead of guessing from a distance, check the actual pixels:
+      // whatever's below one page's worth of the REAL captured canvas
+      // (the same canvas .toPdf() is about to slice) is either truly
+      // blank (background color throughout, safe to trim regardless of
+      // how many mm it spans) or has real ink on it (never trim,
+      // regardless of how small the overflow looks). This is exact,
+      // not a proxy, so it can't be fooled by cross-measurement drift
+      // in either direction.
+      const canvasPxPerMm = canvas.width / pw;
+      const onePageHeightPx = Math.round(ph * canvasPxPerMm);
+      if (canvas.height > onePageHeightPx && isCanvasTailBlank(canvas, onePageHeightPx, hexToRgb(cvSettings.colorBg))) {
         const n = pdf.internal.getNumberOfPages();
         for (let p = n; p > 1; p--) pdf.deletePage(p);
       }
