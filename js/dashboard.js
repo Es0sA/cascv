@@ -269,6 +269,7 @@ function downloadCV(id) {
   paper.style.setProperty('--cv-margin-tb',      settings.marginTB        +'mm');
   wrap.appendChild(paper);
   document.body.appendChild(wrap);
+  neutralizeHeaderBleed(paper);
 
   const btn = event.target.closest('button');
   if (btn) { btn.textContent = '⏳ Generating…'; btn.disabled = true; }

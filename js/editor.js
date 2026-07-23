@@ -404,6 +404,7 @@ async function exportPaginatedPdf(pw, ph, isLetter, mode) {
     pageClone.style.minWidth = '0';
     wrap.appendChild(pageClone);
     document.body.appendChild(wrap);
+    neutralizeHeaderBleed(pageClone);
     await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
 
     // PNG looked like a safer bet than JPEG here (JPEG is lossy, and a
@@ -503,6 +504,7 @@ async function exportFlowingPdf(pw, ph, isLetter, mode) {
   clone.style.boxShadow = 'none';
   wrap.appendChild(clone);
   document.body.appendChild(wrap);
+  neutralizeHeaderBleed(clone);
 
   // Let the browser lay out the clone at full width before measuring.
   await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
