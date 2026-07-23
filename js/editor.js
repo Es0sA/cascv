@@ -3381,6 +3381,29 @@ async function openMobilePreview() {
   document.body.style.overflow = 'hidden';
   mobilePreviewBody.innerHTML = '<p class="cv-loading-text">Generating preview…</p>';
 
+  // Reported by Cas: on mobile, the preview only ever showed page 1 of
+  // a multi-page CV, even though the downloaded file had every page.
+  // The PDF itself was fine (confirmed live: a 2-page CV's blob really
+  // does contain 2 page objects); the bug was in HOW it was previewed.
+  // The old approach embedded the PDF in an <iframe>, relying on the
+  // phone browser's PDF viewer to render and scroll INSIDE that
+  // constrained nested frame. Mobile PDF viewers (iOS Safari's
+  // especially) are known to not reliably support scrolling past the
+  // first page when embedded this way, even though the exact same file
+  // scrolls fine as a normal full-page/tab view. Opening the blob in a
+  // new tab instead sidesteps the whole "embedded PDF viewer" class of
+  // bug: it hands the file to the browser's own full, first-class PDF
+  // viewer (the same one used for any PDF opened normally), which
+  // already handles multi-page scroll/zoom correctly on every platform.
+  //
+  // window.open() must be called synchronously, in direct response to
+  // the tap that invoked this function, or mobile popup blockers treat
+  // the later call (after the async PDF generation below) as not
+  // originating from a user gesture and silently block it. So a blank
+  // tab is opened immediately; its location is only pointed at the
+  // real PDF once generation finishes.
+  const previewTab = window.open('', '_blank');
+
   try {
     // Same staleness guard as the Download PDF handler: force any
     // pending debounced repagination pass to run now, so the preview
@@ -3401,14 +3424,41 @@ async function openMobilePreview() {
 
     if (_mobilePreviewObjectUrl) URL.revokeObjectURL(_mobilePreviewObjectUrl);
     _mobilePreviewObjectUrl = URL.createObjectURL(blob);
-    mobilePreviewBody.innerHTML = '';
-    const frame = document.createElement('iframe');
-    frame.className = 'mobile-preview-pdf-frame';
-    frame.title = 'CV preview';
-    frame.src = _mobilePreviewObjectUrl;
-    mobilePreviewBody.appendChild(frame);
+
+    if (previewTab) {
+      // Opened successfully: hand it the real PDF and close our modal,
+      // there's nothing more to show inline. Hide the modal without
+      // revoking the object URL yet (closeMobilePreview() normally
+      // does both together) — revoking synchronously right after
+      // setting .location would race the new tab's own, separate,
+      // asynchronous fetch of that URL and could break its load on a
+      // slower connection. Revoke a few seconds later instead, once
+      // the new tab has had time to actually load the file into its
+      // own PDF viewer.
+      previewTab.location = _mobilePreviewObjectUrl;
+      mobilePreviewModal.classList.remove('open');
+      document.body.style.overflow = '';
+      mobilePreviewBody.innerHTML = '';
+      const urlToRevoke = _mobilePreviewObjectUrl;
+      _mobilePreviewObjectUrl = null;
+      setTimeout(() => URL.revokeObjectURL(urlToRevoke), 5000);
+    } else {
+      // Rare (the tap above should normally count as a user gesture),
+      // but if the browser blocked the popup anyway, fall back to a
+      // visible link the user can tap themselves rather than silently
+      // failing.
+      mobilePreviewBody.innerHTML = '';
+      const link = document.createElement('a');
+      link.className = 'mobile-preview-open-link';
+      link.href = _mobilePreviewObjectUrl;
+      link.target = '_blank';
+      link.rel = 'noopener';
+      link.textContent = 'Tap to open PDF preview';
+      mobilePreviewBody.appendChild(link);
+    }
   } catch (err) {
     console.error('Preview generation failed:', err);
+    if (previewTab) previewTab.close();
     mobilePreviewBody.innerHTML = '<p class="cv-loading-text">Could not generate preview. Please try again.</p>';
   }
 }
