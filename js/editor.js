@@ -275,7 +275,22 @@ async function ensureFontsReady() {
   const stacks = [cvSettings.bodyFont, cvSettings.nameFont].filter(f => f && f !== 'inherit');
   const specs = [];
   stacks.forEach(stack => {
-    specs.push(`400 16px ${stack}`, `700 16px ${stack}`, `italic 400 16px ${stack}`, `italic 700 16px ${stack}`);
+    // FontFaceSet.load()'s font argument is a CSS font shorthand, whose
+    // family position is meant to name the ONE font being requested —
+    // passing the full stack's fallback list (e.g. "'Lora', Georgia,
+    // serif", straight from cvSettings.bodyFont, which is a normal CSS
+    // font-family value with fallbacks baked in for use in font-family
+    // declarations) is out of spec there, and how forgivingly a browser
+    // parses that is implementation-specific. If it fails to resolve to
+    // the actual custom @font-face on a given browser, .load() silently
+    // rejects (caught below) without ever triggering that font's fetch,
+    // and document.fonts.ready can then resolve while the real font is
+    // still only a fallback — exactly the race this function exists to
+    // prevent, just moved one level up. Only the primary family name is
+    // meaningful for this call anyway (a fallback system font never
+    // needs an explicit load), so extract just that.
+    const primaryFamily = stack.split(',')[0].trim().replace(/^['"]|['"]$/g, '');
+    specs.push(`400 16px "${primaryFamily}"`, `700 16px "${primaryFamily}"`, `italic 400 16px "${primaryFamily}"`, `italic 700 16px "${primaryFamily}"`);
   });
   try {
     await Promise.all(specs.map(spec => document.fonts.load(spec).catch(() => {})));

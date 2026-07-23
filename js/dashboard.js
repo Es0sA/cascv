@@ -25,7 +25,16 @@ async function ensureFontsReady(bodyFont, nameFont) {
   const stacks = [bodyFont, nameFont].filter(f => f && f !== 'inherit');
   const specs = [];
   stacks.forEach(stack => {
-    specs.push(`400 16px ${stack}`, `700 16px ${stack}`, `italic 400 16px ${stack}`, `italic 700 16px ${stack}`);
+    // See editor.js's ensureFontsReady for why only the primary family
+    // name (not the full fallback-list stack straight from settings) is
+    // passed to FontFaceSet.load(): that call's font argument is a CSS
+    // font shorthand meant to name the one font being requested, and a
+    // fallback list there is out of spec and inconsistently parsed
+    // across browsers, silently failing to trigger the real font's
+    // fetch on at least one — the exact race this function exists to
+    // prevent, just moved one level up.
+    const primaryFamily = stack.split(',')[0].trim().replace(/^['"]|['"]$/g, '');
+    specs.push(`400 16px "${primaryFamily}"`, `700 16px "${primaryFamily}"`, `italic 400 16px "${primaryFamily}"`, `italic 700 16px "${primaryFamily}"`);
   });
   try {
     await Promise.all(specs.map(spec => document.fonts.load(spec).catch(() => {})));
@@ -345,3 +354,24 @@ async function boot() {
 }
 
 boot();
+
+// Reported by Cas: the Dashboard's Download button produced a CV that
+// looked visually different (colors/styling) from what Editor's own
+// Download PDF or Customize panel showed for the exact same CV. The
+// underlying color/style computation itself checked out correct in
+// isolation, so the more likely explanation is staleness: cachedCVs is
+// only ever populated once, when this script first runs (boot() above).
+// Editor's own "Dashboard" button does a real navigation
+// (window.location.href), which reloads this script and refreshes
+// cachedCVs — but a phone's native back gesture/button can instead
+// restore this page from the browser's back-forward cache (bfcache)
+// without re-running any script, silently leaving cachedCVs (and
+// therefore what Download uses) stuck on whatever it was BEFORE
+// whatever was just edited in the editor. pageshow's event.persisted
+// flag is true specifically when a page was restored from bfcache
+// rather than freshly loaded; re-running boot() in that case only
+// (never on the normal fresh-load path, where it would just be a
+// redundant duplicate fetch of what already just ran above).
+window.addEventListener('pageshow', (event) => {
+  if (event.persisted) boot();
+});
