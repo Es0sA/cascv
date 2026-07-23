@@ -1647,14 +1647,20 @@ input {
   justify-content: center;
   padding: 56px 12px 84px;
 }
-/* The actual generated PDF gets shown here as an iframe (see
-   openMobilePreview in editor.js), not a live CSS re-creation of it. */
-.mobile-preview-pdf-frame {
-  width: 100%;
-  height: 100%;
-  border: none;
-  background: #fff;
-  border-radius: 4px;
+/* The real PDF opens in a new tab (see openMobilePreview in editor.js)
+   using the browser's own full PDF viewer, not embedded in an iframe
+   here: mobile PDF viewers embedded via iframe are unreliable about
+   scrolling past the first page. This link only appears in the rare
+   case that tab was popup-blocked. */
+.mobile-preview-open-link {
+  display: inline-block;
+  margin-top: 40px;
+  padding: 14px 24px;
+  background: var(--gold);
+  color: #0D1117;
+  font-weight: 600;
+  border-radius: 999px;
+  text-decoration: none;
 }
 
 .mobile-preview-close {

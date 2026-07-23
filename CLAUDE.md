@@ -352,24 +352,50 @@ The mobile Preview button (`#mobilePreviewFab`/`#mobilePreviewModal` in
 `editor.js`) generates the actual PDF (the same
 `exportPaginatedPdf`/`exportFlowingPdf` functions Download PDF uses,
 called with a `'blob'` mode that returns `pdf.output('blob')` instead of
-triggering a save) and displays it in an iframe, rather than showing a
-live CSS re-creation of the CV shrunk down to fit the screen. An earlier
-version did the latter (moved the live `#cvPaperWrap` into the modal and
-shrank it with `fitPaperZoom()`), but that meant the preview and the
-downloaded PDF could visually disagree on real mobile Safari in ways
-that were not reproducible in this project's testing tools (see the
-Playwright note below): reported cases included an entry's employer/
-school name wrapping onto extra lines in the preview but not the PDF,
-and the preview filling the page edge to edge while the PDF had its
-normal margins. Rendering the actual PDF instead makes this category of
-bug structurally impossible: the preview IS the download, byte for
-byte, so it cannot disagree with itself. The live CSS preview panel
+triggering a save), rather than showing a live CSS re-creation of the
+CV shrunk down to fit the screen. An earlier version did the latter
+(moved the live `#cvPaperWrap` into the modal and shrank it with
+`fitPaperZoom()`), but that meant the preview and the downloaded PDF
+could visually disagree on real mobile Safari in ways that were not
+reproducible in this project's testing tools (see the Playwright note
+below): reported cases included an entry's employer/school name
+wrapping onto extra lines in the preview but not the PDF, and the
+preview filling the page edge to edge while the PDF had its normal
+margins. Rendering the actual PDF instead makes this category of bug
+structurally impossible: the preview IS the download, byte for byte,
+so it cannot disagree with itself. The live CSS preview panel
 (`#editorRight`) is hidden entirely on mobile now (see the
 `@media(max-width:800px)` rule for `.editor-right` in `main.css`) since
 it would otherwise be a redundant, less trustworthy second preview,
 though `#cvPaperWrap` still renders invisibly inside it either way, as
 the export source both PDF functions clone from. Desktop's side-by-side
 live preview is unaffected by any of this.
+
+The generated PDF is opened in a new browser tab (`window.open()`),
+not displayed inline via an `<iframe>` in the modal. An earlier version
+did embed it in an iframe; Cas reported that on mobile, the preview
+only ever showed page 1 of a multi-page CV (confirmed the PDF blob
+itself genuinely had every page; only the preview rendering was
+affected). Mobile PDF viewers, especially iOS Safari's, are known to
+not reliably support scrolling past the first page when the PDF is
+embedded in a nested `<iframe>` rather than viewed as its own full
+page/tab. Opening the blob in a new tab hands it to the browser's own
+first-class PDF viewer instead (the same one used for any normal PDF),
+which already handles multi-page scroll/zoom correctly. Two details
+that matter if you touch this again:
+- `window.open('', '_blank')` is called synchronously, before the
+  `await`s that generate the PDF, and only pointed at the real blob URL
+  once generation finishes (`previewTab.location = url`). Calling
+  `window.open()` only after the async PDF generation is done gets
+  silently blocked by mobile popup blockers, since by then it no longer
+  counts as a direct response to the user's tap.
+- The object URL is deliberately NOT revoked immediately after handing
+  it to the new tab. `URL.revokeObjectURL()` running synchronously
+  right after `previewTab.location = url` can race the new tab's own,
+  separate, asynchronous fetch of that URL and break its load on a
+  slower connection. It's revoked a few seconds later instead
+  (`setTimeout`), after the new tab has had time to actually load the
+  file.
 
 ## Playwright MCP is set up for real browser testing
 

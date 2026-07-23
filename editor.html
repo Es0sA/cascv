@@ -100,10 +100,12 @@
   <!-- Mobile Preview button/modal: on a phone, the edit form and the
        live preview stack vertically (see the @media(max-width:800px)
        rules in main.css), so seeing the preview means scrolling past
-       the entire form first. This button jumps straight to a full-
-       screen view of the SAME live #cvPaperWrap node (moved in, not
-       cloned, so it can't drift out of sync — see openMobilePreview in
-       editor.js), matching the pattern FlowCV uses on mobile. Hidden
+       the entire form first. This button generates the actual PDF and
+       opens it in a new tab using the browser's own full PDF viewer
+       (see openMobilePreview in editor.js) rather than embedding it in
+       an iframe here, since mobile PDF viewers embedded via iframe are
+       unreliable about scrolling past the first page. The modal itself
+       is just a brief loading state while the PDF is generated. Hidden
        on desktop widths, where the preview is already visible
        alongside the form. -->
   <button class="mobile-preview-fab" id="mobilePreviewFab" type="button" title="Preview" aria-label="Preview CV">
