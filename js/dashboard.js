@@ -127,9 +127,9 @@ function renderGallery() {
           </svg>
         </div>
         <div class="cv-card-info">
-          <div class="cv-card-name">${escapeHtml(cv.name)}</div>
-          ${cv.parsed?.header?.jobTitle ? `<div class="cv-card-jobtitle">${escapeHtml(cv.parsed.header.jobTitle)}</div>` : ''}
-          <div class="cv-card-date">Last edited ${formatDate(cv.updatedAt || cv.createdAt)}</div>
+          <div class="cv-card-name">${escapeCardText(cv.name)}</div>
+          ${cv.parsed?.header?.jobTitle ? `<div class="cv-card-jobtitle">${escapeCardText(cv.parsed.header.jobTitle)}</div>` : ''}
+          <div class="cv-card-date">Last edited ${formatCardDate(cv.updatedAt || cv.createdAt)}</div>
         </div>
       </div>
       <div class="cv-card-actions">
@@ -251,15 +251,31 @@ async function deleteCV(id) {
   }
 }
 
-/* ---- Helpers ---- */
-function formatDate(iso) {
+/* ---- Helpers ----
+   Named distinctly from js/cv-render.js's own formatDate()/escapeHtml():
+   this file used to define its own same-named formatDate(iso)/
+   escapeHtml(str) here for gallery-card-only purposes (an ISO
+   timestamp formatter for "Last edited", and an HTML escaper that
+   falls back to the literal string "Untitled CV" for a blank card
+   title) — completely different semantics than the CV-content date
+   formatter and generic HTML escaper cv-render.js now also defines.
+   Since this file loads AFTER cv-render.js, its same-named functions
+   silently overrode the shared ones in the global scope: every date
+   in every CV entry rendered via buildCVHTML() came out "Invalid
+   Date" (this file's formatDate expects an ISO timestamp, not a
+   "Month YYYY" CV date string), and any blank field anywhere in a
+   CV's content rendered as the literal text "Untitled CV" instead of
+   nothing. Caught by comparing the editor's and dashboard's export
+   payloads byte-for-byte after the refactor and finding they weren't
+   identical. */
+function formatCardDate(iso) {
   if (!iso) return '';
   return new Date(iso).toLocaleDateString('en-GB', {
     day: 'numeric', month: 'short', year: 'numeric'
   });
 }
 
-function escapeHtml(str) {
+function escapeCardText(str) {
   const d = document.createElement('div');
   d.appendChild(document.createTextNode(str || 'Untitled CV'));
   return d.innerHTML;
