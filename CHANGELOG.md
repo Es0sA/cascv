@@ -5,6 +5,46 @@ Commit hashes refer to `main`.
 
 ## 2026-07-25
 
+- `33ada77` Follow-up to `d45a36f` below: found immediately after
+  pushing, by diffing the editor's and dashboard's actual export
+  payloads byte-for-byte and finding them NOT identical for the same
+  CV. Root cause: dashboard.js already defined its own formatDate(iso)
+  and escapeHtml(str) (gallery-card-only helpers, different semantics
+  from the CV-content versions cv-render.js now also defines), and
+  since dashboard.js loads after cv-render.js, its versions silently
+  overrode the shared ones globally. Every date in every CV entry
+  rendered via buildCVHTML() on the dashboard came out "Invalid Date",
+  and any blank field anywhere in a CV would have rendered as the
+  literal text "Untitled CV". Renamed dashboard.js's own helpers to
+  formatCardDate()/escapeCardText(). Confirmed after this fix: the
+  editor's and dashboard's export payloads are now genuinely
+  byte-for-byte identical for the same CV.
+- `d45a36f` Extracted buildCVHTML and its entire rendering call graph
+  (section type definitions, entry rendering, contact/photo/footer
+  building, date formatting, computeCvPaperClassString) out of
+  editor.js into a new shared file, js/cv-render.js, loaded by both
+  editor.html and dashboard.html. This replaces dashboard.js's own
+  separately hand-maintained copy of the same rendering logic, found
+  while auditing custom sections and section icons per Cas's request:
+  a profile photo, custom footer, and page numbers were completely
+  absent from any PDF downloaded via the dashboard gallery, five
+  style-picker settings (Date Style, Subtitle Style, Location Style,
+  Icon Style, Link Style) plus six accent-color toggles had no effect
+  there, and content-logic toggles (Show Duration, Subtitle Same Line,
+  Work/Education Title Order) were silently ignored too — all working
+  correctly from the editor's own Download button the whole time.
+  Verified in isolation (Node, via vm.runInThisContext) before pushing,
+  then live: both actual download buttons, multiple templates/settings,
+  zero console errors, and (after the `33ada77` follow-up) byte-for-byte
+  identical output between the two paths.
+- `a1c49f2` Fixed dashboard.js gallery downloads never showing section
+  icons: the Customize panel's "Section Icons" toggle worked correctly
+  from the editor's own download, but dashboard.js's independent
+  renderSec() never emitted the icon span at all. (Superseded by the
+  cv-render.js extraction above, which fixes this and everything else
+  in the same class of bug at once — kept here since it was a separate
+  commit at the time.)
+
 - `c516d62` Moved PDF generation off Netlify (`cascv-pdf-service`) to
   Cas's own EC2 VM: the Netlify team account is on the credit-based
   Free plan (300 credits/month, hard limit, no auto-recharge), and

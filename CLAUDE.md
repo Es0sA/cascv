@@ -142,14 +142,54 @@ js/
                      call them like plain global functions. See "Data
                      storage" section above for the window.cvStoreReady
                      synchronization pattern this depends on.
+  cv-render.js         Classic script (loaded by BOTH editor.html and
+                     dashboard.html, before editor.js/dashboard.js).
+                     Holds buildCVHTML() and everything it calls:
+                     SECTION_TYPES and every other section-type
+                     constant, entry rendering, contact/photo/footer
+                     building, date formatting, computeCvPaperClassString,
+                     DEFAULTS. Added because dashboard.js used to
+                     maintain its OWN hand-written copy of this exact
+                     rendering logic for gallery downloads, which
+                     drifted out of sync with editor.js repeatedly:
+                     a profile photo, custom footer, and page numbers
+                     were completely absent from gallery-downloaded
+                     PDFs, several style-picker settings (Date Style,
+                     Subtitle Style, Location Style, Icon Style, Link
+                     Style, six "accent color" toggles) and content
+                     toggles (Show Duration, Subtitle Same Line,
+                     Title/Subtitle Order) had no effect there, even
+                     though all of it worked correctly from the
+                     editor's own Download button the whole time.
+                     cvData/cvSettings are declared here with `var`
+                     (not `let`, which would throw a SyntaxError on
+                     redeclaration): editor.js's own `var cvData`/
+                     `var cvSettings` just reassign the same variables,
+                     and dashboard.js's downloadCV() populates them
+                     from a Firestore CV document before calling the
+                     shared functions. IMPORTANT gotcha this already
+                     caused once: dashboard.js must never declare a
+                     top-level function or const with the same name as
+                     anything in this file (it already had its own
+                     formatDate()/escapeHtml() for gallery-card-only
+                     purposes, which silently overrode the shared ones
+                     since dashboard.js loads after this file — fixed
+                     by renaming them to formatCardDate()/
+                     escapeCardText(), but check for this class of
+                     collision before adding any new top-level name to
+                     either dashboard.js or editor.js).
   dashboard.js         Classic script. Gallery rendering, CV
-                     create/delete/download, "Sign Out" button (calls
+                     create/delete/download (via the shared
+                     buildCVHTML() in cv-render.js, not its own
+                     rendering logic anymore), "Sign Out" button (calls
                      window.casSignOut from auth-guard.js).
-  editor.js            Classic script. THE BIG ONE, roughly 1780 lines.
-                     Everything about the editor: section editing,
-                     drag-reorder, live preview rendering, Customize
-                     panel (templates, fonts, colors, spacing), PDF
-                     export, template thumbnail generation.
+  editor.js            Classic script. Everything about the editor:
+                     section editing, drag-reorder, live preview
+                     rendering, Customize panel (templates, fonts,
+                     colors, spacing), PDF export payload construction,
+                     template thumbnail generation. The actual CV
+                     rendering (buildCVHTML and its call graph) now
+                     lives in cv-render.js, shared with dashboard.js.
   parser.js            Shared parsing helpers used by editor.js and
                      import.js.
   import.js            Resume document import/parsing flow logic.
@@ -473,20 +513,24 @@ this writing, just no longer the one `js/pdf-service.js` points at).
    zoom/timing bug can't recur there anymore, only in the desktop
    split-panel view `#editorRight` still uses.
 
-8. Two separate PDF-export implementations existing (`editor.js` and
-   `dashboard.js` each independently building their own styled HTML from
-   CV data, then both calling out to the same backend) is still a real,
-   live trap even after moving to the `cascv-pdf-service` backend: a fix
-   to how one file computes `outerClassName`/`styleAttr`/`innerHTML`
-   (a new field, a section type dashboard.js's `renderSec()` doesn't
-   handle yet, a style prop editor.js's `buildBackendExportPayload()`
-   sets that dashboard.js's inline equivalent doesn't) silently does not
-   apply to the other unless done twice. This already happened once
-   before the backend migration (see git history: dashboard.js lagged
-   editor.js's html2canvas quality/scale settings and font-wait logic
-   for a while). If you fix or extend one file's PDF export payload,
-   check whether the other file's needs the same change before
-   considering the fix done.
+8. SUPERSEDED, kept for history only: `editor.js` and `dashboard.js`
+   used to each independently build their own styled CV HTML from CV
+   data before calling out to the same PDF backend, which was a real,
+   repeatedly-hit trap: a fix to one file's rendering (a new field, a
+   section type `dashboard.js`'s `renderSec()` didn't handle yet, a
+   style prop `editor.js` set that `dashboard.js`'s inline equivalent
+   didn't) silently didn't apply to the other. This happened multiple
+   times (html2canvas quality/scale settings before the backend
+   migration; then a photo, footer, page numbers, and half a dozen
+   style-picker settings after it). Fixed properly by extracting the
+   shared rendering logic into `js/cv-render.js`, loaded by both pages
+   — there is only one `buildCVHTML()` now, not two. See that file's
+   entry in "File structure" above for the naming-collision gotcha
+   this fix itself introduced (and already caught once): don't declare
+   a top-level function/const in `dashboard.js` or `editor.js` with the
+   same name as anything in `cv-render.js`, since classic scripts
+   share one global scope and the later-loaded file's version silently
+   wins with no error.
 
 ## Mobile Preview Modal
 
