@@ -13,6 +13,19 @@
 // actions like download/delete don't need a fresh Firestore read.
 let cachedCVs = [];
 
+// Default per-section-type icon, mirroring editor.js's SECTION_TYPES
+// (dashboard.js doesn't load that file, so it can't reference it
+// directly). Used by downloadCV()'s renderSec() so gallery downloads
+// show the same section icons the editor's own preview/download does
+// when the Section Icons setting is on: renderSec() previously never
+// emitted an icon at all, regardless of this setting.
+const SECTION_DEFAULT_ICONS = {
+  profile: '👤', work: '💼', education: '🎓', skills: '🧠',
+  certifications: '🏅', languages: '🌍', projects: '🚀', awards: '🏆',
+  courses: '📚', organisations: '🏢', publications: '📰',
+  references: '👥', interests: '⭐', declaration: '✍️', custom: '✏️',
+};
+
 // Elements
 const logoutBtn     = document.getElementById('logoutBtn');
 const newCvBtn      = document.getElementById('newCvBtn');
@@ -167,7 +180,8 @@ function downloadCV(id) {
     sectionSpacing:11, marginLR:13, marginTB:11, bodyFont:'Calibri, Arial, sans-serif',
     nameFont:'inherit', listStyle:'bullet', colorBg:'#ffffff', colorText:'#1a1a1a',
     headerAlign:'left', headerPosition:'top', columns:1, twoColWidth:32,
-    paperFormat:'A4', letterSpacing:0, colorSidebarBg:'#f0f4f8', photoZoom:1
+    paperFormat:'A4', letterSpacing:0, colorSidebarBg:'#f0f4f8', photoZoom:1,
+    showSectionIcons:false
   }, cv.settings || {});
 
   const parsed  = cv.parsed || {};
@@ -183,6 +197,9 @@ function downloadCV(id) {
 
   function renderSec(sec, i) {
     const name = names[i] !== undefined ? names[i] : sec.title;
+    const iconOverride = (cv.customSectionIcon || {})[i];
+    const icon = iconOverride || SECTION_DEFAULT_ICONS[sec.type] || SECTION_DEFAULT_ICONS.custom;
+    const iconHtml = (settings.showSectionIcons && icon) ? `<span class="cvp-sec-icon">${esc(icon)}</span>` : '';
     let body = '';
     if (sec.entries && sec.entries.length) {
       sec.entries.filter(e=>e.visible!==false).forEach(e => {
@@ -267,7 +284,7 @@ function downloadCV(id) {
         body+=`<p class="cvp-line">${esc(t)}</p>`;
       });
     }
-    return `<div class="cvp-section"><div class="cvp-sec-heading">${esc(name)}</div><div class="cvp-sec-content">${body}</div></div>`;
+    return `<div class="cvp-section"><div class="cvp-sec-heading">${iconHtml}${esc(name)}</div><div class="cvp-sec-content">${body}</div></div>`;
   }
 
   // Found auditing this function against editor.js after the skills/
