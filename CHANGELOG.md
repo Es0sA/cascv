@@ -5,6 +5,15 @@ Commit hashes refer to `main`.
 
 ## 2026-07-25
 
+- `5097d74` Fixed dashboard.js's independent PDF export payload (used
+  for gallery downloads) silently dropping four Customize panel
+  settings that editor.js's own export path respects: sidebar
+  background color, base font size, photo zoom, and letter spacing.
+  Also fixed the outer CV markup being hardcoded to A4 dimensions
+  regardless of the actual paperFormat setting, so Letter-format CVs
+  downloaded from the gallery had the wrong physical size baked into
+  their own content even though the backend rendered the right page
+  size. Found via an audit prompted by the margin bug below.
 - `abdb412` Follow-up to `64277e8` below: the margin fix didn't
   actually take effect on the first deploy. `main.css`'s print block
   still had a leftover `@page { size: A4; margin: 0; }` rule, and
