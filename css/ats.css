@@ -409,6 +409,40 @@
   font-style: italic;
 }
 
+/* AI-Enhanced Insights card */
+.ats-ai-card {
+  background: white;
+  border-radius: 14px;
+  padding: 22px 24px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.07);
+  margin-top: 20px;
+}
+
+.ats-ai-card .ats-card-title { color: #4338ca; }
+.ats-ai-card .ats-card-title svg { stroke: #6366f1; }
+
+.ats-ai-summary {
+  font-size: 0.875rem;
+  color: #3a3a4a;
+  line-height: 1.55;
+  margin: 0 0 16px;
+}
+
+.ats-ai-subhead {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #6a7086;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  margin: 0 0 8px;
+}
+
+.ats-ai-loading {
+  font-size: 0.8rem;
+  color: #aab0c0;
+  font-style: italic;
+}
+
 /* ---- CTA Section ---- */
 .ats-cta-section {
   display: none;

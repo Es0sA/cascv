@@ -133,6 +133,18 @@
         </div>
       </div>
 
+      <!-- AI-Enhanced Insights (Gemini-powered, on top of the keyword
+           match above — see js/ats.js's runAIInsights). Hidden until
+           results actually arrive or fail; the instant keyword-based
+           score above always works even if this never loads. -->
+      <div class="ats-ai-card" id="aiInsightsCard" style="display:none">
+        <div class="ats-card-title">
+          <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L14.5 9.5L22 12L14.5 14.5L12 22L9.5 14.5L2 12L9.5 9.5L12 2Z"/></svg>
+          AI-Enhanced Insights
+        </div>
+        <div id="aiInsightsBody"></div>
+      </div>
+
     </div>
   </section>
   <section class="ats-cta-section" id="atsCta">

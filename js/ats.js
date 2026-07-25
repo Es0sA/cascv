@@ -19,6 +19,8 @@ const recList       = document.getElementById('recList');
 const foundChips    = document.getElementById('foundChips');
 const missingChips  = document.getElementById('missingChips');
 const detectedBadge = document.getElementById('detectedBadge');
+const aiInsightsCard = document.getElementById('aiInsightsCard');
+const aiInsightsBody = document.getElementById('aiInsightsBody');
 
 const TIER_WEIGHTS = { critical: 5, certifications: 4, technical: 2 };
 
@@ -33,7 +35,60 @@ checkBtn.addEventListener('click', () => {
   if (jd.length < 100) { atsError.textContent = 'Job description looks too short — paste the full text.'; return; }
   if (cv.length < 100) { atsError.textContent = 'CV looks too short — paste the full text.'; return; }
   renderResults(analyzeATS(jd, cv, jobTitle));
+  runAIInsights(jd, cv, jobTitle);
 });
+
+/* ============================================================
+   AI-ENHANCED INSIGHTS (Gemini, via the cascv-pdf-service backend)
+
+   Purely additive: the instant keyword-based score/recs above always
+   render regardless of what happens here. This just asks a real model
+   to read both texts for gaps the curated keyword database can't catch
+   (synonyms, rephrasing, role-specific terms). Fails silently (hides
+   the card) on any error — a free public tool shouldn't show a visitor
+   an error for an enhancement they never asked for by name.
+   ============================================================ */
+const AI_INSIGHTS_URL = 'https://cascv-pdf-service.netlify.app/ats-analyze';
+
+async function runAIInsights(jd, cv, jobTitle) {
+  if (!aiInsightsCard || !aiInsightsBody) return;
+  aiInsightsCard.style.display = 'block';
+  aiInsightsBody.innerHTML = '<p class="ats-ai-loading">Analysing with AI…</p>';
+
+  try {
+    const res = await fetch(AI_INSIGHTS_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ jobDescription: jd, cvText: cv, jobTitle }),
+    });
+    if (!res.ok) throw new Error(`AI insights request failed (${res.status})`);
+    const insights = await res.json();
+    renderAIInsights(insights);
+  } catch (err) {
+    console.error('AI insights failed:', err);
+    aiInsightsCard.style.display = 'none';
+  }
+}
+
+function renderAIInsights(insights) {
+  const summary = escapeHtml(insights.summary || '');
+  const missing = Array.isArray(insights.missingSkills) ? insights.missingSkills : [];
+  const suggestions = Array.isArray(insights.suggestions) ? insights.suggestions : [];
+
+  let html = summary ? `<p class="ats-ai-summary">${summary}</p>` : '';
+
+  if (missing.length) {
+    html += '<p class="ats-ai-subhead">Additional Gaps Detected</p>';
+    html += '<div class="ats-chips">' + missing.map(k => `<span class="ats-chip ats-chip-missing">${escapeHtml(k)}</span>`).join('') + '</div>';
+  }
+
+  if (suggestions.length) {
+    html += '<p class="ats-ai-subhead" style="margin-top:16px">Suggestions</p>';
+    html += '<ul class="ats-rec-list">' + suggestions.map(s => `<li>${escapeHtml(s)}</li>`).join('') + '</ul>';
+  }
+
+  aiInsightsBody.innerHTML = html || '<p class="ats-ai-loading">No additional insights.</p>';
+}
 
 /* ============================================================
    ANALYSIS ENGINE
