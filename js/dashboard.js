@@ -13,35 +13,6 @@
 // actions like download/delete don't need a fresh Firestore read.
 let cachedCVs = [];
 
-// Waits for the actual fonts a CV uses to finish loading before a PDF
-// capture, instead of a flat setTimeout guess. A fixed delay can still
-// fire before a slow (mobile data) font fetch resolves, which bakes the
-// fallback font's slightly different metrics into both the raster and
-// the page-break measurement, sometimes tipping content onto an extra
-// page compared to the same CV on a faster connection. See editor.js's
-// ensureFontsReady for the same pattern.
-async function ensureFontsReady(bodyFont, nameFont) {
-  if (!(document.fonts && document.fonts.load)) return;
-  const stacks = [bodyFont, nameFont].filter(f => f && f !== 'inherit');
-  const specs = [];
-  stacks.forEach(stack => {
-    // See editor.js's ensureFontsReady for why only the primary family
-    // name (not the full fallback-list stack straight from settings) is
-    // passed to FontFaceSet.load(): that call's font argument is a CSS
-    // font shorthand meant to name the one font being requested, and a
-    // fallback list there is out of spec and inconsistently parsed
-    // across browsers, silently failing to trigger the real font's
-    // fetch on at least one — the exact race this function exists to
-    // prevent, just moved one level up.
-    const primaryFamily = stack.split(',')[0].trim().replace(/^['"]|['"]$/g, '');
-    specs.push(`400 16px "${primaryFamily}"`, `700 16px "${primaryFamily}"`, `italic 400 16px "${primaryFamily}"`, `italic 700 16px "${primaryFamily}"`);
-  });
-  try {
-    await Promise.all(specs.map(spec => document.fonts.load(spec).catch(() => {})));
-    await document.fonts.ready;
-  } catch { /* best-effort; fall through and render with whatever's loaded */ }
-}
-
 // Elements
 const logoutBtn     = document.getElementById('logoutBtn');
 const newCvBtn      = document.getElementById('newCvBtn');
@@ -351,51 +322,42 @@ function downloadCV(id) {
       <div class="cv-sections-area">${allSecs.map(({s,i})=>renderSec(s,i)).join('')}</div>`;
   }
 
-  // Render in an off-screen fixed container so html2canvas captures it cleanly
-  const wrap  = document.createElement('div');
-  wrap.style.cssText = 'position:fixed;top:0;left:0;width:210mm;z-index:-9999;opacity:0;pointer-events:none;';
-  const paper = document.createElement('div');
-  paper.className = ['cv-paper',`t-${settings.template}`,`hs-${settings.headingStyle}`,
+  const outerClassName = ['cv-paper',`t-${settings.template}`,`hs-${settings.headingStyle}`,
     `hc-${settings.headingCase}`, isTwoCol?'cols-2':'cols-1',
     settings.accentHeadings?'ac-headings':'', settings.accentLine?'ac-line':''].filter(Boolean).join(' ');
-  paper.innerHTML = cvHtml;
-  paper.style.cssText = `width:210mm;min-height:297mm;background:${settings.colorBg};color:${settings.colorText};font-family:${settings.bodyFont};font-size:${settings.baseFontSize}px;line-height:${settings.lineHeight};padding:${settings.marginTB}mm ${settings.marginLR}mm;box-sizing:border-box;`;
-  paper.style.setProperty('--cv-accent', settings.accentColor);
-  paper.style.setProperty('--cv-name-size',     settings.nameFontSize    +'px');
-  paper.style.setProperty('--cv-name-font',      settings.nameFont);
-  paper.style.setProperty('--cv-title-size',     settings.titleFontSize   +'px');
-  paper.style.setProperty('--cv-heading-size',   settings.headingFontSize +'px');
-  paper.style.setProperty('--cv-entry-size',     settings.entryFontSize   +'px');
-  paper.style.setProperty('--cv-section-gap',    settings.sectionSpacing  +'px');
-  paper.style.setProperty('--cv-margin-lr',      settings.marginLR        +'mm');
-  paper.style.setProperty('--cv-margin-tb',      settings.marginTB        +'mm');
-  paper.style.setProperty('--cv-col-width',      settings.twoColWidth     +'%');
-  wrap.appendChild(paper);
-  document.body.appendChild(wrap);
-  neutralizeHeaderBleed(paper);
+  const styleProps = {
+    '--cv-accent':       settings.accentColor,
+    '--cv-name-size':    settings.nameFontSize    + 'px',
+    '--cv-name-font':    settings.nameFont,
+    '--cv-title-size':   settings.titleFontSize   + 'px',
+    '--cv-heading-size': settings.headingFontSize + 'px',
+    '--cv-entry-size':   settings.entryFontSize   + 'px',
+    '--cv-section-gap':  settings.sectionSpacing  + 'px',
+    '--cv-margin-lr':    settings.marginLR        + 'mm',
+    '--cv-margin-tb':    settings.marginTB        + 'mm',
+    '--cv-col-width':    settings.twoColWidth     + '%',
+  };
+  const styleAttr = `width:210mm;min-height:297mm;background:${settings.colorBg};color:${settings.colorText};` +
+    `font-family:${settings.bodyFont};font-size:${settings.baseFontSize}px;line-height:${settings.lineHeight};` +
+    `padding:${settings.marginTB}mm ${settings.marginLR}mm;box-sizing:border-box;` +
+    Object.entries(styleProps).map(([k, v]) => `${k}:${v}`).join(';');
 
   const btn = event.target.closest('button');
   if (btn) { btn.textContent = '⏳ Generating…'; btn.disabled = true; }
 
   (async () => {
     try {
-      await ensureFontsReady(settings.bodyFont, settings.nameFont);
-      // quality/scale match editor.js's PDF export (see that file's
-      // comment): 0.98 JPEG measured larger than a lossless PNG of the
-      // same page for this flat-background, dark-text content, so it
-      // was paying for lossy compression while getting none of its
-      // benefit. 0.85/1.5 cuts file size substantially with no visible
-      // quality loss at normal zoom.
-      await html2pdf().set({
-        margin: 0,
-        filename: `${cv.name||'CV'}.pdf`,
-        image: { type:'jpeg', quality:0.85 },
-        html2canvas: { scale:1.5, useCORS:true, logging:false, x:0, y:0, scrollX:0, scrollY:0, windowWidth: paper.scrollWidth },
-        jsPDF: { unit:'mm', format:'a4', orientation:'portrait' },
-        pagebreak: { mode:['css'], avoid:'.cvp-bullet,.cvp-entry-title,.cvp-entry-meta' }
-      }).from(paper).save();
+      await casGeneratePdf({
+        outerClassName,
+        styleAttr,
+        innerHTML: cvHtml,
+        paperFormat: settings.paperFormat === 'Letter' ? 'Letter' : 'A4',
+        filename: cv.name || 'CV',
+      });
+    } catch (err) {
+      console.error('PDF generation failed:', err);
+      alert('PDF generation failed. Please try again — if this keeps happening, let Cas know.');
     } finally {
-      document.body.removeChild(wrap);
       if (btn) { btn.textContent = 'Download'; btn.disabled = false; }
     }
   })();

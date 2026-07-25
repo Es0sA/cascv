@@ -1,6 +1,7 @@
 /* ============================================================
    CAS CV Builder — editor.js  v3
-   Structured entry system + html2pdf PDF generation
+   Structured entry system + PDF generation via the cascv-pdf-service
+   backend (see js/pdf-service.js)
    ============================================================ */
 
 const params   = new URLSearchParams(window.location.search);
@@ -332,62 +333,53 @@ sectionsContainer.innerHTML = '<p class="cv-loading-text">Loading CV…</p>';
 cvPaper.innerHTML = '<p class="cv-loading-text">Loading CV…</p>';
 
 /* ============================================================
-   PDF DOWNLOAD — html2pdf.js (creates actual PDF file)
+   PDF DOWNLOAD — via the cascv-pdf-service Netlify function
 
-   Captures an off-screen clone of cvPaper rendered at TRUE A4/Letter
-   mm dimensions (matching dashboard.js's approach), instead of
-   capturing the live on-screen preview directly — the on-screen
-   preview can be CSS-zoomed down by fitPaperZoom() to fit a narrow
-   panel, and capturing it directly at that shrunk size caused a
-   width/page-height mismatch against html2pdf's mm-based page slicing.
-
-   To avoid a spurious near-blank trailing page (rounding between
-   the browser's mm→px layout and html2canvas's own pixel math can
-   push captured height a hair past an exact page boundary), we:
-   1. Measure the clone's TRUE natural content height first (no
-      forced page height yet).
-   2. Compute exactly how many pages that content needs.
-   3. Size the clone to that exact multiple of page height, so the
-      capture always lands precisely on a page boundary.
-   4. As a safety net, trim any stray trailing page from the
-      generated PDF if rounding still produced one extra.
+   Sends the CV as styled HTML (outer class string + inline custom
+   properties + the SAME unsplit markup buildCVHTML always produces,
+   regardless of whether the on-screen preview is currently using
+   real per-page pagination or the flowing layout) to the backend,
+   which renders it with headless Chromium's native print pipeline.
+   The backend's own Chromium instance paginates by reading main.css's
+   CSS fragmentation rules directly, so this file no longer needs to
+   pre-split content into .cv-page elements, measure heights, or trim
+   phantom trailing pages itself — see js/pdf-service.js and cascv's
+   CLAUDE.md for why that JS-measured approach was unreliable enough
+   to replace.
    ============================================================ */
-downloadBtn.addEventListener('click', async () => {
-  if (typeof html2pdf === 'undefined') { window.print(); return; }
 
+// Single source of truth for what gets sent to the backend, used by
+// both the Download PDF button and the mobile Preview modal so they
+// can never visually disagree (see openMobilePreview below).
+function buildBackendExportPayload() {
+  return {
+    outerClassName: computeCvPaperClassString(false),
+    styleAttr:      cvPaper.getAttribute('style') || '',
+    innerHTML:      buildCVHTML(cvData.parsed),
+    paperFormat:    cvSettings.paperFormat === 'Letter' ? 'Letter' : 'A4',
+    filename:       cvData.name || 'CV',
+  };
+}
+
+downloadBtn.addEventListener('click', async () => {
   // A text edit, font change, etc. schedules a debounced repagination
   // pass (scheduleRepaginate, 200ms) rather than re-laying-out the
   // preview instantly on every keystroke. If Download PDF is clicked
-  // inside that 200ms window (very easy to do on mobile: type, then
-  // immediately tap Download), #cvPaper's .cv-page elements are still
-  // whatever the PREVIOUS layout pass produced, missing whatever
-  // content the latest edit just pushed onto a new page. Force any
-  // pending pass to run synchronously right now, before reading
-  // #cvPaper, so the export always reflects the latest edit.
+  // inside that 200ms window, cvData/cvSettings could still reflect
+  // whatever the PREVIOUS pass computed. Force any pending pass to
+  // run synchronously right now, before building the export payload,
+  // so the export always reflects the latest edit.
   if (typeof _repaginateTimeout !== 'undefined' && _repaginateTimeout) {
     clearTimeout(_repaginateTimeout);
     _repaginateTimeout = null;
     renderRightPanel();
   }
 
-  const isLetter = cvSettings.paperFormat === 'Letter';
-  const [pw, ph] = isLetter ? [215.9, 279.4] : [210, 297];
-
   downloadBtn.textContent = '⏳ Generating…';
   downloadBtn.disabled    = true;
 
   try {
-    // Re-confirm fonts are actually loaded before capturing, not just
-    // relying on the preview having already loaded them earlier in the
-    // session — a slower connection (mobile data especially) can still
-    // be mid-fetch, and capturing then bakes the fallback font into the
-    // downloaded file even though the on-screen preview looks fine.
-    await ensureFontsReady();
-    if (isPaginatedLayout()) {
-      await exportPaginatedPdf(pw, ph, isLetter);
-    } else {
-      await exportFlowingPdf(pw, ph, isLetter);
-    }
+    await casGeneratePdf(buildBackendExportPayload());
   } catch (err) {
     console.error('PDF generation failed:', err);
     alert('PDF generation failed. Please try again — if this keeps happening, let Cas know.');
@@ -396,226 +388,6 @@ downloadBtn.addEventListener('click', async () => {
     downloadBtn.disabled    = false;
   }
 });
-
-// Samples the canvas region below one page's worth of height and
-// reports whether it's blank (all pixels close to the page's own
-// background color). Used to decide whether html2pdf's internal
-// auto-slicing tacked on a genuinely empty trailing page (safe to
-// delete) versus real content that just didn't fit (must be kept) —
-// see exportPaginatedPdf's use of this below for why a fixed mm-based
-// distance guess wasn't reliable enough on its own. Strides through
-// the region rather than checking every pixel (a truly blank area
-// matches at every sampled point; a page with real text has non-
-// background ink scattered densely enough that even a coarse stride
-// catches it almost immediately) — this stays fast even on a large,
-// high-scale canvas.
-function isCanvasTailBlank(canvas, fromY, bgRgb) {
-  if (fromY >= canvas.height) return true;
-  const ctx = canvas.getContext('2d');
-  const height = canvas.height - fromY;
-  const { data, width } = ctx.getImageData(0, fromY, canvas.width, height);
-  const tolerance = 14; // per-channel RGB slack for anti-aliasing/dithering noise
-  const strideX = 3, strideY = 3;
-  for (let y = 0; y < height; y += strideY) {
-    for (let x = 0; x < width; x += strideX) {
-      const idx = (y * width + x) * 4;
-      const r = data[idx], g = data[idx + 1], b = data[idx + 2];
-      if (Math.abs(r - bgRgb[0]) > tolerance || Math.abs(g - bgRgb[1]) > tolerance || Math.abs(b - bgRgb[2]) > tolerance) {
-        return false;
-      }
-    }
-  }
-  return true;
-}
-
-function hexToRgb(hex) {
-  const h = (hex || '#ffffff').replace('#', '');
-  return [parseInt(h.slice(0, 2), 16) || 255, parseInt(h.slice(2, 4), 16) || 255, parseInt(h.slice(4, 6), 16) || 255];
-}
-
-// Real-pagination export: each .cv-page is rendered to its own canvas
-// and assembled into the PDF explicitly via jsPDF's own addPage/
-// addImage, instead of handing html2pdf the whole document and hoping
-// its automatic CSS-pagebreak detection lines up with our own .cv-page
-// boundaries — that approach silently produced a phantom blank page
-// (html2pdf's own pixel-height-based pagination and our CSS `after`
-// hint don't reliably reconcile with each other). This has zero such
-// ambiguity: one canvas in, one page out, one at a time.
-async function exportPaginatedPdf(pw, ph, isLetter, mode) {
-  const pageEls = Array.from(cvPaper.querySelectorAll('.cv-page'));
-  if (!pageEls.length) return;
-
-  let pdf = null;
-  for (let i = 0; i < pageEls.length; i++) {
-    const wrap = document.createElement('div');
-    wrap.style.cssText = `position:fixed;top:0;left:0;width:${pw}mm;z-index:-9999;opacity:0;pointer-events:none;`;
-    const pageClone = pageEls[i].cloneNode(true);
-    pageClone.style.boxShadow = 'none';
-    pageClone.style.width = pageClone.style.maxWidth = `${pw}mm`;
-    pageClone.style.minWidth = '0';
-    wrap.appendChild(pageClone);
-    document.body.appendChild(wrap);
-    neutralizeHeaderBleed(pageClone);
-    await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
-
-    // PNG looked like a safer bet than JPEG here (JPEG is lossy, and a
-    // rare bad encode is one plausible way to get the "solid stripes of
-    // wrong colors" some downloads showed), but this bundled jsPDF
-    // version embeds PNGs as fully uncompressed raw RGBA with no Flate
-    // filter at all: a single page ballooned from ~500KB to ~14MB, a
-    // 2-page CV to nearly 30MB. That guaranteed, severe bloat (broken
-    // email attachments, rejected job-portal uploads) is a worse trade
-    // than the rare corruption it might have fixed, so this stays JPEG.
-    //
-    // quality 0.98 measured out LARGER than a lossless PNG of the same
-    // page (a flat white background with dark text barely compresses
-    // as JPEG at near-zero quantization) while adding lossy artifacts
-    // for no size benefit. 0.85 is visually indistinguishable from the
-    // source at normal reading zoom (checked side by side) and roughly
-    // halves the file size. scale dropped from 2 to 1.5 for the same
-    // reason and to cut the per-page canvas's pixel count (and so its
-    // GPU memory footprint) by more than half, which should also lower
-    // the odds of hitting the driver-level canvas-capture corruption
-    // some downloads showed (unreproducible in this sandbox's software
-    // rendering; 1.5x is still ~144 DPI at true page width, well above
-    // print-quality).
-    const opt = {
-      margin: 0,
-      image: { type: 'jpeg', quality: 0.85 },
-      html2canvas: { scale: 1.5, useCORS: true, allowTaint: true, logging: false,
-                     x: 0, y: 0, scrollX: 0, scrollY: 0,
-                     windowWidth: pageClone.scrollWidth, windowHeight: pageClone.scrollHeight },
-      jsPDF: { unit: 'mm', format: isLetter ? [pw, ph] : 'a4', orientation: 'portrait' },
-    };
-    const worker = html2pdf().set(opt).from(pageClone);
-    const canvas = await worker.toCanvas().get('canvas');
-    document.body.removeChild(wrap);
-
-    if (!pdf) {
-      pdf = await worker.toPdf().get('pdf');
-      // Even a single .cv-page, run through html2pdf's own .toPdf()
-      // step, can land a hair over one physical page's worth of
-      // pixels (canvas-height rounding) and get a phantom near-blank
-      // 2nd page tacked on internally — trim it back to exactly 1,
-      // same safety net the fallback export already relies on.
-      //
-      // Originally this compared the clone's own DOM-measured height
-      // (getBoundingClientRect-based, in mm) against the page height
-      // plus a small fixed tolerance (3mm), on the theory that a tiny
-      // overflow means rounding noise (safe to trim) and a bigger one
-      // means real content that didn't fit (must keep). Reported by
-      // Cas across three different templates: a whole trailing PDF
-      // page that was completely blank on screen, meaning the real
-      // overflow at capture time was well beyond 3mm of "noise" (up to
-      // ~100px measured live) even though the actual content plainly
-      // fit on one page. The DOM-based measurement and html2canvas's
-      // own pixel rendering of the exact same content can disagree by
-      // much more than a few mm depending on the browser/device — this
-      // project has hit that exact class of cross-measurement gap
-      // repeatedly (see CLAUDE.md's font-loading and pagination
-      // history) — so a fixed small mm tolerance isn't a reliable
-      // signal for "was this just rounding".
-      //
-      // Instead of guessing from a distance, check the actual pixels:
-      // whatever's below one page's worth of the REAL captured canvas
-      // (the same canvas .toPdf() is about to slice) is either truly
-      // blank (background color throughout, safe to trim regardless of
-      // how many mm it spans) or has real ink on it (never trim,
-      // regardless of how small the overflow looks). This is exact,
-      // not a proxy, so it can't be fooled by cross-measurement drift
-      // in either direction.
-      const canvasPxPerMm = canvas.width / pw;
-      const onePageHeightPx = Math.round(ph * canvasPxPerMm);
-      if (canvas.height > onePageHeightPx && isCanvasTailBlank(canvas, onePageHeightPx, hexToRgb(cvSettings.colorBg))) {
-        const n = pdf.internal.getNumberOfPages();
-        for (let p = n; p > 1; p--) pdf.deletePage(p);
-      }
-    } else {
-      const imgData = canvas.toDataURL('image/jpeg', 0.85);
-      pdf.addPage([pw, ph], 'portrait');
-      pdf.addImage(imgData, 'JPEG', 0, 0, pw, ph);
-    }
-    // Explicitly drop the canvas's backing store rather than waiting on
-    // GC: several large (scale:1.5) canvases created back-to-back in
-    // this loop otherwise pile up in memory across pages, which on
-    // memory-constrained mobile devices is a plausible contributor to
-    // the intermittent garbled-capture reports.
-    canvas.width = canvas.height = 0;
-  }
-  // 'blob' mode is used by the mobile Preview modal (see
-  // openMobilePreview): it renders the actual PDF this function always
-  // produces, rather than a separately-styled live approximation of it,
-  // so the preview and the download can never visually disagree with
-  // each other.
-  if (mode === 'blob') return pdf.output('blob');
-  pdf.save(`${cvData.name || 'CV'}.pdf`);
-}
-
-// Fallback (2-col/mix/sidebar-template) export: unchanged from before —
-// clones the whole flowing #cvPaper, snaps its height to an exact page
-// multiple to avoid html2canvas/jsPDF rounding producing a near-blank
-// trailing page, and trims any stray extra page as a safety net.
-async function exportFlowingPdf(pw, ph, isLetter, mode) {
-  const wrap = document.createElement('div');
-  wrap.style.cssText = `position:fixed;top:0;left:0;width:${pw}mm;z-index:-9999;opacity:0;pointer-events:none;`;
-  const clone = cvPaper.cloneNode(true);
-  clone.removeAttribute('id');
-  clone.style.width     = `${pw}mm`;
-  clone.style.maxWidth  = `${pw}mm`;
-  clone.style.minHeight = '0';
-  clone.style.height    = 'auto';
-  clone.style.boxShadow = 'none';
-  wrap.appendChild(clone);
-  document.body.appendChild(wrap);
-  neutralizeHeaderBleed(clone);
-
-  // Let the browser lay out the clone at full width before measuring.
-  await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
-
-  // Measure true content height in mm, then snap the clone's height
-  // to an exact multiple of one page — this is what actually
-  // prevents the phantom trailing page.
-  const pxPerMm         = clone.clientWidth / pw;
-  const contentHeightMm = clone.scrollHeight / pxPerMm;
-  const pageCount       = Math.max(1, Math.ceil(contentHeightMm / ph - 0.001));
-  clone.style.minHeight = `${pageCount * ph}mm`;
-
-  await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
-
-  try {
-    const opt = {
-      margin:     0,
-      filename:   `${cvData.name || 'CV'}.pdf`,
-      // See exportPaginatedPdf's comment: 0.85/1.5 measured smaller than
-      // 0.98/2 with no visible quality loss, and cuts canvas pixel count
-      // (so GPU memory footprint) by more than half.
-      image:      { type: 'jpeg', quality: 0.85 },
-      html2canvas:{ scale: 1.5, useCORS: true, allowTaint: true, logging: false,
-                    x: 0, y: 0, scrollX: 0, scrollY: 0,
-                    windowWidth: clone.scrollWidth, windowHeight: clone.scrollHeight },
-      jsPDF:      { unit: 'mm', format: isLetter ? [pw, ph] : 'a4', orientation: 'portrait' },
-      pagebreak:  { mode: ['css'], avoid: '.cvp-bullet,.cvp-entry-title,.cvp-entry-meta,.cvp-entry-row1,.cvp-entry-row2' }
-    };
-
-    const worker = html2pdf().set(opt).from(clone);
-    await worker.toPdf();
-    let resultBlob = null;
-    await worker.get('pdf').then((pdf) => {
-      // Safety net: if rounding still produced extra trailing
-      // page(s) beyond what the content actually needs, drop them.
-      const total = pdf.internal.getNumberOfPages();
-      for (let p = total; p > pageCount; p--) pdf.deletePage(p);
-      // See exportPaginatedPdf's comment: 'blob' mode is the mobile
-      // Preview modal rendering the actual PDF instead of a separately
-      // styled approximation of it.
-      if (mode === 'blob') resultBlob = pdf.output('blob');
-    });
-    if (mode === 'blob') return resultBlob;
-    await worker.save();
-  } finally {
-    document.body.removeChild(wrap);
-  }
-}
 
 /* ============================================================
    TABS
@@ -2054,7 +1826,7 @@ function applySettings() {
 }
 
 /* ============================================================
-   PAGE BREAK OVERLAY — calibrated to html2pdf rendering
+   PAGE BREAK OVERLAY — calibrated to A4/Letter print dimensions
    ============================================================ */
 function updatePageBreaks() {
   const overlay = document.getElementById('pageBreakOverlay');
@@ -2069,7 +1841,7 @@ function updatePageBreaks() {
   const rect   = cvPaper.getBoundingClientRect();
   const paperW = rect.width;
   const isLetter = cvSettings.paperFormat==='Letter';
-  // html2pdf renders at exact CSS mm dimensions — replicate ratio
+  // The real PDF renders at exact CSS mm dimensions — replicate ratio
   const ratio   = isLetter ? (279.4/215.9) : (297/210);
   const pagePx  = paperW * ratio;
   const totalH  = cvPaper.scrollHeight;
@@ -3481,9 +3253,10 @@ if (typeof ResizeObserver !== 'undefined') {
    produces), rather than a live CSS approximation of it, so this can
    never visually disagree with what actually gets downloaded. The
    live #cvPaperWrap panel is hidden entirely on mobile (see the
-   @media(max-width:800px) rule for .editor-right in main.css) and
-   still renders invisibly there purely as the export source
-   exportPaginatedPdf/exportFlowingPdf clone from.
+   @media(max-width:800px) rule for .editor-right in main.css) — it's
+   no longer even the export source now that PDF generation happens
+   backend-side; buildBackendExportPayload() builds fresh HTML from
+   cvData directly.
    ============================================================ */
 let _mobilePreviewObjectUrl = null;
 
@@ -3503,13 +3276,8 @@ async function openMobilePreview() {
       _repaginateTimeout = null;
       renderRightPanel();
     }
-    await ensureFontsReady();
 
-    const isLetter = cvSettings.paperFormat === 'Letter';
-    const [pw, ph] = isLetter ? [215.9, 279.4] : [210, 297];
-    const blob = isPaginatedLayout()
-      ? await exportPaginatedPdf(pw, ph, isLetter, 'blob')
-      : await exportFlowingPdf(pw, ph, isLetter, 'blob');
+    const blob = await casGeneratePdf(buildBackendExportPayload(), 'blob');
 
     if (_mobilePreviewObjectUrl) URL.revokeObjectURL(_mobilePreviewObjectUrl);
     _mobilePreviewObjectUrl = URL.createObjectURL(blob);

@@ -10,8 +10,6 @@
   <title>CAS CV Builder — Editor</title>
   <link rel="stylesheet" href="css/fonts.css">
   <link rel="stylesheet" href="css/main.css">
-  <!-- PDF generation library (replaces window.print — creates actual PDF file) -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
   <!-- Drag-to-reorder (sections, entries, section layout). Native HTML5
        drag-and-drop only fires for mouse input — no touch browser (iOS
        Safari, Chrome for Android) dispatches those events for touch, so
@@ -180,6 +178,7 @@
   <script>window.cvStoreReady = new Promise(r => { window._resolveCVStoreReady = r; });</script>
   <script type="module" src="js/cv-store.js"></script>
   <script src="js/parser.js"></script>
+  <script src="js/pdf-service.js"></script>
   <script src="js/editor.js"></script>
 </body>
 </html>
