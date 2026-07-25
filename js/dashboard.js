@@ -166,7 +166,8 @@ function downloadCV(id) {
     titleFontSize:12, headingFontSize:10, entryFontSize:11, lineHeight:1.55,
     sectionSpacing:11, marginLR:13, marginTB:11, bodyFont:'Calibri, Arial, sans-serif',
     nameFont:'inherit', listStyle:'bullet', colorBg:'#ffffff', colorText:'#1a1a1a',
-    headerAlign:'left', headerPosition:'top', columns:1, twoColWidth:32
+    headerAlign:'left', headerPosition:'top', columns:1, twoColWidth:32,
+    paperFormat:'A4', letterSpacing:0, colorSidebarBg:'#f0f4f8', photoZoom:1
   }, cv.settings || {});
 
   const parsed  = cv.parsed || {};
@@ -325,8 +326,12 @@ function downloadCV(id) {
   const outerClassName = ['cv-paper',`t-${settings.template}`,`hs-${settings.headingStyle}`,
     `hc-${settings.headingCase}`, isTwoCol?'cols-2':'cols-1',
     settings.accentHeadings?'ac-headings':'', settings.accentLine?'ac-line':''].filter(Boolean).join(' ');
+  const isLetterFormat = settings.paperFormat === 'Letter';
   const styleProps = {
+    '--cv-paper-w':      isLetterFormat ? '215.9mm' : '210mm',
+    '--cv-paper-h':      isLetterFormat ? '279.4mm' : '297mm',
     '--cv-accent':       settings.accentColor,
+    '--cv-base':         settings.baseFontSize    + 'px',
     '--cv-name-size':    settings.nameFontSize    + 'px',
     '--cv-name-font':    settings.nameFont,
     '--cv-title-size':   settings.titleFontSize   + 'px',
@@ -335,9 +340,14 @@ function downloadCV(id) {
     '--cv-section-gap':  settings.sectionSpacing  + 'px',
     '--cv-margin-lr':    settings.marginLR        + 'mm',
     '--cv-margin-tb':    settings.marginTB        + 'mm',
+    '--cv-letter-spacing': settings.letterSpacing  + 'em',
     '--cv-col-width':    settings.twoColWidth     + '%',
+    '--cv-bg':           settings.colorBg,
+    '--cv-sidebar-bg':   settings.colorSidebarBg,
+    '--cv-text':         settings.colorText,
+    '--cv-photo-zoom':   settings.photoZoom,
   };
-  const styleAttr = `width:210mm;min-height:297mm;background:${settings.colorBg};color:${settings.colorText};` +
+  const styleAttr = `width:${isLetterFormat ? '215.9mm' : '210mm'};min-height:${isLetterFormat ? '279.4mm' : '297mm'};background:${settings.colorBg};color:${settings.colorText};` +
     `font-family:${settings.bodyFont};font-size:${settings.baseFontSize}px;line-height:${settings.lineHeight};` +
     `padding:${settings.marginTB}mm ${settings.marginLR}mm;box-sizing:border-box;` +
     Object.entries(styleProps).map(([k, v]) => `${k}:${v}`).join(';');
