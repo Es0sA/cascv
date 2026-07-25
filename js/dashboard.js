@@ -13,19 +13,6 @@
 // actions like download/delete don't need a fresh Firestore read.
 let cachedCVs = [];
 
-// Default per-section-type icon, mirroring editor.js's SECTION_TYPES
-// (dashboard.js doesn't load that file, so it can't reference it
-// directly). Used by downloadCV()'s renderSec() so gallery downloads
-// show the same section icons the editor's own preview/download does
-// when the Section Icons setting is on: renderSec() previously never
-// emitted an icon at all, regardless of this setting.
-const SECTION_DEFAULT_ICONS = {
-  profile: '👤', work: '💼', education: '🎓', skills: '🧠',
-  certifications: '🏅', languages: '🌍', projects: '🚀', awards: '🏆',
-  courses: '📚', organisations: '🏢', publications: '📰',
-  references: '👥', interests: '⭐', declaration: '✍️', custom: '✏️',
-};
-
 // Elements
 const logoutBtn     = document.getElementById('logoutBtn');
 const newCvBtn      = document.getElementById('newCvBtn');
@@ -168,205 +155,64 @@ function editCV(id) {
   window.location.href = `editor.html?id=${id}`;
 }
 
+// Builds the PDF export payload using the SAME buildCVHTML()/
+// computeCvPaperClassString() functions editor.js's own Download PDF
+// button uses (see js/cv-render.js) instead of a separately maintained
+// copy of that rendering logic. This file used to hand-roll its own
+// renderSec()/header/footer markup from scratch, which repeatedly drifted
+// out of sync with editor.js over time: missing profile photos, missing
+// footers/page numbers, missing section icons, several style pickers
+// (Date Style, Subtitle Style, Location Style, Icon Style, Link Style,
+// six "accent color" toggles) and content-logic toggles (Show Duration,
+// Subtitle Same Line, Title/Subtitle Order) all silently had no effect
+// on PDFs downloaded from the gallery, even though the exact same
+// settings worked correctly from the editor's own Download button.
 function downloadCV(id) {
   const cv = cachedCVs.find(c => c.id === id);
   if (!cv) { alert('CV not found.'); return; }
 
-  const settings = Object.assign({
-    template:'classic', headingStyle:'underline', headingCase:'upper',
-    subtitleStyle:'normal', linkStyle:'underline', accentColor:'#1a1a1a',
-    accentHeadings:true, accentLine:true, baseFontSize:11, nameFontSize:19,
-    titleFontSize:12, headingFontSize:10, entryFontSize:11, lineHeight:1.55,
-    sectionSpacing:11, marginLR:13, marginTB:11, bodyFont:'Calibri, Arial, sans-serif',
-    nameFont:'inherit', listStyle:'bullet', colorBg:'#ffffff', colorText:'#1a1a1a',
-    headerAlign:'left', headerPosition:'top', columns:1, twoColWidth:32,
-    paperFormat:'A4', letterSpacing:0, colorSidebarBg:'#f0f4f8', photoZoom:1,
-    showSectionIcons:false
-  }, cv.settings || {});
+  // Populate the shared cvData/cvSettings globals (declared in
+  // js/cv-render.js) from this CV's Firestore document, applying the
+  // exact same safety-net defaults initEditor() applies in editor.js,
+  // so buildCVHTML() sees the same shape of data it always does.
+  cvData = cv;
+  cvData.columnAssign      = cvData.columnAssign      || {};
+  cvData.hiddenFields      = cvData.hiddenFields      || {};
+  cvData.sectionNames      = cvData.sectionNames      || {};
+  cvData.sectionWidth      = cvData.sectionWidth      || {};
+  cvData.headerFieldOrder  = cvData.headerFieldOrder  || ['email','phone','location','linkedin'];
+  cvData.customSectionType = cvData.customSectionType || {};
+  cvData.customSectionIcon = cvData.customSectionIcon || {};
+  cvSettings = Object.assign({}, DEFAULTS, cv.settings || {});
 
-  const parsed  = cv.parsed || {};
-  const hidden  = cv.hiddenFields || {};
-  const names   = cv.sectionNames || {};
-  const h       = parsed.header || {};
-  const esc     = s => { const d=document.createElement('div'); d.appendChild(document.createTextNode(s||'')); return d.innerHTML; };
-  const bullet  = settings.listStyle==='hyphen'?'–':'•';
+  const cvHtml = buildCVHTML(cvData.parsed || {});
+  const outerClassName = computeCvPaperClassString(false);
 
-  const fieldOrder = cv.headerFieldOrder || ['email','phone','location','linkedin'];
-  let contact = fieldOrder.filter(k => !hidden[k] && h[k]).map(k => h[k]).join(' | ');
-  if (!contact && h.contact && !hidden['contact']) contact = h.contact;
-
-  function renderSec(sec, i) {
-    const name = names[i] !== undefined ? names[i] : sec.title;
-    const iconOverride = (cv.customSectionIcon || {})[i];
-    const icon = iconOverride || SECTION_DEFAULT_ICONS[sec.type] || SECTION_DEFAULT_ICONS.custom;
-    const iconHtml = (settings.showSectionIcons && icon) ? `<span class="cvp-sec-icon">${esc(icon)}</span>` : '';
-    let body = '';
-    if (sec.entries && sec.entries.length) {
-      sec.entries.filter(e=>e.visible!==false).forEach(e => {
-        // Declaration section
-        if (sec.type === 'declaration') {
-          if (e.statement) body += `<p class="cvp-line">${esc(e.statement)}</p>`;
-          if (e.signatureName) body += `<p class="cvp-signature">${esc(e.signatureName)}</p>`;
-          if (e.date) body += `<p class="cvp-entry-meta">${esc(e.date)}</p>`;
-          return;
-        }
-        // Skills section (the Skills form's skill/info/level fields —
-        // see editor.js's renderEntryHTML for the stype==='skills' case
-        // this mirrors). Reported by Cas: Core Skills entries downloaded
-        // from the Dashboard showed only the bold category label
-        // ("Sales and Business Development") with nothing after it —
-        // the actual skill list lives in entry.info, a field this
-        // function otherwise never looks at (only desc/summary, which
-        // skill entries don't use), so it was silently dropped.
-        if (sec.type === 'skills' || (sec.type === 'custom' && (cv.customSectionType||{})[i] === 'skill')) {
-          const skill = e.skill||''; const info = e.info||''; const level = e.level||'';
-          if (skill&&info) body += `<p class="cvp-line"><strong class="cvp-cat">${esc(skill)}:</strong> ${esc(info)}</p>`;
-          else if (skill)  body += `<p class="cvp-line"><strong class="cvp-cat">${esc(skill)}</strong>${level?' — '+esc(level):''}</p>`;
-          return;
-        }
-        // Found auditing this function against editor.js's renderEntryHTML
-        // after the skills bug above: certifications, languages, awards/
-        // publications/interests, and references entries each store their
-        // content in their own specific field names too (not the generic
-        // title/employer/desc fields the fallback branch below reads), so
-        // they were silently dropping data the exact same way skills was.
-        if (sec.type === 'certifications') {
-          const name = e.name||''; const nameLink = e.nameLink||'';
-          const nameHtml = nameLink ? `<a href="${esc(nameLink)}" target="_blank" rel="noopener">${esc(name)}</a>` : esc(name);
-          const date = e.date||''; const info = e.info||'';
-          if (name||date||info) body += `<p class="cvp-line"><strong>${nameHtml}</strong>${date?' — Date: '+esc(date):''}${info?'<br>'+esc(info):''}</p>`;
-          return;
-        }
-        if (sec.type === 'languages') {
-          if (e.language) body += `<p class="cvp-line">${esc(e.language)}${e.proficiency?' — '+esc(e.proficiency):''}</p>`;
-          return;
-        }
-        if (sec.type === 'awards' || sec.type === 'publications' || sec.type === 'interests') {
-          const title = e.title||e.interest||''; const titleLink = e.titleLink||e.interestLink||'';
-          const titleHtml = titleLink ? `<a href="${esc(titleLink)}" target="_blank" rel="noopener">${esc(title)}</a>` : esc(title);
-          const sub = [e.issuer||e.publisher, e.date||''].filter(Boolean).join(' — ');
-          const desc = e.desc||'';
-          if (title) body += `<p class="cvp-entry-title">${titleHtml}</p>`;
-          if (sub)   body += `<p class="cvp-entry-meta">${esc(sub)}</p>`;
-          if (desc)  body += `<p class="cvp-line">${esc(desc)}</p>`;
-          return;
-        }
-        if (sec.type === 'references') {
-          const nameLink = e.nameLink||'';
-          const nameHtml = nameLink ? `<a href="${esc(nameLink)}" target="_blank" rel="noopener">${esc(e.name||'')}</a>` : esc(e.name||'');
-          if (e.name) body += `<p class="cvp-entry-title">${nameHtml}</p>`;
-          if (e.position||e.company) body += `<p class="cvp-entry-meta">${esc([e.position,e.company].filter(Boolean).join(', '))}</p>`;
-          if (e.email||e.phone) body += `<p class="cvp-line">${esc([e.email,e.phone].filter(Boolean).join(' | '))}</p>`;
-          return;
-        }
-        const title   = e.jobTitle||e.degree||e.title||e.skill||e.name||'';
-        const sub     = e.employer||e.school||e.role||e.provider||e.organisation||'';
-        const subLink = e.employerLink||e.schoolLink||e.providerLink||e.organisationLink||'';
-        const start = e.startDate||''; const end = e.endDate||''; const loc = e.location||'';
-        const desc  = e.desc||e.summary||'';
-        const meta  = [start&&end?start+' – '+end:start, loc].filter(Boolean).join(' | ');
-        const subHtml = subLink ? `<a href="${esc(subLink)}" target="_blank" rel="noopener">${esc(sub)}</a>` : esc(sub);
-        if (title) body += `<p class="cvp-entry-title">${esc(title)}</p>`;
-        if (sub||meta) body += `<p class="cvp-entry-meta">${[subHtml, esc(meta)].filter(Boolean).join(' | ')}</p>`;
-        if (desc) desc.split('\n').forEach(l => {
-          const t=l.trim(); if(!t)return;
-          if(/^[•–-]\s/.test(t)) body+=`<p class="cvp-bullet">${bullet} ${esc(t.replace(/^[•–-]\s+/,''))}</p>`;
-          else body+=`<p class="cvp-line">${esc(t)}</p>`;
-        });
-      });
-    } else {
-      (sec.lines||[]).forEach(l => {
-        const t=l.trim(); if(!t){body+='<div class="cvp-gap"></div>';return;}
-        if(/^[•–-]\s/.test(t)){body+=`<p class="cvp-bullet">${bullet} ${esc(t.replace(/^[•–-]\s+/,''))}</p>`;return;}
-        if(t.includes(' | ')&&/(Present|\d{4})/i.test(t)){body+=`<p class="cvp-entry-meta">${esc(t)}</p>`;return;}
-        const cat=t.match(/^([^:•|–-]{2,50}):\s+(.+)$/);
-        if(cat&&!/^\d/.test(cat[1])){body+=`<p class="cvp-line"><strong class="cvp-cat">${esc(cat[1])}:</strong> ${esc(cat[2])}</p>`;return;}
-        body+=`<p class="cvp-line">${esc(t)}</p>`;
-      });
-    }
-    return `<div class="cvp-section"><div class="cvp-sec-heading">${iconHtml}${esc(name)}</div><div class="cvp-sec-content">${body}</div></div>`;
-  }
-
-  // Found auditing this function against editor.js after the skills/
-  // certifications/etc. content-mapping bugs above: this function ALSO
-  // hardcoded a single flowing column ('cols-1', one <div
-  // class="cv-sections-area">) regardless of the CV's actual Columns
-  // setting, completely ignoring columnAssign (which sections go in the
-  // sidebar vs main column). For any 2-column or sidebar-template CV
-  // (Atlantic Blue, Corporate Panel, Cobalt Edge, Obsidian Edge, Neutral
-  // Gray — see SIDEBAR_TEMPLATES), the Dashboard download would have
-  // dumped every section into one plain column, losing the entire
-  // layout, not just some field content. Mirrors editor.js's
-  // buildCVHTML structure (SIDEBAR_TEMPLATES list, the sidebar
-  // template's header-IS-the-colored-panel markup with sections nested
-  // in .cvp-header-sections, and the generic two-column
-  // .cv-two-col-wrap > .cv-sidebar-col + .cv-main-col split) using this
-  // function's own renderSec for each section either way.
-  const SIDEBAR_TEMPLATES = ['atlantic-blue', 'corporate-panel', 'cobalt-edge', 'obsidian-edge', 'neutral-gray'];
-  const isTwoCol = String(settings.columns) === '2';
-  const isSidebarTemplate = isTwoCol && SIDEBAR_TEMPLATES.includes(settings.template);
-  const columnAssign = cv.columnAssign || {};
-  const allSecs    = (parsed.sections||[]).map((s,i)=>({s,i}));
-  const sidebarSecs = allSecs.filter(({i})=>columnAssign[i]==='sidebar');
-  const mainSecs    = allSecs.filter(({i})=>(columnAssign[i]||'main')==='main');
-
-  const headerInner = `
-    <div class="cvp-name">${esc(h.name||'')}</div>
-    ${h.jobTitle&&!hidden['jobTitle']?`<div class="cvp-jobtitle">${esc(h.jobTitle)}</div>`:''}
-    ${contact?`<div class="cvp-contact">${esc(contact)}</div>`:''}`;
-
-  let cvHtml;
-  if (isSidebarTemplate) {
-    cvHtml = `
-      <div class="cvp-header" style="text-align:${settings.headerAlign}">
-        ${headerInner}
-        <div class="cvp-header-sections">${sidebarSecs.map(({s,i})=>renderSec(s,i)).join('')}</div>
-      </div>
-      ${mainSecs.map(({s,i})=>renderSec(s,i)).join('')}`;
-  } else if (isTwoCol) {
-    const headerPos = settings.headerPosition;
-    const headerInColumn = headerPos === 'left' || headerPos === 'right';
-    const headerBlockInColumn = `<div class="cvp-header cvp-header-incolumn">${headerInner}</div>`;
-    cvHtml = `
-      ${headerInColumn ? '' : `<div class="cvp-header" style="text-align:${settings.headerAlign}">${headerInner}</div><hr class="cvp-divider">`}
-      <div class="cv-two-col-wrap">
-        <div class="cv-sidebar-col">${headerInColumn&&headerPos==='left' ?headerBlockInColumn:''}${sidebarSecs.map(({s,i})=>renderSec(s,i)).join('')}</div>
-        <div class="cv-main-col">${headerInColumn&&headerPos==='right'?headerBlockInColumn:''}${mainSecs.map(({s,i})=>renderSec(s,i)).join('')}</div>
-      </div>`;
-  } else {
-    cvHtml = `
-      <div class="cvp-header" style="text-align:${settings.headerAlign}">${headerInner}</div>
-      <hr class="cvp-divider">
-      <div class="cv-sections-area">${allSecs.map(({s,i})=>renderSec(s,i)).join('')}</div>`;
-  }
-
-  const outerClassName = ['cv-paper',`t-${settings.template}`,`hs-${settings.headingStyle}`,
-    `hc-${settings.headingCase}`, isTwoCol?'cols-2':'cols-1',
-    settings.accentHeadings?'ac-headings':'', settings.accentLine?'ac-line':''].filter(Boolean).join(' ');
-  const isLetterFormat = settings.paperFormat === 'Letter';
+  const isLetterFormat = cvSettings.paperFormat === 'Letter';
   const styleProps = {
-    '--cv-paper-w':      isLetterFormat ? '215.9mm' : '210mm',
-    '--cv-paper-h':      isLetterFormat ? '279.4mm' : '297mm',
-    '--cv-accent':       settings.accentColor,
-    '--cv-base':         settings.baseFontSize    + 'px',
-    '--cv-name-size':    settings.nameFontSize    + 'px',
-    '--cv-name-font':    settings.nameFont,
-    '--cv-title-size':   settings.titleFontSize   + 'px',
-    '--cv-heading-size': settings.headingFontSize + 'px',
-    '--cv-entry-size':   settings.entryFontSize   + 'px',
-    '--cv-section-gap':  settings.sectionSpacing  + 'px',
-    '--cv-margin-lr':    settings.marginLR        + 'mm',
-    '--cv-margin-tb':    settings.marginTB        + 'mm',
-    '--cv-letter-spacing': settings.letterSpacing  + 'em',
-    '--cv-col-width':    settings.twoColWidth     + '%',
-    '--cv-bg':           settings.colorBg,
-    '--cv-sidebar-bg':   settings.colorSidebarBg,
-    '--cv-text':         settings.colorText,
-    '--cv-photo-zoom':   settings.photoZoom,
+    '--cv-paper-w':       isLetterFormat ? '215.9mm' : '210mm',
+    '--cv-paper-h':       isLetterFormat ? '279.4mm' : '297mm',
+    '--cv-accent':        cvSettings.accentColor,
+    '--cv-base':          cvSettings.baseFontSize    + 'px',
+    '--cv-name-size':     cvSettings.nameFontSize    + 'px',
+    '--cv-name-font':     cvSettings.nameFont,
+    '--cv-title-size':    cvSettings.titleFontSize   + 'px',
+    '--cv-heading-size':  cvSettings.headingFontSize + 'px',
+    '--cv-entry-size':    cvSettings.entryFontSize   + 'px',
+    '--cv-section-gap':   cvSettings.sectionSpacing  + 'px',
+    '--cv-margin-lr':     cvSettings.marginLR        + 'mm',
+    '--cv-margin-tb':     cvSettings.marginTB        + 'mm',
+    '--cv-letter-spacing':cvSettings.letterSpacing   + 'em',
+    '--cv-col-width':     cvSettings.twoColWidth     + '%',
+    '--cv-bg':            cvSettings.colorBg,
+    '--cv-sidebar-bg':    cvSettings.colorSidebarBg,
+    '--cv-text':          cvSettings.colorText,
+    '--cv-photo-zoom':    cvSettings.photoZoom,
   };
-  const styleAttr = `width:${isLetterFormat ? '215.9mm' : '210mm'};min-height:${isLetterFormat ? '279.4mm' : '297mm'};background:${settings.colorBg};color:${settings.colorText};` +
-    `font-family:${settings.bodyFont};font-size:${settings.baseFontSize}px;line-height:${settings.lineHeight};` +
-    `padding:${settings.marginTB}mm ${settings.marginLR}mm;box-sizing:border-box;` +
+  const styleAttr = `width:${isLetterFormat ? '215.9mm' : '210mm'};min-height:${isLetterFormat ? '279.4mm' : '297mm'};` +
+    `background:${cvSettings.colorBg};color:${cvSettings.colorText};font-family:${cvSettings.bodyFont};` +
+    `font-size:${cvSettings.baseFontSize}px;line-height:${cvSettings.lineHeight};letter-spacing:${cvSettings.letterSpacing}em;` +
+    `box-sizing:border-box;` +
     Object.entries(styleProps).map(([k, v]) => `${k}:${v}`).join(';');
 
   const btn = event.target.closest('button');
@@ -378,11 +224,11 @@ function downloadCV(id) {
         outerClassName,
         styleAttr,
         innerHTML: cvHtml,
-        paperFormat: settings.paperFormat === 'Letter' ? 'Letter' : 'A4',
+        paperFormat: cvSettings.paperFormat === 'Letter' ? 'Letter' : 'A4',
         filename: cv.name || 'CV',
-        marginLR: settings.marginLR,
-        marginTB: settings.marginTB,
-        colorBg: settings.colorBg,
+        marginLR: cvSettings.marginLR,
+        marginTB: cvSettings.marginTB,
+        colorBg: cvSettings.colorBg,
       });
     } catch (err) {
       console.error('PDF generation failed:', err);

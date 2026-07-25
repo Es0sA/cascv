@@ -13,208 +13,21 @@ if (!cvId) window.location.replace('dashboard.html');
 // function below that reads cvData is only ever called after that
 // has happened, since rendering itself is kicked off from
 // initEditor() too.
-let cvData = null;
+//
+// Declared with `var` (not `let`): js/cv-render.js, loaded before this
+// file, also declares `var cvData`/`var cvSettings` — the shared
+// rendering functions it defines need these to exist as bare globals
+// on dashboard.html too (which has no other declaration of them), and
+// `var` is the one declaration form that safely tolerates being
+// declared more than once on the same page.
+var cvData = null;
 
 /* ============================================================
-   SECTION TYPE DEFINITIONS
+   SECTION TYPE DEFINITIONS moved to js/cv-render.js — SECTION_TYPES,
+   CUSTOM_NORMAL_FIELDS, CUSTOM_SKILL_FIELDS, CUSTOM_SECTION_ICONS,
+   getEffectiveStype(), getSectionDef(), sectionHeadingInnerHTML(),
+   CONTACT_FIELD_META all live there now, shared with dashboard.js.
    ============================================================ */
-const SECTION_TYPES = {
-  profile: {
-    label: 'Professional Profile', icon: '👤',
-    fields: [{ key:'summary', label:'Professional Summary', type:'textarea', allowAlign:true }],
-    single: true
-  },
-  work: {
-    label: 'Work Experience', icon: '💼',
-    fields: [
-      { key:'jobTitle',  label:'Job Title',  type:'text' },
-      { key:'employer',  label:'Employer',   type:'text', linkable:true },
-      { key:'startDate', label:'Start Date', type:'text', placeholder:'e.g. January 2020', clearable:true },
-      { key:'endDate',   label:'End Date',   type:'text', placeholder:'e.g. Present', allowPresent:true, clearable:true },
-      { key:'location',  label:'Location',   type:'text', placeholder:'City, Country' },
-      { key:'desc',      label:'Description', type:'textarea', placeholder:'Describe your role and achievements...', allowAlign:true }
-    ]
-  },
-  education: {
-    label: 'Education', icon: '🎓',
-    fields: [
-      { key:'degree',    label:'Degree / Qualification',  type:'text' },
-      { key:'school',    label:'School / Institution',    type:'text', linkable:true },
-      { key:'startDate', label:'Start Date', type:'text', placeholder:'e.g. 2019', clearable:true },
-      { key:'endDate',   label:'End Date',   type:'text', placeholder:'e.g. 2023', clearable:true },
-      { key:'location',  label:'Location',   type:'text', placeholder:'City, Country' },
-      { key:'desc',      label:'Description', type:'textarea', placeholder:'Relevant modules, achievements...', allowAlign:true }
-    ]
-  },
-  skills: {
-    label: 'Core Skills', icon: '🧠',
-    fields: [
-      { key:'skill', label:'Skill / Category',  type:'text' },
-      { key:'info',  label:'Sub-skills / Info', type:'textarea', placeholder:'Specific skills, tools, methods...' },
-      { key:'level', label:'Skill Level', type:'select',
-        options: ['', 'Beginner', 'Intermediate', 'Advanced', 'Expert'] }
-    ]
-  },
-  certifications: {
-    label: 'Certifications & Professional Development', icon: '🏅',
-    fields: [
-      { key:'name', label:'Certificate / Qualification', type:'text', linkable:true },
-      { key:'date', label:'Date Earned',                 type:'text', placeholder:'e.g. June 2024', clearable:true },
-      { key:'info', label:'Additional Information',      type:'textarea', placeholder:'Issuer, details...' }
-    ]
-  },
-  languages: {
-    label: 'Languages', icon: '🌍',
-    fields: [
-      { key:'language',    label:'Language',   type:'text' },
-      { key:'proficiency', label:'Proficiency', type:'select',
-        options: ['', 'Beginner', 'Elementary', 'Intermediate', 'Upper-Intermediate', 'Advanced', 'Native'] }
-    ]
-  },
-  projects: {
-    label: 'Projects', icon: '🚀',
-    fields: [
-      { key:'title',     label:'Project Title',  type:'text', linkable:true },
-      { key:'role',      label:'Your Role',      type:'text' },
-      { key:'startDate', label:'Start Date',     type:'text', clearable:true },
-      { key:'endDate',   label:'End Date',       type:'text', allowPresent:true, clearable:true },
-      { key:'desc',      label:'Description',    type:'textarea', placeholder:'Challenges, your role, impact...', allowAlign:true }
-    ]
-  },
-  awards: {
-    label: 'Awards', icon: '🏆',
-    fields: [
-      { key:'title',   label:'Award Title',  type:'text', linkable:true },
-      { key:'issuer',  label:'Issuer',       type:'text' },
-      { key:'date',    label:'Date',         type:'text', clearable:true },
-      { key:'desc',    label:'Description',  type:'textarea', allowAlign:true }
-    ]
-  },
-  courses: {
-    label: 'Courses', icon: '📚',
-    fields: [
-      { key:'title',     label:'Course Title',  type:'text' },
-      { key:'provider',  label:'Institution',   type:'text', linkable:true },
-      { key:'startDate', label:'Start Date',    type:'text', clearable:true },
-      { key:'endDate',   label:'End Date',      type:'text', clearable:true },
-      { key:'location',  label:'Location',      type:'text' },
-      { key:'desc',      label:'Description',   type:'textarea', allowAlign:true }
-    ]
-  },
-  organisations: {
-    label: 'Organisations', icon: '🏢',
-    fields: [
-      { key:'name',     label:'Organisation', type:'text', linkable:true },
-      { key:'role',     label:'Role',         type:'text' },
-      { key:'start',    label:'Start Date',   type:'text', clearable:true },
-      { key:'end',      label:'End Date',     type:'text', clearable:true },
-      { key:'location', label:'Location',     type:'text' },
-      { key:'desc',     label:'Description',  type:'textarea', allowAlign:true }
-    ]
-  },
-  publications: {
-    label: 'Publications', icon: '📰',
-    fields: [
-      { key:'title',     label:'Title',        type:'text', linkable:true },
-      { key:'publisher', label:'Publisher',    type:'text' },
-      { key:'date',      label:'Date',         type:'text', clearable:true },
-      { key:'desc',      label:'Description',  type:'textarea', allowAlign:true }
-    ]
-  },
-  references: {
-    label: 'References', icon: '👥',
-    fields: [
-      { key:'name',     label:'Full Name',   type:'text', linkable:true },
-      { key:'position', label:'Position',    type:'text' },
-      { key:'company',  label:'Company',     type:'text' },
-      { key:'email',    label:'Email',       type:'text' },
-      { key:'phone',    label:'Phone',       type:'text' }
-    ]
-  },
-  interests: {
-    label: 'Interests', icon: '⭐',
-    fields: [
-      { key:'interest', label:'Interest',    type:'text', linkable:true },
-      { key:'desc',     label:'Description', type:'textarea' }
-    ]
-  },
-  declaration: {
-    label: 'Declaration', icon: '✍️',
-    fields: [
-      { key:'statement',     label:'Declaration Statement', type:'textarea',
-        placeholder:'I hereby declare that the information provided above is true and accurate to the best of my knowledge.' },
-      { key:'signatureName', label:'Signature (typed name)', type:'text', placeholder:'Your full name' },
-      { key:'date',          label:'Date',                   type:'text', placeholder:'e.g. June 2026', clearable:true }
-    ],
-    single: true
-  },
-  custom: {
-    label: 'Custom Section', icon: '✏️',
-    useTextarea: true
-  }
-};
-
-// Custom Section field sets for the "Normal" and "Skill" subtypes —
-// see getSectionDef(). Mirrors Projects (Normal) and Skills (Skill)
-// so structured custom sections get the exact same rich entry-editor
-// UI those already have, no new rendering paths needed.
-const CUSTOM_NORMAL_FIELDS = [
-  { key:'title',     label:'Title',        type:'text', linkable:true },
-  { key:'subtitle',  label:'Subtitle',     type:'text' },
-  { key:'startDate', label:'Start Date',   type:'text', clearable:true },
-  { key:'endDate',   label:'End Date',     type:'text', allowPresent:true, clearable:true },
-  { key:'location',  label:'Location',     type:'text' },
-  { key:'desc',      label:'Description',  type:'textarea', placeholder:'Details...', allowAlign:true }
-];
-const CUSTOM_SKILL_FIELDS = [
-  { key:'skill', label:'Skill / Category',  type:'text' },
-  { key:'info',  label:'Sub-skills / Info', type:'textarea', placeholder:'Specific skills, tools, methods...' },
-  { key:'level', label:'Skill Level', type:'select', options: ['', 'Beginner', 'Intermediate', 'Advanced', 'Expert'] }
-];
-// Every standard section type's own default icon (👤💼🎓 etc, see
-// SECTION_TYPES above) plus a set of extras for Custom Section /
-// re-picking on any section: one shared list so the dropdown always
-// includes whatever icon a section already has, standard or not.
-const CUSTOM_SECTION_ICONS = ['👤','💼','🎓','🧠','🏅','🌍','🚀','🏆','📚','🏢','📰','👥','⭐','✍️','✏️','🎯','🛠️','💡','📌','🔖','📊','🎨','🎵','⚡','🌟','🔧','📱','💻','🎬','🏋️'];
-
-// Single source of truth for "what field set / icon does this section
-// actually use right now" — every renderer should call this instead of
-// indexing SECTION_TYPES directly, so a Custom Section's subtype
-// override (see cvData.customSectionType) is respected everywhere.
-// Falls back to the plain freeform-textarea behavior when no override
-// is set, which is exactly what every existing CV already has, so
-// nothing changes for CVs that never touch this new setting.
-// Maps a Custom Section's subtype to the stype string renderEntryHTML
-// actually branches on — 'custom-normal' is handled identically to
-// 'projects', 'custom-skill' identically to 'skills' (see
-// renderEntryHTML). Every other section type is unaffected.
-function getEffectiveStype(sec, i) {
-  const stype = sec.type || 'custom';
-  if (stype === 'custom') {
-    const subtype = cvData.customSectionType[i];
-    if (subtype === 'normal') return 'custom-normal';
-    if (subtype === 'skill')  return 'custom-skill';
-  }
-  return stype;
-}
-
-function getSectionDef(sec, i) {
-  const stype = sec.type || 'custom';
-  const baseDef = SECTION_TYPES[stype] || SECTION_TYPES.custom;
-  // Every section type ships a sensible default icon (SECTION_TYPES'
-  // own icon), but any section, not just Custom Section, can override
-  // it via the icon dropdown in its accordion header: cvData
-  // .customSectionIcon is keyed by section index, not by type, so it
-  // doubles as the single override store for both.
-  const icon = cvData.customSectionIcon[i] || baseDef.icon;
-  if (stype === 'custom') {
-    const subtype = cvData.customSectionType[i];
-    if (subtype === 'normal') return { label: baseDef.label, icon, fields: CUSTOM_NORMAL_FIELDS, useTextarea: false };
-    if (subtype === 'skill')  return { label: baseDef.label, icon, fields: CUSTOM_SKILL_FIELDS,  useTextarea: false };
-    return { ...baseDef, icon };
-  }
-  return { ...baseDef, icon };
-}
 
 function setSectionIcon(i, icon) {
   cvData.customSectionIcon[i] = icon;
@@ -223,37 +36,17 @@ function setSectionIcon(i, icon) {
   scheduleSave();
 }
 
-// Shared by both heading-rendering call sites (real pagination's
-// buildSectionUnits and the flowing/two-col/sidebar path's
-// renderSectionPreview) so the icon only ever needs wiring up once.
-function sectionHeadingInnerHTML(name, icon) {
-  const iconHtml = (cvSettings.showSectionIcons && icon) ? `<span class="cvp-sec-icon">${escapeHtml(icon)}</span>` : '';
-  return iconHtml + escapeHtml(name);
-}
-
 /* ---- DEFAULTS ---- */
-const DEFAULTS = {
-  template:'classic', columns:1, twoColWidth:32, headerAlign:'left', headerPosition:'top',
-  subtitleLine:'next', paperFormat:'A4', bodyFont:'Calibri, Arial, sans-serif',
-  nameFont:'inherit', baseFontSize:11, nameFontSize:19, titleFontSize:12,
-  headingFontSize:10, entryFontSize:11, lineHeight:1.55, letterSpacing:0,
-  sectionSpacing:11, marginLR:13, marginTB:11, headingStyle:'underline',
-  headingCase:'upper', subtitleStyle:'normal', dateStyle:'normal', locationStyle:'normal', listStyle:'bullet',
-  dateFormat:'Month YYYY', showDuration:false, skillStyle:'text', showSectionIcons:false,
-  accentColor:'#1a1a1a', colorBg:'#ffffff',
-  colorSidebarBg:'#f0f4f8', colorText:'#1a1a1a', accentName:false,
-  accentTitle:false, accentHeadings:true, accentLine:true, accentDates:false,
-  accentSubtitle:false, showPageNums:false, linkStyle:'underline',
-  footerCustom:false, footerLeft:'', footerCenter:'', footerRight:'',
-  iconStyle:'none', accentIcons:false, accentLinkIcons:false,
-  workTitleOrder:'normal', eduTitleOrder:'normal', summaryInHeader:false,
-  photoShape:'circle', photoZoom:1,
-};
+// DEFAULTS moved to js/cv-render.js, shared with dashboard.js (whose
+// own separate defaults list had repeatedly drifted out of sync with
+// this one — several Customize panel settings added here over time
+// had no equivalent there, silently doing nothing on gallery downloads).
 
 // Real values get merged in with cvData.settings once initEditor()
 // has fetched the CV; DEFAULTS alone is just a safe placeholder for
-// the brief window before that.
-let cvSettings = Object.assign({}, DEFAULTS);
+// the brief window before that. `var` for the same cross-file reason
+// as cvData above.
+var cvSettings = Object.assign({}, DEFAULTS);
 
 // Google Fonts (linked in editor.html's <head>) load lazily: the browser
 // doesn't fetch the actual font file until something on the page tries
@@ -693,26 +486,11 @@ function hdrField(key, label, value, type, hint) {
 
 /* ---- Reorderable contact fields (Email / Phone / Location / LinkedIn +
    optional add-on detail/social fields). Only keys present in
-   cvData.headerFieldOrder are ever rendered/shown — the catalog below
-   is just the full menu of what CAN be added via "+ Add Field". ---- */
-const CONTACT_FIELD_META = {
-  email:          { label: 'Email',            type: 'email', icon: '✉' },
-  phone:          { label: 'Phone',             type: 'text',  icon: '☎' },
-  location:       { label: 'Location',          type: 'text',  icon: '📍' },
-  linkedin:       { label: 'LinkedIn URL',      type: 'text',  icon: 'in' },
-  website:        { label: 'Website',           type: 'text',  icon: '🌐' },
-  portfolio:      { label: 'Portfolio URL',     type: 'text',  icon: '🎨' },
-  github:         { label: 'GitHub',            type: 'text',  icon: '⌥' },
-  twitter:        { label: 'Twitter / X',       type: 'text',  icon: '𝕏' },
-  nationality:    { label: 'Nationality',       type: 'text',  icon: '🌍' },
-  dob:            { label: 'Date of Birth',     type: 'text',  icon: '🎂' },
-  visaStatus:     { label: 'Visa Status',       type: 'text',  icon: '🛂' },
-  availability:   { label: 'Availability',      type: 'text',  icon: '📅' },
-  drivingLicense: { label: 'Driving License',   type: 'text',  icon: '🚗' },
-  maritalStatus:  { label: 'Marital Status',    type: 'text',  icon: '💍' },
-};
+   cvData.headerFieldOrder are ever rendered/shown — CONTACT_FIELD_META
+   (moved to js/cv-render.js) is just the full menu of what CAN be
+   added via "+ Add Field". ---- */
 // Always shown, never removable (only hideable) — the fields nearly
-// every CV needs. Everything else in the catalog above is opt-in.
+// every CV needs. Everything else in the catalog is opt-in.
 const CORE_HEADER_FIELDS = ['email', 'phone', 'location'];
 
 function renderContactFields(header) {
@@ -773,46 +551,6 @@ function removeHeaderField(key) {
   renderEditPanel();
   renderRightPanel();
   scheduleSave();
-}
-
-// Builds the .cvp-contact inner HTML: plain pipe-joined text when
-// Icon Style is "none" (the long-standing default, so existing CVs
-// don't change appearance unless the user opts in), or an icon+text
-// span per field otherwise. Shared by buildCVHTML (fallback layout)
-// and buildLayoutUnits (real-pagination layout) so both stay in sync.
-// Finds the Professional Summary section's text, for "Summary as part
-// of header" — returns '' if there's no profile-type section or it's
-// empty, so callers can just check truthiness.
-function getSummaryHtml(sections) {
-  const profileSec = sections.find(s => (s.type || 'custom') === 'profile');
-  const text = profileSec?.entries?.[0]?.summary || '';
-  return text ? `<div class="cvp-header-summary">${mdLine(text)}</div>` : '';
-}
-
-// Photo frame shape (circle/rounded/square) is a CSS class on the frame;
-// zoom is a CSS custom property read by the img inside it, so it applies
-// identically whether the photo lives on #cvPaper (fallback layout) or
-// gets copied per .cv-page (real pagination) — see applyStyleProps.
-function buildPhotoHtml(header) {
-  if (!header.photo || cvData.hiddenFields['photo']) return '';
-  const shape = cvSettings.photoShape || 'circle';
-  return `<div class="cvp-photo-frame cvp-photo-${shape}"><img class="cvp-photo" src="${escapeAttr(header.photo)}" alt=""></div>`;
-}
-
-function buildContactHtml(header) {
-  const order = cvData.headerFieldOrder.filter(key => !cvData.hiddenFields[key] && header[key]);
-  if (!order.length) {
-    if (header.contact && !cvData.hiddenFields['contact']) return mdLine(header.contact);
-    return '';
-  }
-  if (cvSettings.iconStyle === 'none') {
-    return mdLine(order.map(key => header[key]).join(' | '));
-  }
-  return order.map(key => {
-    const meta = CONTACT_FIELD_META[key];
-    const icon = (meta && meta.icon) || '•';
-    return `<span class="cvp-contact-item"><span class="cvp-contact-icon">${escapeHtml(icon)}</span><span class="cvp-contact-text">${mdLine(header[key])}</span></span>`;
-  }).join('');
 }
 
 function moveHeaderField(key, direction) {
@@ -1243,11 +981,8 @@ const ALL_TEMPLATES = [
   { value:'photo-card',      label:'Photo Card',      accent:'#2d5a4a' },
 ];
 
-// Templates whose CSS already renders a permanent colored side panel
-// (see the "Shared sidebar base" rule in main.css). These are inherently
-// two-column, so picking one should switch Columns to "2" automatically
-// instead of leaving the user with a mismatched single-column layout.
-const SIDEBAR_TEMPLATES = ['atlantic-blue', 'corporate-panel', 'cobalt-edge', 'obsidian-edge', 'neutral-gray'];
+// SIDEBAR_TEMPLATES now lives in js/cv-render.js (loaded before this
+// file), so both editor.js and dashboard.js share one definition.
 
 // Each template's signature section-heading decoration, expressed as a
 // Heading Style value. Template CSS used to hardcode its own heading
@@ -1907,96 +1642,6 @@ function renderRightPanel(resetScroll) {
   }
 }
 
-function buildCVHTML(parsed) {
-  const { header, sections } = parsed;
-  const colMode  = String(cvSettings.columns);
-  const isTwoCol = colMode === '2';
-  const isMix    = colMode === 'mix';
-  const isSidebarTemplate = isTwoCol && SIDEBAR_TEMPLATES.includes(cvSettings.template);
-
-  const hf = header;
-  const contactHtml = buildContactHtml(hf);
-
-  let headerTextInner = '';
-  if (!cvData.hiddenFields['name'])     headerTextInner += `<div class="cvp-name">${mdLine(hf.name||'')}</div>`;
-  if (!cvData.hiddenFields['jobTitle'] && hf.jobTitle) headerTextInner += `<div class="cvp-jobtitle">${mdLine(hf.jobTitle)}</div>`;
-  if (contactHtml) headerTextInner += `<div class="cvp-contact">${contactHtml}</div>`;
-  if (cvSettings.summaryInHeader) headerTextInner += getSummaryHtml(sections);
-  const photoHtml = buildPhotoHtml(hf);
-  const headerInner = photoHtml
-    ? `<div class="cvp-header-row">${photoHtml}<div class="cvp-header-text">${headerTextInner}</div></div>`
-    : headerTextInner;
-
-  // Header Position (Left/Right) only applies to the generic two-column
-  // layout: sidebar templates already dedicate the header to their own
-  // permanent colored panel, and that's a different, established design
-  // this shouldn't interfere with.
-  const headerPos = cvSettings.headerPosition || 'top';
-  const headerInColumn = isTwoCol && !isSidebarTemplate && (headerPos === 'left' || headerPos === 'right');
-
-  let html = '';
-  if (!headerInColumn) {
-    html += '<div class="cvp-header">' + headerInner;
-    if (isSidebarTemplate) {
-      // These templates' header IS the colored side panel (see main.css
-      // "Shared sidebar base"), so sections assigned to the sidebar render
-      // inside it directly and inherit its color, instead of spawning a
-      // separate flat-colored box elsewhere in the layout.
-      const sidebar = sections.map((s,i)=>({s,i})).filter(({i})=>cvData.columnAssign[i]==='sidebar');
-      html += '<div class="cvp-header-sections">' + sidebar.map(({s,i})=>renderSectionPreview(s,i)).join('') + '</div>';
-    }
-    html += '</div><hr class="cvp-divider">';
-  }
-
-  if (isSidebarTemplate) {
-    const main = sections.map((s,i)=>({s,i})).filter(({i})=>(cvData.columnAssign[i]||'main')==='main');
-    html += main.map(({s,i})=>renderSectionPreview(s,i)).join('');
-  } else if (isTwoCol) {
-    const main    = sections.map((s,i)=>({s,i})).filter(({i})=>(cvData.columnAssign[i]||'main')==='main');
-    const sidebar = sections.map((s,i)=>({s,i})).filter(({i})=>cvData.columnAssign[i]==='sidebar');
-    const headerBlock = headerInColumn ? `<div class="cvp-header cvp-header-incolumn">${headerInner}</div>` : '';
-    html += '<div class="cv-two-col-wrap">';
-    html += '<div class="cv-sidebar-col">' + (headerPos==='left'?headerBlock:'') + sidebar.map(({s,i})=>renderSectionPreview(s,i)).join('') + '</div>';
-    html += '<div class="cv-main-col">'    + (headerPos==='right'?headerBlock:'') + main.map(({s,i})=>renderSectionPreview(s,i)).join('')    + '</div>';
-    html += '</div>';
-  } else if (isMix) {
-    // Walk sections in order; pair up consecutive 'half' width sections into a flex row
-    html += '<div class="cv-mix-area">';
-    let i = 0;
-    while (i < sections.length) {
-      const width = cvData.sectionWidth[i] || 'full';
-      if (width === 'half') {
-        const nextWidth = cvData.sectionWidth[i+1] || 'full';
-        if (nextWidth === 'half' && i+1 < sections.length) {
-          html += `<div class="cv-mix-row">
-            <div class="cv-mix-half">${renderSectionPreview(sections[i], i)}</div>
-            <div class="cv-mix-half">${renderSectionPreview(sections[i+1], i+1)}</div>
-          </div>`;
-          i += 2;
-          continue;
-        } else {
-          // Lone half-width section — render full-width row containing one half slot
-          html += `<div class="cv-mix-row"><div class="cv-mix-half">${renderSectionPreview(sections[i], i)}</div></div>`;
-          i += 1;
-          continue;
-        }
-      }
-      html += renderSectionPreview(sections[i], i);
-      i += 1;
-    }
-    html += '</div>';
-  } else {
-    html += '<div class="cv-sections-area">';
-    sections.forEach((sec,i) => { html += renderSectionPreview(sec, i); });
-    html += '</div>';
-  }
-  if (cvSettings.footerCustom) {
-    html += buildCustomFooterHTML(header);
-  } else if (cvSettings.showPageNums) {
-    html += '<div class="cvp-footer"><span class="cvp-pagenum">Page 1</span></div>';
-  }
-  return html;
-}
 
 /* ============================================================
    REAL A4/LETTER PAGINATION (single-column, non-sidebar-template)
@@ -2030,29 +1675,6 @@ function isPaginatedLayout() {
   return getPaginationMode() !== 'flowing';
 }
 
-// Single source of truth for the class string that carries every
-// template/accent/style modifier — used both by applySettings() (for
-// the fallback path, applied straight to #cvPaper) and by the real
-// -pagination path (applied to each .cv-page instead, since #cvPaper
-// becomes a plain stacking wrapper there). excludePageNum drops the
-// 'show-pagenum' token: the hardcoded ::after page-number text isn't
-// meaningful once there are real repeated pages (see plan's footer
-// descope), so it's suppressed rather than shown wrong on every page.
-function computeCvPaperClassString(excludePageNum) {
-  const colMode = String(cvSettings.columns);
-  const colClass = colMode==='2' ? 'cols-2' : colMode==='mix' ? 'cols-mix' : 'cols-1';
-  const accentClasses = [
-    cvSettings.accentName     ?'ac-name':'', cvSettings.accentTitle    ?'ac-title':'',
-    cvSettings.accentHeadings ?'ac-headings':'', cvSettings.accentLine  ?'ac-line':'',
-    cvSettings.accentDates    ?'ac-dates':'', cvSettings.accentSubtitle ?'ac-subtitle':'',
-    cvSettings.accentIcons    ?'ac-icons':'', cvSettings.accentLinkIcons?'ac-linkicons':'',
-    (cvSettings.showPageNums && !excludePageNum) ?'show-pagenum':'', colClass,
-  ].filter(Boolean).join(' ');
-  return ['cv-paper',`t-${cvSettings.template}`,`hs-${cvSettings.headingStyle}`,
-    `hc-${cvSettings.headingCase}`,`ss-${cvSettings.subtitleStyle}`,`ds-${cvSettings.dateStyle}`,
-    `lc-${cvSettings.locationStyle}`,`sl-${cvSettings.subtitleLine}`,`ic-${cvSettings.iconStyle}`,
-    `ls-${cvSettings.linkStyle}`,accentClasses].filter(Boolean).join(' ');
-}
 
 // Parses an HTML string and returns its top-level element nodes —
 // used to flatten renderEntryHTML()'s per-entry output (row1/row2/each
@@ -2584,297 +2206,10 @@ function paginateSidebarTemplate(parsed) {
   return { pageHtmls, classString, multiPageSections };
 }
 
-// Substitutes {{name}}/{{email}}/{{phone}}/{{pages}} tokens in each footer
-// zone. {{pages}} is filled in after render by updatePageBreaks() (the
-// real total isn't knowable until the CV is actually laid out in the DOM),
-// via a placeholder span it can find and patch.
-function buildCustomFooterHTML(header) {
-  const fill = (text) => escapeHtml(text)
-    .replace(/\{\{name\}\}/gi,  escapeHtml(header.name||''))
-    .replace(/\{\{email\}\}/gi, escapeHtml(header.email||''))
-    .replace(/\{\{phone\}\}/gi, escapeHtml(header.phone||''))
-    .replace(/\{\{pages\}\}/gi, '<span class="cvp-footer-pages">1</span>');
-  const left   = fill(cvSettings.footerLeft);
-  const center = fill(cvSettings.footerCenter);
-  const right  = fill(cvSettings.footerRight);
-  if (!left && !center && !right) return '';
-  return `<div class="cvp-footer cvp-footer-custom">
-    <span class="cvp-footer-zone cvp-footer-left">${left}</span>
-    <span class="cvp-footer-zone cvp-footer-center">${center}</span>
-    <span class="cvp-footer-zone cvp-footer-right">${right}</span>
-  </div>`;
-}
-
-function renderSectionPreview(sec, i) {
-  // "Summary as part of header" moves the Professional Summary's text
-  // into the header block (see buildContactHtml call sites) instead of
-  // its own section — skip rendering it a second time here.
-  if ((sec.type || 'custom') === 'profile' && cvSettings.summaryInHeader) return '';
-  const name  = cvData.sectionNames[i] !== undefined ? cvData.sectionNames[i] : sec.title;
-  const stype = sec.type || 'custom';
-  const def   = getSectionDef(sec, i);
-  const renderStype = getEffectiveStype(sec, i);
-  let body = '';
-
-  if (def && !def.useTextarea && sec.entries && sec.entries.length) {
-    body = sec.entries.filter(e=>e.visible!==false).map(e=>renderEntryHTML(e, renderStype)).join('');
-  } else {
-    body = formatLines(sec.lines || []);
-  }
-
-  return `<div class="cvp-section" id="preview-sec-${i}">
-    <div class="cvp-sec-heading">${sectionHeadingInnerHTML(name, def.icon)}</div>
-    <div class="cvp-sec-content" id="preview-content-${i}">${body}</div>
-  </div>`;
-}
-
-// "Icon Bullets" template swaps the plain bullet/hyphen character for
-// a checkmark glyph — the character is baked directly into rendered
-// text (not a CSS list-style), so this is the one place both callers
-// (structured entries and freeform textarea lines) need to check.
-function getBulletChar() {
-  if (cvSettings.template === 'icon-bullets') return '✓';
-  return cvSettings.listStyle==='hyphen'?'–':'•';
-}
-
-function renderEntryHTML(entry, stype) {
-  const bullet = getBulletChar();
-  let html = '';
-
-  if (stype==='profile') {
-    const align = entry.summaryAlign && entry.summaryAlign!=='left' ? ` style="text-align:${entry.summaryAlign}"` : '';
-    html += `<p class="cvp-line"${align}>${mdLine(entry.summary||'')}</p>`;
-    return html;
-  }
-
-  if (stype==='work'||stype==='education'||stype==='projects'||stype==='courses'||stype==='organisations'||stype==='custom-normal') {
-    const title   = entry.jobTitle||entry.degree||entry.title||entry.course||entry.name||'';
-    const sub     = entry.employer||entry.school||entry.role||entry.provider||entry.organisation||entry.subtitle||'';
-    const subLink = entry.employerLink||entry.schoolLink||entry.providerLink||entry.organisationLink||'';
-    const start   = formatDate(entry.startDate||entry.start||'');
-    const end     = formatDate(entry.endDate||entry.end||'');
-    const loc     = entry.location||'';
-    const desc    = entry.desc||'';
-    const descAlign = entry.descAlign && entry.descAlign!=='left' ? ` style="text-align:${entry.descAlign}"` : '';
-    let dateStr   = '';
-    if (start||end) {
-      dateStr = [start, end].filter(Boolean).join(' – ');
-      if (cvSettings.showDuration && start && end) {
-        dateStr += ' ' + calcDuration(entry.startDate||entry.start||'', entry.endDate||entry.end||'');
-      }
-    }
-    const subHtml   = subLink ? `<a href="${escapeAttr(subLink)}" target="_blank" rel="noopener">${escapeHtml(sub)}</a>` : escapeHtml(sub);
-    // Title/Subtitle Order: which field (job title vs employer/school)
-    // leads in row 1. The CSS class stays tied to the field's MEANING
-    // (title keeps .cvp-entry-title, subtitle keeps .cvp-entry-employer)
-    // regardless of which row it's placed in, so Subtitle Style / accent
-    // color targeting keeps working correctly either way.
-    const titleOrder = stype==='work' ? cvSettings.workTitleOrder : stype==='education' ? cvSettings.eduTitleOrder : 'normal';
-    const swapped = titleOrder === 'swapped';
-    // Row 1: job title left, date range right. Row 2: employer left, location right.
-    // Keeps company/date/location as distinct fields all the way to markup,
-    // instead of collapsing them into one pipe-joined flowing paragraph.
-    // "Subtitle: Same Line" folds employer into row 1 next to the title
-    // (its pre-existing meaning), leaving row 2 for location only.
-    if (cvSettings.subtitleLine === 'same') {
-      const titleHtml = [
-        title ? `<span class="cvp-entry-title">${mdLine(title)}</span>` : '',
-        sub   ? `<span class="cvp-entry-employer cvp-entry-employer-inline">${subHtml}</span>` : ''
-      ].filter(Boolean).join('');
-      if (titleHtml||dateStr) html += `<div class="cvp-entry-row1">
-        <span>${titleHtml}</span>
-        ${dateStr ? `<span class="cvp-entry-date">${escapeHtml(dateStr)}</span>` : ''}
-      </div>`;
-      if (loc) html += `<div class="cvp-entry-row2"><span></span><span class="cvp-entry-location">${escapeHtml(loc)}</span></div>`;
-    } else if (swapped) {
-      if (sub||dateStr) html += `<div class="cvp-entry-row1">
-        ${sub ? `<span class="cvp-entry-employer">${subHtml}</span>` : '<span></span>'}
-        ${dateStr ? `<span class="cvp-entry-date">${escapeHtml(dateStr)}</span>` : ''}
-      </div>`;
-      if (title||loc) html += `<div class="cvp-entry-row2">
-        ${title ? `<span class="cvp-entry-title">${mdLine(title)}</span>` : '<span></span>'}
-        ${loc ? `<span class="cvp-entry-location">${escapeHtml(loc)}</span>` : ''}
-      </div>`;
-    } else {
-      if (title||dateStr) html += `<div class="cvp-entry-row1">
-        ${title ? `<span class="cvp-entry-title">${mdLine(title)}</span>` : '<span></span>'}
-        ${dateStr ? `<span class="cvp-entry-date">${escapeHtml(dateStr)}</span>` : ''}
-      </div>`;
-      if (sub||loc) html += `<div class="cvp-entry-row2">
-        ${sub ? `<span class="cvp-entry-employer">${subHtml}</span>` : '<span></span>'}
-        ${loc ? `<span class="cvp-entry-location">${escapeHtml(loc)}</span>` : ''}
-      </div>`;
-    }
-    if (desc) {
-      desc.split('\n').forEach(line => {
-        const t = line.trim();
-        if (!t) return;
-        if (/^[•–-]\s/.test(t)) {
-          html += `<p class="cvp-bullet"${descAlign} style="break-inside:avoid">${bullet} ${mdLine(t.replace(/^[•–-]\s+/,''))}</p>`;
-        } else {
-          html += `<p class="cvp-line"${descAlign}>${mdLine(t)}</p>`;
-        }
-      });
-    }
-    return html;
-  }
-
-  if (stype==='skills'||stype==='custom-skill') {
-    const skill = entry.skill||'';
-    const info  = entry.info||'';
-    const level = entry.level||'';
-    if (skill&&info) html += `<p class="cvp-line"><strong class="cvp-cat">${escapeHtml(skill)}:</strong> ${mdLine(info)}</p>`;
-    else if (skill)  html += `<p class="cvp-line"><strong class="cvp-cat">${escapeHtml(skill)}</strong>${level?' — '+level:''}</p>`;
-    return html;
-  }
-
-  if (stype==='certifications') {
-    const name = entry.name||'';
-    const nameLink = entry.nameLink||'';
-    const nameHtml = nameLink ? `<a href="${escapeAttr(nameLink)}" target="_blank" rel="noopener">${escapeHtml(name)}</a>` : escapeHtml(name);
-    const date = formatDate(entry.date||'');
-    const info = entry.info||'';
-    html += `<p class="cvp-line"><strong>${nameHtml}</strong>${date?' — Date: '+escapeHtml(date):''}${info?'\n'+info:''}</p>`;
-    return html;
-  }
-
-  if (stype==='languages') {
-    html += `<p class="cvp-line">${escapeHtml(entry.language||'')}${entry.proficiency?' — '+entry.proficiency:''}</p>`;
-    return html;
-  }
-
-  if (stype==='awards'||stype==='publications'||stype==='interests') {
-    const title = entry.title||entry.interest||'';
-    const titleLink = entry.titleLink||entry.interestLink||'';
-    const titleHtml = titleLink ? `<a href="${escapeAttr(titleLink)}" target="_blank" rel="noopener">${mdLine(title)}</a>` : mdLine(title);
-    const sub   = [entry.issuer||entry.publisher, entry.date ? formatDate(entry.date) : ''].filter(Boolean).join(' — ');
-    const desc  = entry.desc||'';
-    const descAlign = entry.descAlign && entry.descAlign!=='left' ? ` style="text-align:${entry.descAlign}"` : '';
-    if (title) html += `<p class="cvp-entry-title">${titleHtml}</p>`;
-    if (sub)   html += `<p class="cvp-entry-meta">${escapeHtml(sub)}</p>`;
-    if (desc)  html += `<p class="cvp-line"${descAlign}>${mdLine(desc)}</p>`;
-    return html;
-  }
-
-  if (stype==='declaration') {
-    const statement = entry.statement||'';
-    const sigName   = entry.signatureName||'';
-    const date      = formatDate(entry.date||'');
-    if (statement) html += `<p class="cvp-line">${mdLine(statement)}</p>`;
-    if (sigName) html += `<p class="cvp-signature">${escapeHtml(sigName)}</p>`;
-    if (date) html += `<p class="cvp-entry-meta">${escapeHtml(date)}</p>`;
-    return html;
-  }
-
-  if (stype==='references') {
-    const nameLink = entry.nameLink||'';
-    const nameHtml = nameLink ? `<a href="${escapeAttr(nameLink)}" target="_blank" rel="noopener">${escapeHtml(entry.name||'')}</a>` : escapeHtml(entry.name||'');
-    html += `<p class="cvp-entry-title">${nameHtml}</p>`;
-    if (entry.position||entry.company) html += `<p class="cvp-entry-meta">${escapeHtml([entry.position,entry.company].filter(Boolean).join(', '))}</p>`;
-    if (entry.email||entry.phone) html += `<p class="cvp-line">${escapeHtml([entry.email,entry.phone].filter(Boolean).join(' | '))}</p>`;
-    return html;
-  }
-
-  // Generic fallback
-  return `<p class="cvp-line">${escapeHtml(JSON.stringify(entry))}</p>`;
-}
-
-/* ============================================================
-   DATE / DURATION HELPERS
-   ============================================================ */
-const MONTH_MAP = {jan:'January',feb:'February',mar:'March',apr:'April',may:'May',jun:'June',jul:'July',aug:'August',sep:'September',oct:'October',nov:'November',dec:'December'};
-const MONTH_NUM = {jan:'01',feb:'02',mar:'03',apr:'04',may:'05',jun:'06',jul:'07',aug:'08',sep:'09',oct:'10',nov:'11',dec:'12'};
-const MONTH_ABBR = {jan:'Jan',feb:'Feb',mar:'Mar',apr:'Apr',may:'May',jun:'Jun',jul:'Jul',aug:'Aug',sep:'Sep',oct:'Oct',nov:'Nov',dec:'Dec'};
-
-// Shared by both match branches below: render a month/year pair once the
-// 3-letter abbreviation and year are known, for any supported dateFormat.
-function formatMonthYear(abbr, year, fallback) {
-  const fmt = cvSettings.dateFormat || 'Month YYYY';
-  if (fmt === 'Month YYYY') return `${MONTH_MAP[abbr] || fallback} ${year}`;
-  if (fmt === 'Mon YYYY')   return `${MONTH_ABBR[abbr] || fallback} ${year}`;
-  if (fmt === 'MM/YYYY')    return `${MONTH_NUM[abbr] || '01'}/${year}`;
-  if (fmt === 'MM.YYYY')    return `${MONTH_NUM[abbr] || '01'}.${year}`;
-  if (fmt === 'YYYY')       return year;
-  return fallback ? `${fallback} ${year}` : year;
-}
-
-/* Format a single date string ("Jan 2020", "January 2020", "2020", "Present")
-   according to cvSettings.dateFormat: 'Month YYYY' | 'Mon YYYY' | 'MM/YYYY' | 'MM.YYYY' | 'YYYY' */
-function formatDate(str) {
-  if (!str) return '';
-  const clean = str.trim();
-  if (/^present$/i.test(clean)) return 'Present';
-
-  // "Jan 2020" / "January 2020"
-  const mY = clean.match(/^(\w{3,9})\s+(\d{4})$/i);
-  if (mY) {
-    const abbr = mY[1].slice(0,3).toLowerCase();
-    return formatMonthYear(abbr, mY[2], mY[1]);
-  }
-
-  // "2020-01" / "2020-1"
-  const yM = clean.match(/^(\d{4})-(\d{1,2})$/);
-  if (yM) {
-    const year = yM[1], mon = yM[2].padStart(2,'0');
-    const abbr = Object.keys(MONTH_NUM).find(k => MONTH_NUM[k] === mon);
-    return formatMonthYear(abbr, year, mon);
-  }
-
-  // Plain year only — nothing to convert for Month/MM formats, just return as-is
-  if (/^\d{4}$/.test(clean)) return clean;
-
-  return clean;
-}
-
-function parseDateToMs(s) {
-  if(!s||/^present$/i.test(s.trim())) return Date.now();
-  const c=s.trim();
-  const mY=c.match(/^(\w{3,9})\s+(\d{4})$/i);
-  if(mY){ const a=mY[1].slice(0,3).toLowerCase(); return new Date(parseInt(mY[2]),parseInt(MONTH_NUM[a]||'1',10)-1).getTime(); }
-  const y=c.match(/^(\d{4})$/); if(y) return new Date(parseInt(y[1]),0).getTime();
-  return 0;
-}
-
-function calcDuration(start,end) {
-  const ms=parseDateToMs(end)-parseDateToMs(start);
-  if(ms<=0) return '';
-  const m=Math.round(ms/(1000*60*60*24*30.44));
-  const yr=Math.floor(m/12), mo=m%12;
-  const p=[];
-  if(yr) p.push(`${yr} yr${yr>1?'s':''}`);
-  if(mo) p.push(`${mo} mo${mo>1?'s':''}`);
-  return p.length?`· ${p.join(' ')}`:'' ;
-}
-
-/* ============================================================
-   formatLines (for textarea / custom sections)
-   ============================================================ */
-function formatLines(lines) {
-  const bullet = getBulletChar();
-  const result = [];
-  for(let i=0;i<lines.length;i++){
-    const t=lines[i].trim();
-    if(!t){result.push('<div class="cvp-gap"></div>');continue;}
-    if(/^[•–]\s/.test(t)||/^-\s/.test(t)){ result.push(`<p class="cvp-bullet" style="break-inside:avoid">${bullet} ${mdLine(t.replace(/^[•–-]\s+/,''))}</p>`); continue; }
-    if(t.includes(' | ')&&/(Present|\d{4})/i.test(t)){ result.push(`<p class="cvp-entry-meta">${escapeHtml(t)}</p>`); continue; }
-    const next=(lines[i+1]||'').trim();
-    if(next.includes(' | ')&&/(Present|\d{4})/i.test(next)){ result.push(`<p class="cvp-entry-title">${mdLine(t)}</p>`); continue; }
-    const cat=t.match(/^([^:•|–-]{2,50}):\s+(.+)$/);
-    if(cat&&!/^\d/.test(cat[1])){ result.push(`<p class="cvp-line"><strong class="cvp-cat">${escapeHtml(cat[1])}:</strong> ${mdLine(cat[2])}</p>`); continue; }
-    result.push(`<p class="cvp-line">${mdLine(t)}</p>`);
-  }
-  return result.join('');
-}
-
-function mdLine(text) {
-  return (text||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
-    .replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, (m, label, url) => {
-      const safeUrl = url.replace(/"/g, '&quot;');
-      return `<a href="${safeUrl}" target="_blank" rel="noopener">${label}</a>`;
-    })
-    .replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>').replace(/__(.+?)__/g,'<u>$1</u>')
-    .replace(/\*(.+?)\*/g,'<em>$1</em>').replace(/`(.+?)`/g,'<code>$1</code>');
-}
+// buildCustomFooterHTML, renderSectionPreview, getBulletChar,
+// renderEntryHTML, the date/duration helpers (MONTH_MAP etc,
+// formatDate, calcDuration), formatLines, and mdLine all moved to
+// js/cv-render.js, shared with dashboard.js.
 
 /* ============================================================
    UPDATE HANDLERS
@@ -3153,11 +2488,7 @@ document.addEventListener('keydown', (e) => {
   else if (key === 'y' || (key === 'z' && e.shiftKey)) { e.preventDefault(); redo(); }
 });
 
-/* ============================================================
-   HELPERS
-   ============================================================ */
-function escapeHtml(s){ const d=document.createElement('div'); d.appendChild(document.createTextNode(s||'')); return d.innerHTML; }
-function escapeAttr(s){ return (s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,'&#39;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+// escapeHtml/escapeAttr moved to js/cv-render.js, shared with dashboard.js.
 
 /* ============================================================
    BOOT
