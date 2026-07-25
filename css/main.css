@@ -2666,9 +2666,13 @@ input {
     padding: 0 !important;
   }
 
+  /* No @page margin declared here on purpose: Chromium's print engine
+     gives an explicit CSS @page margin priority over Puppeteer's own
+     page.pdf() margin option regardless of preferCSSPageSize, so an
+     "margin: 0" here would silently zero out the real margins the
+     backend applies from the Customize panel's slider. */
   @page {
     size: A4;
-    margin: 0;
   }
 }
 
