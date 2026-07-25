@@ -5,6 +5,17 @@ Commit hashes refer to `main`.
 
 ## 2026-07-25
 
+- `abdb412` Follow-up to `64277e8` below: the margin fix didn't
+  actually take effect on the first deploy. `main.css`'s print block
+  still had a leftover `@page { size: A4; margin: 0; }` rule, and
+  Chromium's print engine gives an explicit CSS `@page margin`
+  declaration priority over Puppeteer's own `page.pdf()` margin option
+  regardless of `preferCSSPageSize`, so that CSS rule kept forcing
+  every page to 0 margin even after the API-level fix shipped.
+  Confirmed with a live test (a controlled payload with a 30mm
+  requested margin rendered at 0mm before this commit, ~30mm after).
+  Removed the `margin: 0` from that `@page` rule; `size: A4` alone
+  doesn't have this override problem.
 - `64277e8` Fixed the Customize panel's Top & Bottom Margin slider
   having no effect on the actual downloaded PDF: a `@media print`
   override in `main.css` hardcoded `.cv-paper`'s padding to
