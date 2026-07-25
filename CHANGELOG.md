@@ -5,6 +5,22 @@ Commit hashes refer to `main`.
 
 ## 2026-07-25
 
+- `64277e8` Fixed the Customize panel's Top & Bottom Margin slider
+  having no effect on the actual downloaded PDF: a `@media print`
+  override in `main.css` hardcoded `.cv-paper`'s padding to
+  `14mm 18mm` regardless of the slider, and even that hardcoded value
+  painted unevenly across pages, since CSS padding on one continuous
+  flowing box only paints on that box's first/last fragment under
+  Chromium's print pagination (not every page), which is why page 2
+  onward had no top margin at all. Margins now come from Puppeteer's
+  own `page.pdf()` margin option in `cascv-pdf-service`, driven by
+  `marginLR`/`marginTB` values sent explicitly from both `editor.js`'s
+  and `dashboard.js`'s export payloads, applying identically to every
+  physical page. Also fixed a large black area appearing past the CV's
+  last page in some PDF viewers: the generated document never had an
+  explicit background color, so any unpainted region beyond the
+  content was left as bare canvas; the backend now paints the CV's own
+  `colorBg` (default white) across the whole document.
 - `7cf858b` Switched PDF generation from client-side html2canvas
   screenshotting to a new backend: the `cascv-pdf-service` Netlify
   function, which renders CVs with headless Chromium's own native
