@@ -5,6 +5,24 @@ Commit hashes refer to `main`.
 
 ## 2026-07-25
 
+- `c516d62` Moved PDF generation off Netlify (`cascv-pdf-service`) to
+  Cas's own EC2 VM: the Netlify team account is on the credit-based
+  Free plan (300 credits/month, hard limit, no auto-recharge), and
+  today's production deploys (15 credits each) plus Functions compute
+  (10 credits per GB-hour, which headless Chromium renders burn
+  through) were pushing the shared team allowance toward its cap. The
+  new backend is a plain Node/Express port of the same generate-pdf
+  logic (same auth, CORS, margin/background handling), running under
+  systemd on the VM, reverse-proxied through Caddy for automatic HTTPS
+  via a free Let's Encrypt cert on the sslip.io hostname
+  `13-217-108-198.sslip.io` (no owned domain needed). Verified against
+  the live site: real PDF generation, correct margins, no black
+  background regions, and all three download paths (editor button,
+  dashboard gallery, mobile preview) working through their actual
+  click handlers. The old Netlify function is left running, unused,
+  as a rollback option. See CLAUDE.md's PDF generation backend section
+  for the full setup.
+
 - `5097d74` Fixed dashboard.js's independent PDF export payload (used
   for gallery downloads) silently dropping four Customize panel
   settings that editor.js's own export path respects: sidebar

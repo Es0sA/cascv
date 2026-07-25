@@ -239,7 +239,7 @@ The original localStorage data is left in place as a backup, not
 deleted, so don't write code that assumes `cas_cv_data` is empty or
 absent.
 
-## PDF generation backend: cascv-pdf-service (Netlify)
+## PDF generation backend: Cas's own VM (was cascv-pdf-service on Netlify)
 
 PDF export used to be entirely client-side (html2canvas screenshotting
 the CV, then jsPDF assembling those screenshots into a PDF). That
@@ -248,19 +248,100 @@ whichever browser happened to be downloading proved unreliable across
 devices: phantom blank trailing pages, wasted space, previews that
 visually disagreed with the actual download. See the git history around
 the commit "Switch PDF generation from client-side html2canvas to the
-cascv-pdf-service backend" for the full before/after.
+cascv-pdf-service backend" for that before/after.
 
-PDF export now works like this: the browser builds the CV's styled HTML
-(the exact class string, inline custom properties, and inner markup the
-live preview already computes) and POSTs it to a separate Netlify
-function, which renders it with a real headless Chromium instance and
-returns the actual generated PDF bytes. Chromium's own native print
-pipeline (`page.pdf()`) paginates by reading the CSS fragmentation rules
-`main.css` already declares (`break-inside: avoid` on entry titles/
-bullets/etc.), the same way on every request, regardless of who's asking
-or what device they're on. This also produces real vector text instead
-of a rasterized JPEG, at a fraction of the file size (a 2-page CV: was
-roughly 414KB, is now roughly 20 to 30KB).
+PDF export works like this: the browser builds the CV's styled HTML (the
+exact class string, inline custom properties, and inner markup the live
+preview already computes) and POSTs it to a small backend, which renders
+it with a real headless Chromium instance and returns the actual
+generated PDF bytes. Chromium's own native print pipeline (`page.pdf()`)
+paginates by reading the CSS fragmentation rules `main.css` already
+declares (`break-inside: avoid` on entry titles/bullets/etc.), the same
+way on every request, regardless of who's asking or what device they're
+on. This also produces real vector text instead of a rasterized JPEG, at
+a fraction of the file size (a 2-page CV: was roughly 414KB, is now
+roughly 20 to 30KB).
+
+### Current hosting: Cas's own EC2 VM (as of 2026-07-25)
+
+- Endpoint: `https://13-217-108-198.sslip.io/generate-pdf`, called from
+  `js/pdf-service.js`'s `casGeneratePdf()` (the one function both
+  `editor.js` and `dashboard.js` call).
+- Runs on Cas's own AWS EC2 instance (`13.217.108.198`), which already
+  hosts several unrelated Telegram bots and other projects via Docker.
+  This PDF service does NOT run in Docker (kept lean given the box's
+  disk is chronically tight, ~1.3GB free of 28GB): it's a plain
+  `node server.mjs` process (Express + `puppeteer-core` +
+  `@sparticuz/chromium`, same dependency versions as the old Netlify
+  function) under a systemd unit (`/etc/systemd/system/cascv-pdf.service`,
+  source at `~/cascv-pdf-vm` on that VM), so it auto-restarts on crash
+  or reboot. `@sparticuz/chromium`'s binary decompresses into `/tmp`,
+  which is its own separate RAM-backed tmpfs on this box, not the tight
+  root disk, so Chromium's footprint doesn't compete with everything
+  else running there.
+- Unlike the old per-request Netlify function (fresh Chromium launch
+  and teardown every call), this server keeps ONE browser instance
+  alive across requests (see `newPage()` in `server.mjs`), reusing it
+  for speed; if the cached browser has died between requests, opening
+  a page on it throws and the code relaunches a fresh one automatically
+  (self-healing, not relying on any specific `browser.isConnected()`
+  API shape, since that method's exact behavior isn't worth depending
+  on across puppeteer-core versions).
+- TLS/HTTPS: Caddy (`/etc/caddy/Caddyfile` on the VM) reverse-proxies
+  port 443 to the Node server on `127.0.0.1:8181`, and automatically
+  obtains/renews a real Let's Encrypt certificate. The hostname
+  `13-217-108-198.sslip.io` is NOT a domain Cas owns; sslip.io is a
+  free "magic DNS" service where any hostname of that form
+  automatically resolves to the IP address embedded in it, which is
+  enough for Let's Encrypt's HTTP-01 challenge to succeed (no domain
+  purchase needed, keeps this free per "Keep costs at zero" below). If
+  the VM's IP ever changes, this whole hostname changes with it, and
+  `js/pdf-service.js`'s `CAS_PDF_SERVICE_URL` plus the Caddyfile both
+  need updating to match.
+- Firewall: the VM's own OS-level firewall (iptables/ufw) is NOT the
+  relevant gate here; ufw is inactive and iptables' INPUT chain is
+  ACCEPT-by-default. The actual gate is the AWS EC2 **Security Group**
+  attached to this instance, which had to be manually opened for ports
+  80 and 443 (Inbound rules, HTTP/HTTPS, source `0.0.0.0/0`) via the AWS
+  Console before Let's Encrypt could complete its HTTP-01 challenge
+  (symptom without this: Caddy's logs show
+  `"Timeout during connect (likely firewall problem)"`, and this is not
+  something fixable from inside the VM over SSH).
+- Auth and CORS are unchanged from the Netlify version: a real Firebase
+  ID token for the `cas-cv-builder` project is verified via Google's
+  public JWKS on every request (no service-account secret needed), and
+  CORS is scoped to `https://es0sa.github.io` specifically. Same caveat
+  applies: you cannot test this from `localhost` or a `raw.githack.com`
+  branch preview, since the browser blocks the cross-origin fetch.
+- Request body and JS-disabled rendering are unchanged from the Netlify
+  version too: `{ outerClassName, styleAttr, innerHTML, paperFormat,
+  filename, marginLR, marginTB, colorBg }`, `innerHTML` always the
+  UNSPLIT CV markup, and `page.setJavaScriptEnabled(false)` since the
+  CV content never needs to run any script to render correctly.
+- Deploying a code change: edit `server.mjs` locally, `scp` it to
+  `~/cascv-pdf-vm/server.mjs` on the VM, then
+  `sudo systemctl restart cascv-pdf`. No build step, no bundler, same
+  "no build step" philosophy as the rest of this project.
+- Why this replaced Netlify: the Netlify team account (`imafidongraphix`)
+  is on Netlify's newer credit-based Free plan (300 credits/month, hard
+  limit, no auto-recharge). Both production deploys (15 credits each)
+  and Functions compute (10 credits per GB-hour, which headless Chromium
+  renders burn through fast) were pushing the shared team allowance
+  toward its cap, risking the whole site going down mid-month with no
+  way to recover until the next billing cycle. A persistent VM has no
+  equivalent metered limit.
+- The old `cascv-pdf-service` Netlify function and site are left in
+  place, not deleted, in case a rollback is ever needed (see below).
+
+### Historical: cascv-pdf-service on Netlify (superseded, kept for context)
+
+The section below describes the ORIGINAL Netlify-hosted version of this
+backend. It's kept here because the underlying `page.pdf()`/Chromium
+logic, auth model, and CORS approach are all still identical on the VM
+version above; only the hosting/deployment mechanics changed. If the VM
+ever needs to be abandoned, this is what a rollback target looks like
+(the Netlify site and function are still deployed and functional as of
+this writing, just no longer the one `js/pdf-service.js` points at).
 
 - Separate repo/directory: `~/cascv-pdf-service` (not part of this
   `cascv` repo, has its own local git history, no GitHub remote as of
@@ -269,35 +350,7 @@ roughly 414KB, is now roughly 20 to 30KB).
   than reusing the Netlify account this project used to be hosted on
   before it moved to GitHub Pages. Site: `cascv-pdf-service`, team slug
   `imafidongraphix`, site ID `e6af0177-ca5c-45c1-905b-13fffb37cd20`.
-- Endpoint: `https://cascv-pdf-service.netlify.app/generate-pdf`,
-  called from `js/pdf-service.js`'s `casGeneratePdf()` (the one function
-  both `editor.js` and `dashboard.js` call).
-- Auth: the function is publicly reachable (Netlify functions have no
-  built-in access control) but verifies a real Firebase ID token for the
-  `cas-cv-builder` project on every request, via Google's public JWKS
-  (no service-account secret stored on Netlify). This trusts a request
-  exactly the way Firestore's own security rules do. A request without a
-  valid token gets 401.
-- CORS is scoped to `https://es0sa.github.io` specifically, not a
-  wildcard, since this endpoint exists for cascv alone. This means you
-  cannot test it by serving this repo from `localhost` or any other
-  origin (including `raw.githack.com` branch previews) — the browser
-  will block the fetch. Testing against a real code change here means
-  pushing to `main` and testing the live site, or temporarily loosening
-  CORS in the function and reverting it after.
-- Request body: `{ outerClassName, styleAttr, innerHTML, paperFormat,
-  filename }`. `innerHTML` is always the UNSPLIT CV markup
-  (`buildCVHTML(cvData.parsed)` in editor.js, or the equivalent inline
-  build in dashboard.js's `downloadCV()`), never editor.js's own
-  pre-split `.cv-page` DOM: the whole point of moving pagination to the
-  backend is letting Chromium's print engine paginate a single flowing
-  document itself, not re-feeding it content this app already split
-  itself.
-- JS execution is disabled on the page the function renders
-  (`page.setJavaScriptEnabled(false)`) even for authenticated requests:
-  the function's trust boundary is "is this really Cas", not "is this
-  HTML safe", and the CV content is static styled markup that never
-  needs to run any script to render correctly.
+- Endpoint: `https://cascv-pdf-service.netlify.app/generate-pdf`.
 - Real bugs hit getting this working (both only reproducible against
   the actual live Netlify deploy, never locally, so don't trust a local
   reproduction of either as proof of a fix):
@@ -335,10 +388,6 @@ roughly 414KB, is now roughly 20 to 30KB).
   ("Deploying functions from cache" in the deploy log is the tell), so a
   dependency-version fix can appear to deploy successfully while the
   live function keeps running the old broken code.
-- Keeping this free: Netlify's free tier covers this comfortably at
-  single-user traffic. If usage or Netlify's pricing ever changes that,
-  revisit before it becomes a real bill (see "Keep costs at zero"
-  below).
 
 ## Known gotchas (learned the hard way this session, don't repeat these)
 
