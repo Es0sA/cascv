@@ -3,6 +3,42 @@
 Log of changes made to this repo by Claude Code sessions. Newest first.
 Commit hashes refer to `main`.
 
+## 2026-07-25
+
+- `7cf858b` Switched PDF generation from client-side html2canvas
+  screenshotting to a new backend: the `cascv-pdf-service` Netlify
+  function, which renders CVs with headless Chromium's own native
+  `page.pdf()` print pipeline. Motivation: pagination decided by
+  measuring layout in whichever browser happened to be downloading
+  proved unreliable across devices, and this repo's own history is full
+  of chasing that class of bug (phantom blank pages, font-loading
+  races, cross-browser measurement drift). Chromium's native print
+  engine reads the CSS fragmentation rules `main.css` already declares
+  and paginates deterministically, the same way every time, so this
+  whole category of bug can no longer happen. Bonus: real vector text
+  instead of a rasterized JPEG, cutting a typical 2-page CV from
+  roughly 414KB to 20 to 30KB while looking sharper at any zoom.
+  Editor's Download PDF button, the mobile Preview modal, and
+  Dashboard's gallery Download button all now go through this backend.
+  Removed as dead code once nothing called them anymore: `editor.js`'s
+  `exportPaginatedPdf`/`exportFlowingPdf`/`isCanvasTailBlank`/
+  `hexToRgb`, and `parser.js`'s `neutralizeHeaderBleed` (an
+  html2canvas-specific rendering quirk fix that doesn't apply to real
+  browser layout). The `html2pdf.js` CDN script tag is gone from
+  `editor.html` and `dashboard.html`. New shared classic script
+  `js/pdf-service.js` holds `casGeneratePdf()`, the one function both
+  `editor.js` and `dashboard.js` call to reach the backend. Getting the
+  backend itself working required two separate fixes, both only
+  reproducible against the live Netlify deploy (esbuild silently
+  dropping `@sparticuz/chromium`'s binary assets from the bundle, then
+  a Node 22.x/Amazon-Linux-2023 runtime the package version in use
+  couldn't detect correctly) — see this repo's CLAUDE.md, "PDF
+  generation backend" section, for the full detail, since that backend
+  lives in a separate `~/cascv-pdf-service` repo/deploy outside this
+  one. Verified end to end live via Playwright: all three download
+  entry points (plus the mobile preview's own live iframe) produced
+  real, valid PDFs.
+
 ## 2026-07-23 (final)
 
 - `b90a16e` Fixed a phantom blank trailing PDF page, reported by Cas

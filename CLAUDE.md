@@ -28,7 +28,10 @@ The app lets Cas build, customize, and export CVs as PDF, plus run an ATS
 - No build step, no bundler, no npm build process. Every `<script>` tag
   in the HTML files loads a plain `.js` file directly; nothing is
   compiled or bundled.
-- No backend server. This is a static site.
+- The static site itself (this repo) has no backend and no build step.
+  PDF generation is the one exception: it calls a small separate backend,
+  the `cascv-pdf-service` Netlify function. See "PDF generation backend"
+  below.
 - Two kinds of script loading are used, and it matters which one:
   - Classic scripts (`<script src="js/foo.js"></script>`, no `type`
     attribute): `dashboard.js`, `editor.js`, `parser.js`, `import.js`,
@@ -49,8 +52,11 @@ The app lets Cas build, customize, and export CVs as PDF, plus run an ATS
 - Hosting: GitHub Pages, repo `Es0sA/cascv`, live at
   `https://es0sa.github.io/cascv/`. Deploys automatically from the `main`
   branch. Any push to `main` goes live within roughly a minute.
-- PDF generation: `html2pdf.js` loaded from a CDN (`cdnjs.cloudflare.com`)
-  in `editor.html` and `dashboard.html`.
+- PDF generation: calls the `cascv-pdf-service` Netlify function (real
+  headless Chromium `page.pdf()`, not a client-side screenshot). See
+  "PDF generation backend" below. `html2pdf.js` and client-side
+  html2canvas rendering are gone as of this session; don't reintroduce
+  them.
 - Drag-to-reorder (sections, entries, Section Layout chips, all in
   `editor.html`): `SortableJS`, also loaded from `cdnjs.cloudflare.com`.
   A past version used native HTML5 drag-and-drop, which no touch
@@ -148,6 +154,11 @@ js/
                      import.js.
   import.js            Resume document import/parsing flow logic.
   keywords.js, ats.js    ATS keyword-checking feature logic.
+  pdf-service.js        Classic script (same load pattern as parser.js),
+                     loaded by editor.html and dashboard.html. Holds
+                     casGeneratePdf(), the one function both files call
+                     to reach the cascv-pdf-service backend. See "PDF
+                     generation backend" below.
 
 assets/               Favicons and the apple touch icon, referenced by
                      every page's <head>. Nothing else lives here;
@@ -228,6 +239,107 @@ The original localStorage data is left in place as a backup, not
 deleted, so don't write code that assumes `cas_cv_data` is empty or
 absent.
 
+## PDF generation backend: cascv-pdf-service (Netlify)
+
+PDF export used to be entirely client-side (html2canvas screenshotting
+the CV, then jsPDF assembling those screenshots into a PDF). That
+approach was replaced because pagination decided by measuring layout in
+whichever browser happened to be downloading proved unreliable across
+devices: phantom blank trailing pages, wasted space, previews that
+visually disagreed with the actual download. See the git history around
+the commit "Switch PDF generation from client-side html2canvas to the
+cascv-pdf-service backend" for the full before/after.
+
+PDF export now works like this: the browser builds the CV's styled HTML
+(the exact class string, inline custom properties, and inner markup the
+live preview already computes) and POSTs it to a separate Netlify
+function, which renders it with a real headless Chromium instance and
+returns the actual generated PDF bytes. Chromium's own native print
+pipeline (`page.pdf()`) paginates by reading the CSS fragmentation rules
+`main.css` already declares (`break-inside: avoid` on entry titles/
+bullets/etc.), the same way on every request, regardless of who's asking
+or what device they're on. This also produces real vector text instead
+of a rasterized JPEG, at a fraction of the file size (a 2-page CV: was
+roughly 414KB, is now roughly 20 to 30KB).
+
+- Separate repo/directory: `~/cascv-pdf-service` (not part of this
+  `cascv` repo, has its own local git history, no GitHub remote as of
+  this writing).
+- Separate Netlify account and site, chosen deliberately fresh rather
+  than reusing the Netlify account this project used to be hosted on
+  before it moved to GitHub Pages. Site: `cascv-pdf-service`, team slug
+  `imafidongraphix`, site ID `e6af0177-ca5c-45c1-905b-13fffb37cd20`.
+- Endpoint: `https://cascv-pdf-service.netlify.app/generate-pdf`,
+  called from `js/pdf-service.js`'s `casGeneratePdf()` (the one function
+  both `editor.js` and `dashboard.js` call).
+- Auth: the function is publicly reachable (Netlify functions have no
+  built-in access control) but verifies a real Firebase ID token for the
+  `cas-cv-builder` project on every request, via Google's public JWKS
+  (no service-account secret stored on Netlify). This trusts a request
+  exactly the way Firestore's own security rules do. A request without a
+  valid token gets 401.
+- CORS is scoped to `https://es0sa.github.io` specifically, not a
+  wildcard, since this endpoint exists for cascv alone. This means you
+  cannot test it by serving this repo from `localhost` or any other
+  origin (including `raw.githack.com` branch previews) — the browser
+  will block the fetch. Testing against a real code change here means
+  pushing to `main` and testing the live site, or temporarily loosening
+  CORS in the function and reverting it after.
+- Request body: `{ outerClassName, styleAttr, innerHTML, paperFormat,
+  filename }`. `innerHTML` is always the UNSPLIT CV markup
+  (`buildCVHTML(cvData.parsed)` in editor.js, or the equivalent inline
+  build in dashboard.js's `downloadCV()`), never editor.js's own
+  pre-split `.cv-page` DOM: the whole point of moving pagination to the
+  backend is letting Chromium's print engine paginate a single flowing
+  document itself, not re-feeding it content this app already split
+  itself.
+- JS execution is disabled on the page the function renders
+  (`page.setJavaScriptEnabled(false)`) even for authenticated requests:
+  the function's trust boundary is "is this really Cas", not "is this
+  HTML safe", and the CV content is static styled markup that never
+  needs to run any script to render correctly.
+- Real bugs hit getting this working (both only reproducible against
+  the actual live Netlify deploy, never locally, so don't trust a local
+  reproduction of either as proof of a fix):
+  1. Netlify's esbuild bundler drops `@sparticuz/chromium`'s binary
+     `.br` assets from the deployed function (they're loaded via `fs`
+     at runtime, not `import`/`require`, so esbuild's static analysis
+     never sees them). Fixed via `included_files` in `netlify.toml`.
+     Symptom without this fix: an opaque Netlify 502 ("error decoding
+     lambda response"), not a clean error from the function's own code,
+     because the crash happens before the function can construct any
+     `Response` at all.
+  2. `@sparticuz/chromium`'s own runtime-detection logic (in its
+     `helper.js`) only special-cased Node 20.x Lambda runtimes as of
+     older package versions; Netlify's actual runtime is Node 22.x, so
+     older versions fell through to the wrong (Amazon Linux 2) shared-
+     library path, while the real underlying OS is Amazon Linux 2023,
+     leaving `libnspr4.so` off `LD_LIBRARY_PATH`. Fixed by updating to
+     `@sparticuz/chromium@149.0.0` + `puppeteer-core@^25.3.0`, whose
+     detection logic handles this correctly (and which only ships the
+     AL2023 binary now, having fully dropped AL2 support). If a future
+     Netlify runtime bump breaks this again, check
+     `node_modules/@sparticuz/chromium/build/helper.js`'s
+     `isRunningInAwsLambda*` functions against whatever
+     `process.env.AWS_EXECUTION_ENV` actually reports in production
+     (temporarily add a debug branch to the function that echoes
+     `process.env` back, deploy, curl it, then remove the debug branch
+     before considering the fix done — this is exactly how both bugs
+     above were actually diagnosed).
+- Deploying: `netlify-cli deploy --prod --site
+  e6af0177-ca5c-45c1-905b-13fffb37cd20 --dir . --skip-functions-cache`
+  from `~/cascv-pdf-service`, authenticated via
+  `NETLIFY_AUTH_TOKEN=<personal access token>`. Always pass
+  `--skip-functions-cache`: without it, `netlify-cli` can silently reuse
+  a stale bundled function even after `package.json`/dependency changes
+  ("Deploying functions from cache" in the deploy log is the tell), so a
+  dependency-version fix can appear to deploy successfully while the
+  live function keeps running the old broken code.
+- Keeping this free: Netlify's free tier covers this comfortably at
+  single-user traffic. If usage or Netlify's pricing ever changes that,
+  revisit before it becomes a real bill (see "Keep costs at zero"
+  below).
+
 ## Known gotchas (learned the hard way this session, don't repeat these)
 
 1. CSS specificity trap with `.cv-paper`. There are three separate
@@ -269,17 +381,14 @@ absent.
    the function. It's there because centering silently breaks without it
    in at least one real-world case.
 
-4. html2pdf.js phantom blank trailing page. Forcing a fixed page height
-   on the PDF-export clone before measuring real content height causes
-   rounding between the browser's mm-to-px layout and html2canvas's own
-   pixel math to occasionally produce a near-empty extra page. The fix
-   pattern in `editor.js`'s PDF download handler: measure the CV's true
-   natural content height first (with no forced page height), calculate
-   exactly how many pages it needs, then size the clone to that exact
-   multiple of page height, plus a safety net that inspects the generated
-   PDF via html2pdf's `.toPdf().get('pdf')` API and trims any stray
-   trailing page before `.save()`. Don't go back to naively forcing a
-   single page height.
+4. SUPERSEDED, kept for history only: html2pdf.js used to produce a
+   phantom blank trailing page from time to time, caused by rounding
+   between the browser's mm-to-px layout and html2canvas's own pixel
+   math. This whole category of bug is what motivated moving PDF export
+   to the `cascv-pdf-service` backend (see that section above); the
+   client-side html2canvas/jsPDF code this gotcha described no longer
+   exists in this repo. Don't reintroduce client-side screenshot-based
+   PDF export to "simplify" something; it was replaced on purpose.
 
 5. Template thumbnails must be live-rendered, not photos. An earlier
    version showed random unrelated stock photos as template preview
@@ -292,29 +401,13 @@ absent.
    rules. The thumbnail auto-reflects them; there is no separate image
    asset to create or maintain. Do not reintroduce static preview images.
 
-6. `pdf.addImage(dataURL, 'PNG', ...)` in the bundled jsPDF (inside
-   `html2pdf.bundle.min.js`) embeds PNG images as fully uncompressed raw
-   RGBA with no Flate filter applied at all, not the PNG's own
-   compressed bytes. A single A4 page at `scale:2` balloons from roughly
-   500KB to about 14MB; a 2-page CV export hit nearly 30MB. JPEG doesn't
-   have this problem (its own DCT-compressed bytes get embedded more or
-   less directly), which is why both PDF export functions in
-   `editor.js` (`exportPaginatedPdf`, `exportFlowingPdf`) use
-   `image: { type: 'jpeg', quality: 0.85 }` and not PNG, even though PNG
-   would otherwise be the safer, simpler choice (lossless, no risk of a
-   bad DCT encode). Quality was later dropped from an initial `0.98` to
-   `0.85`, and `html2canvas`'s `scale` from `2` to `1.5`, once it turned
-   out `0.98` measured out LARGER than a lossless PNG of the same page
-   for this flat-background, dark-text content (paying for lossy
-   compression while getting none of its benefit); real test downloads
-   went from roughly 987KB to 414KB. `js/dashboard.js`'s separate
-   `downloadCV()` export path uses the same `0.85`/`1.5` values now too
-   (see gotcha below on the two PDF-export implementations existing in
-   the first place). If a future session is tempted to switch to PNG to
-   dodge a JPEG-related bug, measure the resulting file size on a real
-   multi-page CV first: it is a 10 to 30x regression, confirmed in this
-   session before it shipped. If tempted to raise quality/scale back up,
-   measure file size before and after on a real multi-page CV first.
+6. SUPERSEDED, kept for history only: the old jsPDF-based export had a
+   real PNG-vs-JPEG file size trap (uncompressed PNG embedding balloon-
+   ing a page from ~500KB to ~14MB) that took real measurement to catch.
+   Moot now: the `cascv-pdf-service` backend embeds real vector text via
+   Chromium's native `page.pdf()`, not a rasterized image at all, so
+   there's no PNG/JPEG tradeoff to make. A 2-page CV now runs roughly
+   20 to 30KB.
 
 7. `fitPaperZoom()` (the CSS-`zoom`-based preview shrink, used by the
    desktop split panel) must not rely on a single `requestAnimationFrame`
@@ -331,45 +424,48 @@ absent.
    zoom/timing bug can't recur there anymore, only in the desktop
    split-panel view `#editorRight` still uses.
 
-8. Two separate PDF-export implementations existing (`editor.js`'s
-   `exportPaginatedPdf`/`exportFlowingPdf` and `dashboard.js`'s
-   `downloadCV()`, used by the gallery card's Download button) is a real
-   trap: a fix applied to one (quality/scale settings, a font-load-race
-   guard, a stale-repagination flush) silently does not apply to the
-   other unless done twice. This already happened once: `dashboard.js`
-   kept the old `quality:0.98`/`scale:2` settings and a flat
-   `setTimeout(400)` font wait for a while after `editor.js` moved to
-   `0.85`/`1.5` and a real `ensureFontsReady()` wait, producing a larger,
-   sometimes differently-paginated PDF depending on which download
-   button was used for the exact same CV. If you fix something in one
-   file's PDF export, check whether the other file's export needs the
-   same fix before considering the bug closed.
+8. Two separate PDF-export implementations existing (`editor.js` and
+   `dashboard.js` each independently building their own styled HTML from
+   CV data, then both calling out to the same backend) is still a real,
+   live trap even after moving to the `cascv-pdf-service` backend: a fix
+   to how one file computes `outerClassName`/`styleAttr`/`innerHTML`
+   (a new field, a section type dashboard.js's `renderSec()` doesn't
+   handle yet, a style prop editor.js's `buildBackendExportPayload()`
+   sets that dashboard.js's inline equivalent doesn't) silently does not
+   apply to the other unless done twice. This already happened once
+   before the backend migration (see git history: dashboard.js lagged
+   editor.js's html2canvas quality/scale settings and font-wait logic
+   for a while). If you fix or extend one file's PDF export payload,
+   check whether the other file's needs the same change before
+   considering the fix done.
 
 ## Mobile Preview Modal
 
 The mobile Preview button (`#mobilePreviewFab`/`#mobilePreviewModal` in
 `editor.html`, `openMobilePreview()`/`closeMobilePreview()` in
-`editor.js`) generates the actual PDF (the same
-`exportPaginatedPdf`/`exportFlowingPdf` functions Download PDF uses,
-called with a `'blob'` mode that returns `pdf.output('blob')` instead of
-triggering a save) and displays it in an iframe, rather than showing a
-live CSS re-creation of the CV shrunk down to fit the screen. An earlier
-version did the latter (moved the live `#cvPaperWrap` into the modal and
-shrank it with `fitPaperZoom()`), but that meant the preview and the
-downloaded PDF could visually disagree on real mobile Safari in ways
-that were not reproducible in this project's testing tools (see the
-Playwright note below): reported cases included an entry's employer/
-school name wrapping onto extra lines in the preview but not the PDF,
-and the preview filling the page edge to edge while the PDF had its
-normal margins. Rendering the actual PDF instead makes this category of
-bug structurally impossible: the preview IS the download, byte for
-byte, so it cannot disagree with itself. The live CSS preview panel
-(`#editorRight`) is hidden entirely on mobile now (see the
-`@media(max-width:800px)` rule for `.editor-right` in `main.css`) since
-it would otherwise be a redundant, less trustworthy second preview,
-though `#cvPaperWrap` still renders invisibly inside it either way, as
-the export source both PDF functions clone from. Desktop's side-by-side
-live preview is unaffected by any of this.
+`editor.js`) generates the actual PDF (calls the same
+`casGeneratePdf(buildBackendExportPayload(), 'blob')` the Download PDF
+button uses, just with `'blob'` mode instead of triggering a save) and
+displays it in an iframe, rather than showing a live CSS re-creation of
+the CV shrunk down to fit the screen. An earlier version did the latter
+(moved the live `#cvPaperWrap` into the modal and shrank it with
+`fitPaperZoom()`), but that meant the preview and the downloaded PDF
+could visually disagree on real mobile Safari in ways that were not
+reproducible in this project's testing tools (see the Playwright note
+below): reported cases included an entry's employer/school name
+wrapping onto extra lines in the preview but not the PDF, and the
+preview filling the page edge to edge while the PDF had its normal
+margins. Rendering the actual PDF instead makes this category of bug
+structurally impossible: the preview IS the download, byte for byte
+(now literally guaranteed, since both call the exact same backend
+function with the exact same payload), so it cannot disagree with
+itself. The live CSS preview panel (`#editorRight`) is hidden entirely
+on mobile now (see the `@media(max-width:800px)` rule for
+`.editor-right` in `main.css`) since it would otherwise be a redundant,
+less trustworthy second preview. It's no longer even the export source:
+`buildBackendExportPayload()` builds fresh HTML straight from
+`cvData`/`cvSettings`, not from `#cvPaperWrap`'s DOM. Desktop's
+side-by-side live preview is unaffected by any of this.
 
 ## Playwright MCP is set up for real browser testing
 
