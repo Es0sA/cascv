@@ -358,6 +358,9 @@ function buildBackendExportPayload() {
     innerHTML:      buildCVHTML(cvData.parsed),
     paperFormat:    cvSettings.paperFormat === 'Letter' ? 'Letter' : 'A4',
     filename:       cvData.name || 'CV',
+    marginLR:       cvSettings.marginLR,
+    marginTB:       cvSettings.marginTB,
+    colorBg:        cvSettings.colorBg,
   };
 }
 

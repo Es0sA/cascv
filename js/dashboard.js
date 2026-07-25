@@ -353,6 +353,9 @@ function downloadCV(id) {
         innerHTML: cvHtml,
         paperFormat: settings.paperFormat === 'Letter' ? 'Letter' : 'A4',
         filename: cv.name || 'CV',
+        marginLR: settings.marginLR,
+        marginTB: settings.marginTB,
+        colorBg: settings.colorBg,
       });
     } catch (err) {
       console.error('PDF generation failed:', err);

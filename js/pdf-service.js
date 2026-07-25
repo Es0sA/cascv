@@ -24,14 +24,14 @@ const CAS_PDF_SERVICE_URL = 'https://cascv-pdf-service.netlify.app/generate-pdf'
 // Blob instead, for the mobile Preview modal — showing the actual
 // generated PDF rather than a separate live approximation of it, so
 // the preview can never visually disagree with the download.
-async function casGeneratePdf({ outerClassName, styleAttr, innerHTML, paperFormat, filename }, mode) {
+async function casGeneratePdf({ outerClassName, styleAttr, innerHTML, paperFormat, filename, marginLR, marginTB, colorBg }, mode) {
   if (!window.casUser) throw new Error('Not signed in.');
   const token = await window.casUser.getIdToken();
 
   const res = await fetch(CAS_PDF_SERVICE_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-    body: JSON.stringify({ outerClassName, styleAttr, innerHTML, paperFormat, filename }),
+    body: JSON.stringify({ outerClassName, styleAttr, innerHTML, paperFormat, filename, marginLR, marginTB, colorBg }),
   });
 
   if (!res.ok) {

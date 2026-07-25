@@ -2657,7 +2657,13 @@ input {
     width: 100% !important;
     min-height: auto !important;
     margin: 0 !important;
-    padding: 14mm 18mm !important;
+    /* Real page margins come from the PDF backend's own page.pdf()
+       margin option (see cascv-pdf-service/netlify/functions/generate-pdf.mts),
+       which applies identically to every physical page. CSS padding on
+       this one continuous flowing box would instead only paint on its
+       first/last fragment under print pagination, hardcoding a value
+       here also ignored the Customize panel's margin slider entirely. */
+    padding: 0 !important;
   }
 
   @page {
