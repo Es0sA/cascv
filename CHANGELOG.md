@@ -3,6 +3,24 @@
 Log of changes made to this repo by Claude Code sessions. Newest first.
 Commit hashes refer to `main`.
 
+## 2026-08-15
+
+- Updated the PDF backend endpoint to match the VM's new public IP
+  (Cas reported it changed from `13.217.108.198` to `54.225.47.107`,
+  most likely an EC2 instance stop/start reassigning the IP since the
+  box has no Elastic IP allocated). Changed `CAS_PDF_SERVICE_URL` in
+  `js/pdf-service.js` to `https://54-225-47-107.sslip.io/generate-pdf`
+  and updated the matching references in CLAUDE.md. Note: this only
+  fixes the repo/frontend side. The VM's own Caddyfile
+  (`/etc/caddy/Caddyfile`) also needs to be updated to serve the new
+  sslip.io hostname; that's outside this repo and wasn't reachable
+  from this session (no SSH access to the VM here). A test connection
+  to the new IP got past the network layer but failed the TLS
+  handshake with an "internal error" alert, consistent with Caddy not
+  yet having a site block or certificate for the new hostname. PDF
+  export will likely still be broken until that's done on the VM
+  itself.
+
 ## 2026-07-25
 
 - `33ada77` Follow-up to `d45a36f` below: found immediately after

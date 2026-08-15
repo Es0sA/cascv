@@ -302,12 +302,21 @@ on. This also produces real vector text instead of a rasterized JPEG, at
 a fraction of the file size (a 2-page CV: was roughly 414KB, is now
 roughly 20 to 30KB).
 
-### Current hosting: Cas's own EC2 VM (as of 2026-07-25)
+### Current hosting: Cas's own EC2 VM (as of 2026-07-25, IP updated 2026-08-15)
 
-- Endpoint: `https://13-217-108-198.sslip.io/generate-pdf`, called from
+- Endpoint: `https://54-225-47-107.sslip.io/generate-pdf`, called from
   `js/pdf-service.js`'s `casGeneratePdf()` (the one function both
-  `editor.js` and `dashboard.js` call).
-- Runs on Cas's own AWS EC2 instance (`13.217.108.198`), which already
+  `editor.js` and `dashboard.js` call). This used to be
+  `13-217-108-198.sslip.io`; the VM's public IP changed (most likely
+  an EC2 instance stop/start reassigning it, since this box has no
+  Elastic IP allocated) and Cas gave the new IP directly. Updated
+  here and in `js/pdf-service.js` on 2026-08-15. The VM-side Caddyfile
+  (`/etc/caddy/Caddyfile`) needs the matching hostname update too, and
+  that's on the VM itself, not in this repo: if PDF export is still
+  failing after this commit deploys, that's the first thing to check
+  (Caddy needs to be serving/obtaining a cert for the new sslip.io
+  hostname, not just the old one).
+- Runs on Cas's own AWS EC2 instance (`54.225.47.107`), which already
   hosts several unrelated Telegram bots and other projects via Docker.
   This PDF service does NOT run in Docker (kept lean given the box's
   disk is chronically tight, ~1.3GB free of 28GB): it's a plain
@@ -330,7 +339,7 @@ roughly 20 to 30KB).
 - TLS/HTTPS: Caddy (`/etc/caddy/Caddyfile` on the VM) reverse-proxies
   port 443 to the Node server on `127.0.0.1:8181`, and automatically
   obtains/renews a real Let's Encrypt certificate. The hostname
-  `13-217-108-198.sslip.io` is NOT a domain Cas owns; sslip.io is a
+  `54-225-47-107.sslip.io` is NOT a domain Cas owns; sslip.io is a
   free "magic DNS" service where any hostname of that form
   automatically resolves to the IP address embedded in it, which is
   enough for Let's Encrypt's HTTP-01 challenge to succeed (no domain
