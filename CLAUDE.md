@@ -302,21 +302,23 @@ on. This also produces real vector text instead of a rasterized JPEG, at
 a fraction of the file size (a 2-page CV: was roughly 414KB, is now
 roughly 20 to 30KB).
 
-### Current hosting: Cas's own EC2 VM (as of 2026-07-25, IP updated 2026-08-15)
+### Current hosting: Cas's own EC2 VM (as of 2026-07-25, on an Elastic IP since 2026-08-15)
 
-- Endpoint: `https://54-225-47-107.sslip.io/generate-pdf`, called from
+- Endpoint: `https://32-193-201-76.sslip.io/generate-pdf`, called from
   `js/pdf-service.js`'s `casGeneratePdf()` (the one function both
-  `editor.js` and `dashboard.js` call). This used to be
-  `13-217-108-198.sslip.io`; the VM's public IP changed (most likely
-  an EC2 instance stop/start reassigning it, since this box has no
-  Elastic IP allocated) and Cas gave the new IP directly. Updated
-  here and in `js/pdf-service.js` on 2026-08-15. The VM-side Caddyfile
-  (`/etc/caddy/Caddyfile`) needs the matching hostname update too, and
-  that's on the VM itself, not in this repo: if PDF export is still
-  failing after this commit deploys, that's the first thing to check
-  (Caddy needs to be serving/obtaining a cert for the new sslip.io
-  hostname, not just the old one).
-- Runs on Cas's own AWS EC2 instance (`54.225.47.107`), which already
+  `editor.js` and `dashboard.js` call). This IP is an Elastic IP,
+  allocated and associated with the instance on 2026-08-15, so it is
+  now permanent: it will not change on a future stop/start the way a
+  plain EC2 public IP does. Before that, the IP changed twice in one
+  session (`13.217.108.198` to `54.225.47.107` to `32.193.201.76`),
+  which is what prompted allocating the Elastic IP in the first
+  place. If this endpoint is ever moved to a different instance in
+  the future, both `js/pdf-service.js`'s `CAS_PDF_SERVICE_URL` and
+  the VM-side Caddyfile (`/etc/caddy/Caddyfile`, not in this repo)
+  need the matching hostname update; that Caddyfile update can only
+  be done with SSH access to the VM itself.
+- Runs on Cas's own AWS EC2 instance (`32.193.201.76`, Elastic IP;
+  instance ID `i-0f00090be9495622c`), which already
   hosts several unrelated Telegram bots and other projects via Docker.
   This PDF service does NOT run in Docker (kept lean given the box's
   disk is chronically tight, ~1.3GB free of 28GB): it's a plain
@@ -339,14 +341,16 @@ roughly 20 to 30KB).
 - TLS/HTTPS: Caddy (`/etc/caddy/Caddyfile` on the VM) reverse-proxies
   port 443 to the Node server on `127.0.0.1:8181`, and automatically
   obtains/renews a real Let's Encrypt certificate. The hostname
-  `54-225-47-107.sslip.io` is NOT a domain Cas owns; sslip.io is a
+  `32-193-201-76.sslip.io` is NOT a domain Cas owns; sslip.io is a
   free "magic DNS" service where any hostname of that form
   automatically resolves to the IP address embedded in it, which is
   enough for Let's Encrypt's HTTP-01 challenge to succeed (no domain
-  purchase needed, keeps this free per "Keep costs at zero" below). If
-  the VM's IP ever changes, this whole hostname changes with it, and
-  `js/pdf-service.js`'s `CAS_PDF_SERVICE_URL` plus the Caddyfile both
-  need updating to match.
+  purchase needed, keeps this free per "Keep costs at zero" below).
+  This IP is now an Elastic IP (see above), so it should not change
+  again on its own; if it's ever reassigned anyway (instance
+  replaced, Elastic IP manually disassociated), this whole hostname
+  changes with it, and `js/pdf-service.js`'s `CAS_PDF_SERVICE_URL`
+  plus the Caddyfile both need updating to match.
 - Firewall: the VM's own OS-level firewall (iptables/ufw) is NOT the
   relevant gate here; ufw is inactive and iptables' INPUT chain is
   ACCEPT-by-default. The actual gate is the AWS EC2 **Security Group**

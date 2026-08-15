@@ -5,6 +5,22 @@ Commit hashes refer to `main`.
 
 ## 2026-08-15
 
+- Follow-up to the entry directly below: Cas allocated and associated
+  a real AWS Elastic IP (`32.193.201.76`) with the VM instance
+  (`i-0f00090be9495622c`), specifically to stop this IP-churn problem
+  from recurring on future stops/starts. He then updated the VM's
+  Caddyfile himself (via SSH, walked through it live in this
+  session, including verifying the port with `sudo ss -tlnp | grep
+  node`, which turned out to be `8181` as documented, not the stale
+  `4007` the Caddyfile had drifted to) and confirmed a fresh Let's
+  Encrypt cert was obtained for `32-193-201-76.sslip.io`. Updated
+  `CAS_PDF_SERVICE_URL` in `js/pdf-service.js` and the matching
+  references in CLAUDE.md to this address, and confirmed end to end
+  from this session with a direct `curl` to `/generate-pdf` (clean
+  401 with the expected CORS headers and `x-powered-by: Express`,
+  i.e. TLS and the reverse proxy are both working correctly). Since
+  this IP is now an Elastic IP rather than a plain dynamic EC2
+  public IP, it should not change again on its own.
 - Updated the PDF backend endpoint to match the VM's new public IP
   (Cas reported it changed from `13.217.108.198` to `54.225.47.107`,
   most likely an EC2 instance stop/start reassigning the IP since the

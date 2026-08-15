@@ -24,23 +24,26 @@
    Chromium renders burn through) were pushing the shared team
    allowance toward its cap. The VM has no equivalent metered limit.
    TLS is a Let's Encrypt cert for the free sslip.io "magic DNS"
-   hostname (54-225-47-107.sslip.io resolves to the VM's own IP),
-   since there's no owned domain to point at it. The service itself
+   hostname (the current one, 32-193-201-76.sslip.io, resolves to
+   the VM's own Elastic IP; see the note below on why this hostname
+   has changed before), since there's no owned domain to point at
+   it. The service itself
    is a plain Node/Express port of the old Netlify function (same
    Firebase-token auth, same CORS, same margin/background handling),
    running under systemd, reverse-proxied through Caddy for
    automatic HTTPS. See ~/cascv-pdf-vm on that VM for the source.
 
-   As of 2026-08-15 the VM's IP changed (was 13.217.108.198, now
-   54.225.47.107, likely an EC2 instance stop/start reassigning the
-   public IP since this box isn't on an Elastic IP). Updated this
-   URL to match. The Caddyfile on the VM itself also needs to be
-   updated to serve the new sslip.io hostname; that's on the VM, not
-   in this repo, so it's not something a session without SSH access
-   to the VM can fix from here.
+   On 2026-08-15 the VM's IP changed twice in one session: first from
+   13.217.108.198 to 54.225.47.107 (an EC2 instance stop/start
+   reassigning the public IP, since the box wasn't on an Elastic IP
+   at the time), then Cas allocated and associated a real Elastic IP,
+   32.193.201.76, so the public IP is now permanent and this class of
+   fix should not be needed again. Each time, the Caddyfile on the VM
+   itself also had to be updated to serve the matching sslip.io
+   hostname; that lives on the VM, not in this repo.
    ============================================================ */
 
-const CAS_PDF_SERVICE_URL = 'https://54-225-47-107.sslip.io/generate-pdf';
+const CAS_PDF_SERVICE_URL = 'https://32-193-201-76.sslip.io/generate-pdf';
 
 // Renders one CV to PDF via the backend. mode 'save' (default)
 // triggers a browser download; mode 'blob' resolves with the raw
