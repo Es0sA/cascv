@@ -944,6 +944,26 @@ const NAME_FONTS = [
   { label:'Bungee Shade',     value:"'Bungee Shade', cursive",             preview:"'Bungee Shade', cursive" },
   { label:'Parisienne',       value:"'Parisienne', cursive",               preview:"'Parisienne', cursive" },
 ];
+// Base is the anchor for every other Font Size slider below it (Full
+// Name, Header Tagline, Section Headings, Job Titles): moving Base
+// snaps each of these to exactly Base's new value (clamped to its own
+// range below), and the user can then nudge any of them away from
+// that point individually — see cascadeBaseFontSize(). Each range's
+// min/max must therefore fully contain Base's own range (9-14) or the
+// snap can't land exactly on Base at every possible Base value; that's
+// the whole reason Full Name's min is 9 here and not some larger
+// "a name should never be tiny" number. One shared table drives both
+// the sliders themselves (fontSizeHtml below) and the cascade, so
+// their ranges can never drift out of sync with what the cascade
+// assumes. Contact info (email/phone/location) isn't in this table:
+// it has no slider of its own at all, it just always renders at
+// exactly Base's size (see the plain `.cvp-contact` rule in main.css).
+const BASE_RELATIVE_FONT_SLIDERS = {
+  nameFontSize:    { min:9, max:34, step:1,   label:'Full Name' },
+  titleFontSize:   { min:9, max:16, step:1,   label:'Header Tagline' },
+  headingFontSize: { min:7, max:14, step:0.5, label:'Section Headings' },
+  entryFontSize:   { min:9, max:14, step:0.5, label:'Job Titles' },
+};
 const ACCENT_COLORS = [
   { label:'Ink',      value:'#1a1a1a' }, { label:'Navy',    value:'#1B3A6B' },
   { label:'Teal',     value:'#1B5E6B' }, { label:'Forest',  value:'#1B4D3E' },
@@ -1116,12 +1136,10 @@ function renderCustomizePanel() {
   // labeled "Entry Header", a pairing that reads backwards and was
   // the actual source of "these sliders don't match what they adjust."
   const fontSizeHtml =
-    custRow('Base',             slider('baseFontSize',   9,  14, 0.5,'pt')) +
-    custRow('Full Name',        slider('nameFontSize',  14,  34,   1,'pt')) +
-    custRow('Header Tagline',   slider('titleFontSize',  9,  16,   1,'pt')) +
-    custRow('Contact Info',     slider('contactFontSize',7,  12, 0.5,'pt')) +
-    custRow('Section Headings', slider('headingFontSize',7,  14, 0.5,'pt')) +
-    custRow('Job Titles',       slider('entryFontSize',  9,  14, 0.5,'pt'));
+    custRow('Base', slider('baseFontSize', 9, 14, 0.5, 'pt')) +
+    Object.entries(BASE_RELATIVE_FONT_SLIDERS).map(([key, cfg]) =>
+      custRow(cfg.label, slider(key, cfg.min, cfg.max, cfg.step, 'pt'))
+    ).join('');
 
   const spacingHtml =
     custRow('Line Height',         slider('lineHeight',    1.2,2.0,0.05,'')) +
@@ -1448,11 +1466,33 @@ function setSetting(key, value) {
 // longer needs to spill to the next page stays stuck there, leaving
 // blank space behind on the page before it. scheduleRepaginate() is the
 // same debounced reconciliation pass already used for text edits.
+// Base is the anchor (see BASE_RELATIVE_FONT_SLIDERS above): whenever
+// Base itself changes, every other Font Size slider snaps to exactly
+// match Base's new value, clamped to its own range (a no-op clamp in
+// practice, since each range fully contains Base's own 9-14 range).
+// From that point the user can freely nudge any of them away from
+// Base again — this only fires ON A BASE CHANGE, it doesn't re-lock
+// them together permanently. Called from both onSlider (dragging) and
+// stepSlider (the +/- buttons), so both paths behave identically.
+function cascadeBaseFontSize(newBase) {
+  Object.entries(BASE_RELATIVE_FONT_SLIDERS).forEach(([key, cfg]) => {
+    let next = Math.max(cfg.min, Math.min(cfg.max, newBase));
+    next = Math.round(next / cfg.step) * cfg.step;
+    next = Math.round(next * 1000) / 1000; // avoid float drift (e.g. 9.000000002)
+    cvSettings[key] = next;
+    const badgeEl = document.getElementById(`val-${key}`);
+    if (badgeEl) badgeEl.textContent = (cfg.step < 1 ? next.toFixed(2) : Math.round(next)) + 'pt';
+    updateSegBars(key, cfg.min, cfg.max);
+    const rangeEl = document.getElementById(`range-${key}`);
+    if (rangeEl) rangeEl.value = next;
+  });
+}
 function onSlider(key, value, suffix) {
   cvSettings[key]=value;
   const el=document.getElementById(`val-${key}`);
   if(el){ const d=key==='lineHeight'||key==='letterSpacing'?value.toFixed(2):(Number.isInteger(value)?value:value.toFixed(1)); el.textContent=d+(suffix||''); }
   updateSegBars(key, parseFloat(document.getElementById(`range-${key}`)?.min ?? 0), parseFloat(document.getElementById(`range-${key}`)?.max ?? 100));
+  if (key === 'baseFontSize') cascadeBaseFontSize(value);
   applySettings(); scheduleSave();
   if (isPaginatedLayout()) scheduleRepaginate();
 }
@@ -1467,6 +1507,7 @@ function stepSlider(key, delta, min, max, step, suffix) {
   const el = document.getElementById(`val-${key}`);
   if (el) { const d = step < 1 ? next.toFixed(2) : Math.round(next); el.textContent = d + (suffix||''); }
   updateSegBars(key, min, max);
+  if (key === 'baseFontSize') cascadeBaseFontSize(next);
   applySettings(); scheduleSave();
   if (isPaginatedLayout()) scheduleRepaginate();
 }
@@ -1525,7 +1566,6 @@ function applySettings() {
     '--cv-title-size':    cvSettings.titleFontSize   +'px',
     '--cv-heading-size':  cvSettings.headingFontSize +'px',
     '--cv-entry-size':    cvSettings.entryFontSize   +'px',
-    '--cv-contact-size':  cvSettings.contactFontSize +'px',
     '--cv-section-gap':   cvSettings.sectionSpacing  +'px',
     '--cv-margin-lr':     cvSettings.marginLR        +'mm',
     '--cv-margin-tb':     cvSettings.marginTB        +'mm',

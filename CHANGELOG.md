@@ -5,6 +5,24 @@ Commit hashes refer to `main`.
 
 ## 2026-08-15
 
+- Follow-up correcting the entry directly below: the "Contact Info"
+  slider added there was the wrong design. Removed it entirely
+  (`contactFontSize` is gone from `DEFAULTS`, `mergeCvSettings()` back
+  to a plain merge, `--cv-contact-size` gone from `main.css`). Contact
+  info (email/phone/location) now has no slider of its own at all and
+  never will: it always renders at exactly Base's size on every
+  template, full stop (`.cvp-contact { font-size: var(--cv-base) }`,
+  with the six template-specific font-size overrides on that class
+  removed, keeping only their color/margin tweaks). Base is meant to
+  be the anchor for the whole Font Size group, not just Contact: Full
+  Name, Header Tagline, Section Headings, and Job Titles keep their
+  own independent sliders, but moving Base now snaps all four of them
+  to exactly match Base's new value (clamped to each one's own range,
+  which is why Full Name's minimum moved from 14pt down to 9pt: it
+  has to be able to actually reach Base's floor). From that snapped
+  point the user can freely nudge any of them again; touching Base
+  again re-snaps them. See `BASE_RELATIVE_FONT_SLIDERS` and
+  `cascadeBaseFontSize()` in `editor.js`.
 - Fixed the Customize panel's font-size/spacing sliders resetting to
   their minimum value whenever Cas touched the slider track directly
   on his phone (only the +/- step buttons worked). Root cause: the
