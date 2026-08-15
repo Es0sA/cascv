@@ -2693,6 +2693,7 @@ input {
   --cv-title-size:   12px;
   --cv-heading-size: 10px;
   --cv-entry-size:   11px;
+  --cv-contact-size: 10.45px;
   --cv-section-gap:  11px;
   --cv-margin-lr:    50px;
   --cv-margin-tb:    44px;
@@ -2705,7 +2706,7 @@ input {
 }
 
 .cvp-jobtitle    { font-size: var(--cv-title-size)   !important; }
-.cvp-contact     { font-size: calc(var(--cv-base) * 0.95) !important; }
+.cvp-contact     { font-size: var(--cv-contact-size) !important; }
 .cvp-sec-heading { font-size: var(--cv-heading-size) !important; }
 .cvp-entry-title { font-size: var(--cv-entry-size)   !important; }
 .cvp-line        { font-size: var(--cv-base) !important; }
@@ -2818,7 +2819,7 @@ input {
 .cv-paper.t-executive .cvp-header { text-align: center; padding-bottom: 14px; }
 .cv-paper.t-executive .cvp-name   { font-family: Georgia, serif !important; font-size: calc(var(--cv-name-size) * 1.25) !important; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 700; }
 .cv-paper.t-executive .cvp-jobtitle { color: var(--cv-accent); letter-spacing: 0.08em; text-transform: uppercase; }
-.cv-paper.t-executive .cvp-contact { color: #555; font-size: calc(var(--cv-base) * 0.9) !important; }
+.cv-paper.t-executive .cvp-contact { color: #555; font-size: calc(var(--cv-contact-size) * 0.9) !important; }
 .cv-paper.t-executive .cvp-divider { border-top: 3px double #111 !important; margin: 8px 0; }
 .cv-paper.t-executive .cvp-sec-heading { font-family: Georgia, serif !important; letter-spacing: 0.05em; }
 .cv-paper.t-executive .cvp-entry-title { font-style: italic; }
@@ -3029,7 +3030,7 @@ input {
 .cv-paper.t-atlantic-blue .cvp-header { background: #1B3A6B; }
 .cv-paper.t-atlantic-blue .cvp-name    { color: white !important; font-weight: 700; font-size: calc(var(--cv-name-size) * 0.85) !important; letter-spacing: 0.04em; text-transform: uppercase; }
 .cv-paper.t-atlantic-blue .cvp-jobtitle { color: rgba(255,255,255,0.78) !important; font-style: italic; }
-.cv-paper.t-atlantic-blue .cvp-contact  { color: rgba(255,255,255,0.60) !important; font-size: calc(var(--cv-base) * 0.9) !important; margin-top: 8px; }
+.cv-paper.t-atlantic-blue .cvp-contact  { color: rgba(255,255,255,0.60) !important; font-size: calc(var(--cv-contact-size) * 0.9) !important; margin-top: 8px; }
 .cv-paper.t-atlantic-blue .cvp-sec-heading { color: #1B3A6B !important; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; }
 .cv-paper.t-atlantic-blue .cvp-entry-title { color: #1B3A6B; }
 .cv-paper.t-atlantic-blue .cvp-header-sections .cvp-sec-heading { color: #fff !important; border-color: rgba(255,255,255,0.4) !important; }
@@ -3045,7 +3046,7 @@ input {
 .cv-paper.t-corporate-panel .cvp-header { background: #2a2a2a; }
 .cv-paper.t-corporate-panel .cvp-name    { color: white !important; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; font-size: calc(var(--cv-name-size) * 0.85) !important; }
 .cv-paper.t-corporate-panel .cvp-jobtitle { color: rgba(255,255,255,0.75) !important; font-style: italic; }
-.cv-paper.t-corporate-panel .cvp-contact  { color: rgba(255,255,255,0.55) !important; font-size: calc(var(--cv-base) * 0.88) !important; margin-top: 8px; }
+.cv-paper.t-corporate-panel .cvp-contact  { color: rgba(255,255,255,0.55) !important; font-size: calc(var(--cv-contact-size) * 0.88) !important; margin-top: 8px; }
 .cv-paper.t-corporate-panel .cvp-sec-heading { color: #2a2a2a !important; font-weight: 700; text-transform: uppercase; }
 .cv-paper.t-corporate-panel .cvp-header-sections .cvp-sec-heading { color: #fff !important; border-color: rgba(255,255,255,0.4) !important; }
 .cv-paper.t-corporate-panel .cvp-header-sections .cvp-entry-title { color: #fff !important; }
@@ -3060,7 +3061,7 @@ input {
 .cv-paper.t-cobalt-edge .cvp-header { background: #1a4d8f; }
 .cv-paper.t-cobalt-edge .cvp-name    { color: white !important; font-weight: 300 !important; letter-spacing: 0.12em !important; text-transform: uppercase; font-size: calc(var(--cv-name-size) * 0.88) !important; }
 .cv-paper.t-cobalt-edge .cvp-jobtitle { color: rgba(255,255,255,0.80) !important; letter-spacing: 0.04em; }
-.cv-paper.t-cobalt-edge .cvp-contact  { color: rgba(255,255,255,0.60) !important; margin-top: 8px; font-size: calc(var(--cv-base) * 0.88) !important; }
+.cv-paper.t-cobalt-edge .cvp-contact  { color: rgba(255,255,255,0.60) !important; margin-top: 8px; font-size: calc(var(--cv-contact-size) * 0.88) !important; }
 .cv-paper.t-cobalt-edge .cvp-sec-heading { color: #1a4d8f !important; font-weight: 700; }
 .cv-paper.t-cobalt-edge .cvp-header-sections .cvp-sec-heading { color: #fff !important; border-color: rgba(255,255,255,0.4) !important; }
 .cv-paper.t-cobalt-edge .cvp-header-sections .cvp-entry-title { color: #fff !important; }
@@ -3075,7 +3076,7 @@ input {
 .cv-paper.t-obsidian-edge .cvp-header { background: #12121a; }
 .cv-paper.t-obsidian-edge .cvp-name    { color: white !important; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; font-size: calc(var(--cv-name-size) * 0.85) !important; }
 .cv-paper.t-obsidian-edge .cvp-jobtitle { color: rgba(255,255,255,0.70) !important; font-style: italic; }
-.cv-paper.t-obsidian-edge .cvp-contact  { color: rgba(255,255,255,0.50) !important; margin-top: 8px; font-size: calc(var(--cv-base) * 0.9) !important; }
+.cv-paper.t-obsidian-edge .cvp-contact  { color: rgba(255,255,255,0.50) !important; margin-top: 8px; font-size: calc(var(--cv-contact-size) * 0.9) !important; }
 .cv-paper.t-obsidian-edge .cvp-sec-heading { color: #12121a !important; font-weight: 700; text-transform: uppercase; }
 .cv-paper.t-obsidian-edge .cvp-header-sections .cvp-sec-heading { color: #fff !important; border-color: rgba(255,255,255,0.5) !important; }
 .cv-paper.t-obsidian-edge .cvp-header-sections .cvp-entry-title { color: #fff !important; }
@@ -3090,7 +3091,7 @@ input {
 .cv-paper.t-neutral-gray .cvp-header { background: #6b7280; }
 .cv-paper.t-neutral-gray .cvp-name    { color: white !important; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; font-size: calc(var(--cv-name-size) * 0.85) !important; }
 .cv-paper.t-neutral-gray .cvp-jobtitle { color: rgba(255,255,255,0.80) !important; font-style: italic; }
-.cv-paper.t-neutral-gray .cvp-contact  { color: rgba(255,255,255,0.65) !important; margin-top: 8px; font-size: calc(var(--cv-base) * 0.9) !important; }
+.cv-paper.t-neutral-gray .cvp-contact  { color: rgba(255,255,255,0.65) !important; margin-top: 8px; font-size: calc(var(--cv-contact-size) * 0.9) !important; }
 .cv-paper.t-neutral-gray .cvp-sec-heading { color: #4a5263 !important; font-weight: 700; }
 .cv-paper.t-neutral-gray .cvp-header-sections .cvp-sec-heading { color: #fff !important; border-color: rgba(255,255,255,0.45) !important; }
 .cv-paper.t-neutral-gray .cvp-header-sections .cvp-entry-title { color: #fff !important; }
@@ -4120,15 +4121,26 @@ body.panel-resizing iframe {
   -webkit-appearance: none;
   appearance: none;
 }
+/* The thumb must NOT be full track width. A WebKit range input's
+   drag-to-value math is based on how far the thumb has room to travel
+   inside the track (trackWidth - thumbWidth); a thumb the same width
+   as the track leaves zero room to travel, so WebKit (this affects
+   Safari AND Chrome on iOS, since both are WebKit under the hood
+   there) collapses every tap/drag to the minimum value instead of
+   tracking touch position. That's what made the slider look like it
+   "resets to the start" on a real phone while the +/- step buttons
+   (which don't go through this drag math at all) still worked fine.
+   A real range input still needs SOME thumb width to compute drag
+   position from, so this uses a normal, narrow one instead of 100%. */
 .seg-range-overlay::-webkit-slider-thumb {
   -webkit-appearance: none;
-  width: 100%;
+  width: 18px;
   height: 100%;
   background: transparent;
   cursor: pointer;
 }
 .seg-range-overlay::-moz-range-thumb {
-  width: 6px;
+  width: 18px;
   height: 100%;
   background: transparent;
   border: none;

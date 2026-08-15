@@ -1119,6 +1119,7 @@ function renderCustomizePanel() {
     custRow('Base',             slider('baseFontSize',   9,  14, 0.5,'pt')) +
     custRow('Full Name',        slider('nameFontSize',  14,  34,   1,'pt')) +
     custRow('Header Tagline',   slider('titleFontSize',  9,  16,   1,'pt')) +
+    custRow('Contact Info',     slider('contactFontSize',7,  12, 0.5,'pt')) +
     custRow('Section Headings', slider('headingFontSize',7,  14, 0.5,'pt')) +
     custRow('Job Titles',       slider('entryFontSize',  9,  14, 0.5,'pt'));
 
@@ -1524,6 +1525,7 @@ function applySettings() {
     '--cv-title-size':    cvSettings.titleFontSize   +'px',
     '--cv-heading-size':  cvSettings.headingFontSize +'px',
     '--cv-entry-size':    cvSettings.entryFontSize   +'px',
+    '--cv-contact-size':  cvSettings.contactFontSize +'px',
     '--cv-section-gap':   cvSettings.sectionSpacing  +'px',
     '--cv-margin-lr':     cvSettings.marginLR        +'mm',
     '--cv-margin-tb':     cvSettings.marginTB        +'mm',
@@ -2710,7 +2712,7 @@ async function initEditor() {
   cvData.customSectionType = cvData.customSectionType || {};
   cvData.customSectionIcon = cvData.customSectionIcon || {};
 
-  cvSettings = Object.assign({}, DEFAULTS, cvData.settings || {});
+  cvSettings = mergeCvSettings(cvData.settings);
 
   // One-time visual-compatibility mapping for CVs saved before heading
   // decoration moved from template CSS into the hs-* classes: every CV

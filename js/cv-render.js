@@ -51,7 +51,7 @@ const DEFAULTS = {
   template:'classic', columns:1, twoColWidth:32, headerAlign:'left', headerPosition:'top',
   subtitleLine:'next', paperFormat:'A4', bodyFont:'Calibri, Arial, sans-serif',
   nameFont:'inherit', baseFontSize:11, nameFontSize:19, titleFontSize:12,
-  headingFontSize:10, entryFontSize:11, lineHeight:1.55, letterSpacing:0,
+  headingFontSize:10, entryFontSize:11, contactFontSize:10.45, lineHeight:1.55, letterSpacing:0,
   sectionSpacing:11, marginLR:13, marginTB:11, headingStyle:'underline',
   headingCase:'upper', subtitleStyle:'normal', dateStyle:'normal', locationStyle:'normal', listStyle:'bullet',
   dateFormat:'Month YYYY', showDuration:false, skillStyle:'text', showSectionIcons:false,
@@ -64,6 +64,33 @@ const DEFAULTS = {
   workTitleOrder:'normal', eduTitleOrder:'normal', summaryInHeader:false,
   photoShape:'circle', photoZoom:1,
 };
+
+// Merges a CV's saved settings over DEFAULTS. Both editor.js and
+// dashboard.js need this exact same merge (not just Object.assign),
+// so it lives here rather than being copy-pasted in both places (see
+// this file's own header comment on why duplicated logic between
+// those two files is the recurring bug class this file exists to
+// avoid).
+//
+// contactFontSize needs one extra step beyond a plain default: it
+// didn't exist as its own setting before this was added (the contact
+// line's size used to be computed on the fly as baseFontSize * 0.95,
+// with no independent slider). A CV saved before that change has no
+// contactFontSize in its stored settings at all, so a plain
+// Object.assign(DEFAULTS, saved) would silently give it DEFAULTS'
+// fixed contactFontSize (based on the DEFAULT baseFontSize, 11)
+// instead of a value based on THAT CV's own (possibly customized)
+// baseFontSize, changing how every CV saved before this feature
+// existed looks. Backfilling it from that CV's own baseFontSize
+// instead reproduces the exact size it already rendered at.
+function mergeCvSettings(savedSettings) {
+  const saved  = savedSettings || {};
+  const merged = Object.assign({}, DEFAULTS, saved);
+  if (saved.contactFontSize === undefined) {
+    merged.contactFontSize = Math.round(merged.baseFontSize * 0.95 * 100) / 100;
+  }
+  return merged;
+}
 
 /* ============================================================
    SECTION TYPE DEFINITIONS

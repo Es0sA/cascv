@@ -545,6 +545,26 @@ this writing, just no longer the one `js/pdf-service.js` points at).
    share one global scope and the later-loaded file's version silently
    wins with no error.
 
+9. The Customize panel's font-size/spacing sliders (`.seg-slider` in
+   `editor.js`'s `slider()`, styled in `main.css`) are a real
+   `<input type="range">` with `opacity:0`, laid over a decorative
+   segmented bar that's just for looks. Its `::-webkit-slider-thumb`
+   used to be styled `width: 100%` (same width as the whole track).
+   On WebKit (this means Chrome on iOS too, not just Safari: Apple
+   requires every iOS browser to use WebKit under the hood), a range
+   input's drag-to-value math is based on how much room the thumb has
+   left to travel inside the track (`trackWidth - thumbWidth`); a
+   thumb the same width as the track leaves zero room to travel, so
+   every tap or drag collapsed to the minimum value instead of
+   tracking touch position. On a real phone this looked exactly like
+   "the slider resets to the start when I touch it directly, only the
+   +/- buttons work" (the +/- buttons call `stepSlider()` directly and
+   never go through this drag math at all, which is why they still
+   worked fine). Fixed by giving the thumb a real, narrow width
+   (`18px`) instead of `100%`. If a slider ever visually "snaps to one
+   end" again, check the thumb width first before assuming it's a JS
+   re-render issue: it wasn't, that time.
+
 ## Mobile Preview Modal
 
 The mobile Preview button (`#mobilePreviewFab`/`#mobilePreviewModal` in

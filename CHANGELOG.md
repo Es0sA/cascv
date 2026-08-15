@@ -5,6 +5,30 @@ Commit hashes refer to `main`.
 
 ## 2026-08-15
 
+- Fixed the Customize panel's font-size/spacing sliders resetting to
+  their minimum value whenever Cas touched the slider track directly
+  on his phone (only the +/- step buttons worked). Root cause: the
+  real `<input type="range">` behind the visible segmented bar had
+  its `::-webkit-slider-thumb` styled `width: 100%`, i.e. the exact
+  same width as the whole track. On WebKit (this covers Chrome on iOS
+  too, since Apple requires every iOS browser to use WebKit), a range
+  input computes drag position from how much room the thumb has left
+  to travel inside the track; a full-width thumb leaves zero room, so
+  every touch collapsed to the minimum. Reproduced nowhere in this
+  project's own testing tools (Firefox), consistent with the "WebKit/
+  iOS-only rendering quirk" caveat already documented under Playwright
+  MCP below. Fixed by giving the thumb a real, narrow width (18px)
+  instead of 100%. Also added a "Contact Info" font-size slider
+  (Customize > Font Size), independent of Base, matching the pattern
+  Full Name/Header Tagline/Section Headings/Job Titles already use:
+  previously the contact line (email/phone/location) had no slider of
+  its own and could only be resized indirectly as a fixed 0.95 ratio
+  of Base. Existing CVs saved before this change (no contactFontSize
+  in their stored settings) get it backfilled from their own
+  baseFontSize at load time (see mergeCvSettings() in cv-render.js,
+  now shared by editor.js and dashboard.js), so they render at the
+  exact same contact size they always did; only CVs that touch the
+  new slider going forward store an explicit value.
 - Follow-up to the entry directly below: Cas allocated and associated
   a real AWS Elastic IP (`32.193.201.76`) with the VM instance
   (`i-0f00090be9495622c`), specifically to stop this IP-churn problem

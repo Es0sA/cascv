@@ -183,7 +183,7 @@ function downloadCV(id) {
   cvData.headerFieldOrder  = cvData.headerFieldOrder  || ['email','phone','location','linkedin'];
   cvData.customSectionType = cvData.customSectionType || {};
   cvData.customSectionIcon = cvData.customSectionIcon || {};
-  cvSettings = Object.assign({}, DEFAULTS, cv.settings || {});
+  cvSettings = mergeCvSettings(cv.settings);
 
   const cvHtml = buildCVHTML(cvData.parsed || {});
   const outerClassName = computeCvPaperClassString(false);
