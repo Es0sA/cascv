@@ -660,7 +660,12 @@ function buildCVHTML(parsed) {
   const contactHtml = buildContactHtml(hf);
 
   let headerTextInner = '';
-  if (!cvData.hiddenFields['name'])     headerTextInner += `<div class="cvp-name">${mdLine(hf.name||'')}</div>`;
+  const targetNameFont = (cvSettings.nameFont && cvSettings.nameFont !== 'inherit') ? cvSettings.nameFont : (cvSettings.bodyFont || '');
+  const isCursive = targetNameFont && (targetNameFont.toLowerCase().includes('cursive') || targetNameFont.toLowerCase().includes('parisienne') || targetNameFont.toLowerCase().includes('pacifico') || targetNameFont.toLowerCase().includes('caveat') || targetNameFont.toLowerCase().includes('bungee'));
+  const nameStyle = targetNameFont
+    ? ` style="font-family:${escapeAttr(targetNameFont)} !important;${isCursive ? 'text-transform:none !important;font-weight:400 !important;' : ''}"`
+    : '';
+  if (!cvData.hiddenFields['name'])     headerTextInner += `<div class="cvp-name"${nameStyle}>${mdLine(hf.name||'')}</div>`;
   if (!cvData.hiddenFields['jobTitle'] && hf.jobTitle) headerTextInner += `<div class="cvp-jobtitle">${mdLine(hf.jobTitle)}</div>`;
   if (contactHtml) headerTextInner += `<div class="cvp-contact">${contactHtml}</div>`;
   if (cvSettings.summaryInHeader) headerTextInner += getSummaryHtml(sections);

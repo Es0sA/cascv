@@ -195,7 +195,7 @@ function downloadCV(id) {
     '--cv-accent':        cvSettings.accentColor,
     '--cv-base':          cvSettings.baseFontSize    + 'px',
     '--cv-name-size':     cvSettings.nameFontSize    + 'px',
-    '--cv-name-font':     cvSettings.nameFont,
+    '--cv-name-font':     (cvSettings.nameFont && cvSettings.nameFont !== 'inherit') ? cvSettings.nameFont : cvSettings.bodyFont,
     '--cv-title-size':    cvSettings.titleFontSize   + 'px',
     '--cv-heading-size':  cvSettings.headingFontSize + 'px',
     '--cv-entry-size':    cvSettings.entryFontSize   + 'px',

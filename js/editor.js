@@ -69,22 +69,16 @@ async function ensureFontsReady() {
   const stacks = [cvSettings.bodyFont, cvSettings.nameFont].filter(f => f && f !== 'inherit');
   const specs = [];
   stacks.forEach(stack => {
-    // FontFaceSet.load()'s font argument is a CSS font shorthand, whose
-    // family position is meant to name the ONE font being requested —
-    // passing the full stack's fallback list (e.g. "'Lora', Georgia,
-    // serif", straight from cvSettings.bodyFont, which is a normal CSS
-    // font-family value with fallbacks baked in for use in font-family
-    // declarations) is out of spec there, and how forgivingly a browser
-    // parses that is implementation-specific. If it fails to resolve to
-    // the actual custom @font-face on a given browser, .load() silently
-    // rejects (caught below) without ever triggering that font's fetch,
-    // and document.fonts.ready can then resolve while the real font is
-    // still only a fallback — exactly the race this function exists to
-    // prevent, just moved one level up. Only the primary family name is
-    // meaningful for this call anyway (a fallback system font never
-    // needs an explicit load), so extract just that.
     const primaryFamily = stack.split(',')[0].trim().replace(/^['"]|['"]$/g, '');
-    specs.push(`400 16px "${primaryFamily}"`, `700 16px "${primaryFamily}"`, `italic 400 16px "${primaryFamily}"`, `italic 700 16px "${primaryFamily}"`);
+    specs.push(
+      `300 16px "${primaryFamily}"`,
+      `400 16px "${primaryFamily}"`,
+      `600 16px "${primaryFamily}"`,
+      `700 16px "${primaryFamily}"`,
+      `800 16px "${primaryFamily}"`,
+      `italic 400 16px "${primaryFamily}"`,
+      `italic 700 16px "${primaryFamily}"`
+    );
   });
   try {
     await Promise.all(specs.map(spec => document.fonts.load(spec).catch(() => {})));
@@ -932,17 +926,50 @@ const FONTS = [
   { label:'IBM Plex Mono',    value:"'IBM Plex Mono', 'Courier New', monospace" },
   { label:'Source Code Pro',  value:"'Source Code Pro', 'Courier New', monospace" },
 ];
+function isFontMatch(a, b) {
+  if (!a || !b) return a === b;
+  const clean = s => String(s).toLowerCase().replace(/['"]/g, '').replace(/\s+/g, ' ').trim();
+  return clean(a) === clean(b);
+}
+
+function isCursiveOrDecorativeFont(fontStr) {
+  if (!fontStr) return false;
+  const s = String(fontStr).toLowerCase();
+  return s.includes('cursive') || s.includes('parisienne') || s.includes('pacifico') || s.includes('caveat') || s.includes('bungee');
+}
+
 const NAME_FONTS = [
   { label:'Same as Body',     value:'inherit',                             preview:'Calibri, Arial, sans-serif' },
-  { label:'Comfortaa',        value:"'Comfortaa', cursive",                preview:"'Comfortaa', cursive" },
+  // Decorative / Script
   { label:'Playfair Display', value:"'Playfair Display', Georgia, serif",  preview:"'Playfair Display', Georgia, serif" },
-  { label:'Lato',             value:"'Lato', Arial, sans-serif",           preview:"'Lato', Arial, sans-serif" },
-  { label:'Lora',             value:"'Lora', Georgia, serif",              preview:"'Lora', Georgia, serif" },
+  { label:'Comfortaa',        value:"'Comfortaa', cursive",                preview:"'Comfortaa', cursive" },
   { label:'Abril Fatface',    value:"'Abril Fatface', Georgia, serif",     preview:"'Abril Fatface', Georgia, serif" },
   { label:'Pacifico',         value:"'Pacifico', cursive",                 preview:"'Pacifico', cursive" },
   { label:'Caveat',           value:"'Caveat', cursive",                   preview:"'Caveat', cursive" },
-  { label:'Bungee Shade',     value:"'Bungee Shade', cursive",             preview:"'Bungee Shade', cursive" },
   { label:'Parisienne',       value:"'Parisienne', cursive",               preview:"'Parisienne', cursive" },
+  { label:'Bungee Shade',     value:"'Bungee Shade', cursive",             preview:"'Bungee Shade', cursive" },
+  // Serif
+  { label:'Lora',             value:"'Lora', Georgia, serif",              preview:"'Lora', Georgia, serif" },
+  { label:'Aleo',             value:"'Aleo', Georgia, serif",              preview:"'Aleo', Georgia, serif" },
+  { label:'EB Garamond',      value:"'EB Garamond', Garamond, Georgia, serif", preview:"'EB Garamond', Garamond, Georgia, serif" },
+  { label:'Georgia',          value:'Georgia, serif',                      preview:'Georgia, serif' },
+  { label:'Times New Roman',  value:"'Times New Roman', Times, serif",      preview:"'Times New Roman', Times, serif" },
+  { label:'Source Serif',     value:"'Source Serif 4', Georgia, serif",    preview:"'Source Serif 4', Georgia, serif" },
+  { label:'Merriweather',     value:"'Merriweather', Georgia, serif",      preview:"'Merriweather', Georgia, serif" },
+  { label:'PT Serif',         value:"'PT Serif', Georgia, serif",          preview:"'PT Serif', Georgia, serif" },
+  { label:'Crimson Text',     value:"'Crimson Text', Georgia, serif",      preview:"'Crimson Text', Georgia, serif" },
+  // Sans
+  { label:'Calibri',          value:'Calibri, Arial, sans-serif',          preview:'Calibri, Arial, sans-serif' },
+  { label:'Lato',             value:"'Lato', Arial, sans-serif",           preview:"'Lato', Arial, sans-serif" },
+  { label:'Source Sans',      value:"'Source Sans 3', Arial, sans-serif",  preview:"'Source Sans 3', Arial, sans-serif" },
+  { label:'Open Sans',        value:"'Open Sans', Arial, sans-serif",      preview:"'Open Sans', Arial, sans-serif" },
+  { label:'Roboto',           value:"'Roboto', Arial, sans-serif",         preview:"'Roboto', Arial, sans-serif" },
+  { label:'Work Sans',        value:"'Work Sans', Arial, sans-serif",      preview:"'Work Sans', Arial, sans-serif" },
+  { label:'Nunito',           value:"'Nunito', Arial, sans-serif",         preview:"'Nunito', Arial, sans-serif" },
+  { label:'Karla',            value:"'Karla', Arial, sans-serif",          preview:"'Karla', Arial, sans-serif" },
+  // Mono
+  { label:'IBM Plex Mono',    value:"'IBM Plex Mono', 'Courier New', monospace", preview:"'IBM Plex Mono', 'Courier New', monospace" },
+  { label:'Source Code Pro',  value:"'Source Code Pro', 'Courier New', monospace", preview:"'Source Code Pro', 'Courier New', monospace" },
 ];
 // Base is the anchor for every other Font Size slider below it (Full
 // Name, Header Tagline, Section Headings, Job Titles): moving Base
@@ -1123,11 +1150,12 @@ function renderCustomizePanel() {
     custRow('Subtitle',     toggleGroup([{label:'Next Line',value:'next'},{label:'Same Line',value:'same'}],'subtitleLine')) +
     custRow('Section Layout', renderSectionLayoutPanel(colMode));
 
-  const nameFontObj = NAME_FONTS.find(f=>f.value===cvSettings.nameFont)||NAME_FONTS[0];
-  const namePreviewFamily = cvSettings.nameFont === 'inherit' ? cvSettings.bodyFont : (nameFontObj.preview || nameFontObj.value);
+  const nameFontObj = NAME_FONTS.find(f => isFontMatch(f.value, cvSettings.nameFont)) || NAME_FONTS[0];
+  const namePreviewFamily = (cvSettings.nameFont === 'inherit' || !cvSettings.nameFont) ? cvSettings.bodyFont : (nameFontObj.preview || nameFontObj.value);
+  const isCursivePreview = isCursiveOrDecorativeFont(namePreviewFamily);
   const fontHtml =
-    custRow('Body Font',`<div class="font-select-wrap"><select class="cust-select" onchange="onFontChange('bodyFont',this.value)">${FONTS.map(f=>`<option value="${escapeAttr(f.value)}" ${cvSettings.bodyFont===f.value?'selected':''}>${f.label}</option>`).join('')}</select><div class="font-preview-strip" style="font-family:${escapeAttr(cvSettings.bodyFont)}">The quick brown fox jumps over the lazy dog.</div></div>`) +
-    custRow('Name Font', `<div class="font-select-wrap"><select class="cust-select" onchange="onFontChange('nameFont',this.value)">${NAME_FONTS.map(f=>`<option value="${escapeAttr(f.value)}" ${cvSettings.nameFont===f.value?'selected':''}>${f.label}</option>`).join('')}</select><div class="font-preview-strip" style="font-family:${escapeAttr(namePreviewFamily)};font-size:1.05rem;font-weight:700">Your Name Here</div></div>`);
+    custRow('Body Font', `<div class="font-select-wrap"><select class="cust-select" onchange="onFontChange('bodyFont',this.value)">${FONTS.map(f => `<option value="${escapeAttr(f.value)}" ${isFontMatch(cvSettings.bodyFont, f.value) ? 'selected' : ''}>${f.label}</option>`).join('')}</select><div class="font-preview-strip" style="font-family:${escapeAttr(cvSettings.bodyFont)}">The quick brown fox jumps over the lazy dog.</div></div>`) +
+    custRow('Name Font', `<div class="font-select-wrap"><select class="cust-select" onchange="onFontChange('nameFont',this.value)">${NAME_FONTS.map(f => `<option value="${escapeAttr(f.value)}" ${isFontMatch(cvSettings.nameFont, f.value) ? 'selected' : ''}>${f.label}</option>`).join('')}</select><div class="font-preview-strip" style="font-family:${escapeAttr(namePreviewFamily)};font-size:1.05rem;font-weight:${isCursivePreview ? '400' : '700'};text-transform:${isCursivePreview ? 'none' : 'uppercase'}">Your Name Here</div></div>`);
 
   // Labels name the actual on-CV element each slider controls, not the
   // internal setting key: "Job Title" used to label the titleFontSize
@@ -1600,11 +1628,19 @@ function applySettings() {
     cvPaper.querySelectorAll('.cv-page').forEach(applyStyleProps);
   }
 
-  // Force direct fontFamily onto every .cvp-name element so custom name fonts
-  // render immediately and reliably across all browsers and layouts.
-  const targetNameFont = cvSettings.nameFont === 'inherit' ? cvSettings.bodyFont : cvSettings.nameFont;
+  // Force direct styling onto every .cvp-name element so custom name fonts
+  // render immediately, reliably, and beautifully across all browsers and layouts.
+  const targetNameFont = (cvSettings.nameFont && cvSettings.nameFont !== 'inherit') ? cvSettings.nameFont : cvSettings.bodyFont;
+  const isCursive = isCursiveOrDecorativeFont(targetNameFont);
   cvPaper.querySelectorAll('.cvp-name').forEach(nameEl => {
     nameEl.style.setProperty('font-family', targetNameFont, 'important');
+    if (isCursive) {
+      nameEl.style.setProperty('text-transform', 'none', 'important');
+      nameEl.style.setProperty('font-weight', '400', 'important');
+    } else {
+      nameEl.style.removeProperty('text-transform');
+      nameEl.style.removeProperty('font-weight');
+    }
   });
 
   const hdr = cvPaper.querySelector('.cvp-header');
@@ -1751,7 +1787,12 @@ function buildHeaderUnit(header, sections, variant) {
   const contactHtml = buildContactHtml(header);
 
   let headerTextInner = '';
-  if (!cvData.hiddenFields['name'])     headerTextInner += `<div class="cvp-name">${mdLine(header.name||'')}</div>`;
+  const targetNameFont = (cvSettings.nameFont && cvSettings.nameFont !== 'inherit') ? cvSettings.nameFont : (cvSettings.bodyFont || '');
+  const isCursive = isCursiveOrDecorativeFont(targetNameFont);
+  const nameStyle = targetNameFont
+    ? ` style="font-family:${escapeAttr(targetNameFont)} !important;${isCursive ? 'text-transform:none !important;font-weight:400 !important;' : ''}"`
+    : '';
+  if (!cvData.hiddenFields['name'])     headerTextInner += `<div class="cvp-name"${nameStyle}>${mdLine(header.name||'')}</div>`;
   if (!cvData.hiddenFields['jobTitle'] && header.jobTitle) headerTextInner += `<div class="cvp-jobtitle">${mdLine(header.jobTitle)}</div>`;
   if (contactHtml) headerTextInner += `<div class="cvp-contact">${contactHtml}</div>`;
   if (cvSettings.summaryInHeader) headerTextInner += getSummaryHtml(sections);
@@ -2127,8 +2168,13 @@ function sidebarPanelPageHTML(pageUnits, sectionMeta, pageIdx, header) {
   const headerHtml = hasHeaderUnit ? pageUnits[0].html : '';
   const bodyUnits  = hasHeaderUnit ? pageUnits.slice(1) : pageUnits;
   const sectionsHtml = unitsToPageHTML(bodyUnits, sectionMeta, pageIdx);
+  const targetNameFont = (cvSettings.nameFont && cvSettings.nameFont !== 'inherit') ? cvSettings.nameFont : (cvSettings.bodyFont || '');
+  const isCursive = isCursiveOrDecorativeFont(targetNameFont);
+  const nameStyle = targetNameFont
+    ? ` style="font-family:${escapeAttr(targetNameFont)} !important;${isCursive ? 'text-transform:none !important;font-weight:400 !important;' : ''}"`
+    : '';
   const continuationStrip = (!hasHeaderUnit && !cvData.hiddenFields['name'])
-    ? `<div class="cvp-name cvp-header-continuation">${mdLine(header.name || '')}</div>` : '';
+    ? `<div class="cvp-name cvp-header-continuation"${nameStyle}>${mdLine(header.name || '')}</div>` : '';
   return `<div class="cvp-header">${headerHtml}${continuationStrip}<div class="cvp-header-sections">${sectionsHtml}</div></div>`;
 }
 
