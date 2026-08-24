@@ -2822,7 +2822,7 @@ input {
 /* ---- EXECUTIVE ---- */
 .cv-paper.t-executive { text-align: left; }
 .cv-paper.t-executive .cvp-header { text-align: center; padding-bottom: 14px; }
-.cv-paper.t-executive .cvp-name   { font-family: Georgia, serif !important; font-size: calc(var(--cv-name-size) * 1.25) !important; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 700; }
+.cv-paper.t-executive .cvp-name   { font-size: calc(var(--cv-name-size) * 1.25) !important; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 700; }
 .cv-paper.t-executive .cvp-jobtitle { color: var(--cv-accent); letter-spacing: 0.08em; text-transform: uppercase; }
 .cv-paper.t-executive .cvp-contact { color: #555; }
 .cv-paper.t-executive .cvp-divider { border-top: 3px double #111 !important; margin: 8px 0; }
@@ -2848,7 +2848,7 @@ input {
 
 /* ---- CLASSIC SERIF ---- */
 .cv-paper.t-classic-serif { font-family: Georgia, 'Times New Roman', serif !important; }
-.cv-paper.t-classic-serif .cvp-name     { font-family: Georgia, serif !important; font-weight: 700; letter-spacing: 0.02em; text-transform: uppercase; }
+.cv-paper.t-classic-serif .cvp-name     { font-weight: 700; letter-spacing: 0.02em; text-transform: uppercase; }
 .cv-paper.t-classic-serif .cvp-jobtitle { font-style: italic; color: #444; }
 .cv-paper.t-classic-serif .cvp-divider  { border-top: 1px solid #111 !important; }
 .cv-paper.t-classic-serif .cvp-sec-heading { font-family: Georgia, serif !important; letter-spacing: 0.04em; }

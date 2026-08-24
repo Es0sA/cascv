@@ -24,15 +24,7 @@
 @font-face {
   font-family: 'Playfair Display';
   font-style: normal;
-  font-weight: 600;
-  font-display: swap;
-  src: url('../fonts/playfair-display-600-normal.woff2') format('woff2');
-}
-
-@font-face {
-  font-family: 'Playfair Display';
-  font-style: normal;
-  font-weight: 700;
+  font-weight: 100 900;
   font-display: swap;
   src: url('../fonts/playfair-display-600-normal.woff2') format('woff2');
 }
@@ -360,7 +352,7 @@
 @font-face {
   font-family: 'Abril Fatface';
   font-style: normal;
-  font-weight: 400;
+  font-weight: 100 900;
   font-display: swap;
   src: url('../fonts/abril-fatface-400-normal.woff2') format('woff2');
 }
@@ -368,7 +360,7 @@
 @font-face {
   font-family: 'Pacifico';
   font-style: normal;
-  font-weight: 400;
+  font-weight: 100 900;
   font-display: swap;
   src: url('../fonts/pacifico-400-normal.woff2') format('woff2');
 }
@@ -376,15 +368,7 @@
 @font-face {
   font-family: 'Caveat';
   font-style: normal;
-  font-weight: 400;
-  font-display: swap;
-  src: url('../fonts/caveat-400-normal.woff2') format('woff2');
-}
-
-@font-face {
-  font-family: 'Caveat';
-  font-style: normal;
-  font-weight: 700;
+  font-weight: 100 900;
   font-display: swap;
   src: url('../fonts/caveat-400-normal.woff2') format('woff2');
 }
@@ -392,7 +376,7 @@
 @font-face {
   font-family: 'Bungee Shade';
   font-style: normal;
-  font-weight: 400;
+  font-weight: 100 900;
   font-display: swap;
   src: url('../fonts/bungee-shade-400-normal.woff2') format('woff2');
 }
@@ -400,7 +384,7 @@
 @font-face {
   font-family: 'Parisienne';
   font-style: normal;
-  font-weight: 400;
+  font-weight: 100 900;
   font-display: swap;
   src: url('../fonts/parisienne-400-normal.woff2') format('woff2');
 }

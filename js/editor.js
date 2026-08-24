@@ -1124,9 +1124,10 @@ function renderCustomizePanel() {
     custRow('Section Layout', renderSectionLayoutPanel(colMode));
 
   const nameFontObj = NAME_FONTS.find(f=>f.value===cvSettings.nameFont)||NAME_FONTS[0];
+  const namePreviewFamily = cvSettings.nameFont === 'inherit' ? cvSettings.bodyFont : (nameFontObj.preview || nameFontObj.value);
   const fontHtml =
     custRow('Body Font',`<div class="font-select-wrap"><select class="cust-select" onchange="onFontChange('bodyFont',this.value)">${FONTS.map(f=>`<option value="${escapeAttr(f.value)}" ${cvSettings.bodyFont===f.value?'selected':''}>${f.label}</option>`).join('')}</select><div class="font-preview-strip" style="font-family:${escapeAttr(cvSettings.bodyFont)}">The quick brown fox jumps over the lazy dog.</div></div>`) +
-    custRow('Name Font', `<div class="font-select-wrap"><select class="cust-select" onchange="onFontChange('nameFont',this.value)">${NAME_FONTS.map(f=>`<option value="${escapeAttr(f.value)}" ${cvSettings.nameFont===f.value?'selected':''}>${f.label}</option>`).join('')}</select><div class="font-preview-strip" style="font-family:${escapeAttr(nameFontObj.preview)};font-size:1.05rem;font-weight:700">Your Name Here</div></div>`);
+    custRow('Name Font', `<div class="font-select-wrap"><select class="cust-select" onchange="onFontChange('nameFont',this.value)">${NAME_FONTS.map(f=>`<option value="${escapeAttr(f.value)}" ${cvSettings.nameFont===f.value?'selected':''}>${f.label}</option>`).join('')}</select><div class="font-preview-strip" style="font-family:${escapeAttr(namePreviewFamily)};font-size:1.05rem;font-weight:700">Your Name Here</div></div>`);
 
   // Labels name the actual on-CV element each slider controls, not the
   // internal setting key: "Job Title" used to label the titleFontSize
@@ -1518,7 +1519,7 @@ function toggleBool(key,val){
   else applySettings();
   scheduleSave();
 }
-function onFontChange(key,value){ cvSettings[key]=value; applySettings(); scheduleSave(); renderCustomizePanel(); if (isPaginatedLayout()) scheduleRepaginate(); }
+function onFontChange(key,value){ cvSettings[key]=value; applySettings(); scheduleSave(); renderCustomizePanel(); if (isPaginatedLayout()) scheduleRepaginate(); ensureFontsReady(); }
 function onColorPickerInput(hex){ cvSettings.accentColor=hex; const h=document.getElementById('colorHexInput'); if(h)h.value=hex; applySettings(); scheduleSave(); renderCustomizePanel(); }
 function onColorHexInput(val){ const c=val.trim(); if(/^#[0-9a-fA-F]{6}$/.test(c)){cvSettings.accentColor=c; const s=document.getElementById('colorPickerSwatch'); if(s)s.value=c; applySettings(); scheduleSave(); renderCustomizePanel();} }
 function onPerColorInput(key,hex){ cvSettings[key]=hex; applySettings(); scheduleSave(); }
