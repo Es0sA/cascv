@@ -18,12 +18,26 @@ import {
   signOut
 } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-auth.js";
 
+// Wait for initial auth state to be fully resolved from storage
+auth.authStateReady().then(() => {
+  if (auth.currentUser) {
+    window.casUser = auth.currentUser;
+    document.body.style.visibility = "visible";
+  } else {
+    window.location.replace("login.html");
+  }
+});
+
 onAuthStateChanged(auth, (user) => {
   if (user) {
     window.casUser = user;
     document.body.style.visibility = "visible";
   } else {
-    window.location.replace("login.html");
+    auth.authStateReady().then(() => {
+      if (!auth.currentUser) {
+        window.location.replace("login.html");
+      }
+    });
   }
 });
 

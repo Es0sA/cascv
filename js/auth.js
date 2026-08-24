@@ -1,20 +1,27 @@
 /* ============================================================
    CAS CV Builder — auth.js (Login Page)
-   Real Firebase email/password auth, replacing the old
-   hardcoded username/password check.
+   Real Firebase email/password auth with robust persistence,
+   form submission support, and detailed error feedback.
    ============================================================ */
 import { auth } from "./firebase-init.js";
 import {
   signInWithEmailAndPassword,
-  onAuthStateChanged
+  setPersistence,
+  browserLocalPersistence
 } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-auth.js";
 
-// If already signed in, skip straight to dashboard.
-onAuthStateChanged(auth, (user) => {
-  if (user) window.location.href = "dashboard.html";
+// Ensure local storage persistence for reliable cross-page sessions
+setPersistence(auth, browserLocalPersistence).catch(() => {});
+
+// If already signed in, wait until auth state is confirmed before redirecting
+auth.authStateReady().then(() => {
+  if (auth.currentUser) {
+    window.location.replace("dashboard.html");
+  }
 });
 
 // Elements
+const loginForm   = document.getElementById('loginForm');
 const signinBtn   = document.getElementById('signinBtn');
 const usernameInp = document.getElementById('username');
 const passwordInp = document.getElementById('password');
@@ -25,17 +32,21 @@ const eyeClosed   = document.getElementById('eyeClosed');
 const btnText     = document.getElementById('btnText');
 
 // Toggle password visibility
-togglePwd.addEventListener('click', () => {
-  const isHidden = passwordInp.type === 'password';
-  passwordInp.type   = isHidden ? 'text' : 'password';
-  eyeOpen.style.display   = isHidden ? 'none'  : '';
-  eyeClosed.style.display = isHidden ? '' : 'none';
-});
+if (togglePwd) {
+  togglePwd.addEventListener('click', () => {
+    const isHidden = passwordInp.type === 'password';
+    passwordInp.type   = isHidden ? 'text' : 'password';
+    eyeOpen.style.display   = isHidden ? 'none'  : '';
+    eyeClosed.style.display = isHidden ? '' : 'none';
+  });
+}
 
 // Sign in logic
-function handleSignIn() {
-  const email    = usernameInp.value.trim();
-  const password = passwordInp.value;
+async function handleSignIn(e) {
+  if (e) e.preventDefault();
+
+  const email    = (usernameInp.value || '').trim();
+  const password = passwordInp.value || '';
 
   errorMsg.textContent = '';
 
@@ -47,24 +58,32 @@ function handleSignIn() {
   signinBtn.disabled = true;
   btnText.textContent = 'Signing in...';
 
-  signInWithEmailAndPassword(auth, email, password)
-    .then(() => {
-      window.location.href = 'dashboard.html';
-    })
-    .catch((err) => {
-      // Firebase error codes: auth/invalid-email, auth/user-not-found,
-      // auth/wrong-password, auth/invalid-credential, auth/too-many-requests
-      errorMsg.textContent = 'Incorrect email or password.';
-      passwordInp.value = '';
-      passwordInp.focus();
-      signinBtn.disabled = false;
-      btnText.textContent = 'Sign In';
-    });
+  try {
+    await setPersistence(auth, browserLocalPersistence);
+    await signInWithEmailAndPassword(auth, email, password);
+    window.location.replace('dashboard.html');
+  } catch (err) {
+    console.error('Login error:', err);
+    let message = 'Incorrect email or password.';
+    if (err.code === 'auth/too-many-requests') {
+      message = 'Too many unsuccessful attempts. Please wait a few minutes and try again.';
+    } else if (err.code === 'auth/network-request-failed') {
+      message = 'Network error. Please check your internet connection and try again.';
+    } else if (err.code === 'auth/invalid-email') {
+      message = 'Please enter a valid email address.';
+    } else if (err.code === 'auth/user-disabled') {
+      message = 'This account has been disabled.';
+    }
+    errorMsg.textContent = message;
+    passwordInp.value = '';
+    passwordInp.focus();
+    signinBtn.disabled = false;
+    btnText.textContent = 'Sign In';
+  }
 }
 
-signinBtn.addEventListener('click', handleSignIn);
-
-// Allow Enter key to submit
-document.addEventListener('keydown', (e) => {
-  if (e.key === 'Enter') handleSignIn();
-});
+if (loginForm) {
+  loginForm.addEventListener('submit', handleSignIn);
+} else if (signinBtn) {
+  signinBtn.addEventListener('click', handleSignIn);
+}
