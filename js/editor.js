@@ -1519,7 +1519,7 @@ function toggleBool(key,val){
   else applySettings();
   scheduleSave();
 }
-function onFontChange(key,value){ cvSettings[key]=value; applySettings(); scheduleSave(); renderCustomizePanel(); if (isPaginatedLayout()) scheduleRepaginate(); ensureFontsReady(); }
+function onFontChange(key,value){ cvSettings[key]=value; applySettings(); scheduleSave(); renderCustomizePanel(); if (isPaginatedLayout()) scheduleRepaginate(); ensureFontsReady().then(() => { applySettings(); }); }
 function onColorPickerInput(hex){ cvSettings.accentColor=hex; const h=document.getElementById('colorHexInput'); if(h)h.value=hex; applySettings(); scheduleSave(); renderCustomizePanel(); }
 function onColorHexInput(val){ const c=val.trim(); if(/^#[0-9a-fA-F]{6}$/.test(c)){cvSettings.accentColor=c; const s=document.getElementById('colorPickerSwatch'); if(s)s.value=c; applySettings(); scheduleSave(); renderCustomizePanel();} }
 function onPerColorInput(key,hex){ cvSettings[key]=hex; applySettings(); scheduleSave(); }
@@ -1599,6 +1599,13 @@ function applySettings() {
     // directly, on each .cv-page closes that gap.
     cvPaper.querySelectorAll('.cv-page').forEach(applyStyleProps);
   }
+
+  // Force direct fontFamily onto every .cvp-name element so custom name fonts
+  // render immediately and reliably across all browsers and layouts.
+  const targetNameFont = cvSettings.nameFont === 'inherit' ? cvSettings.bodyFont : cvSettings.nameFont;
+  cvPaper.querySelectorAll('.cvp-name').forEach(nameEl => {
+    nameEl.style.setProperty('font-family', targetNameFont, 'important');
+  });
 
   const hdr = cvPaper.querySelector('.cvp-header');
   if (hdr) hdr.style.textAlign = cvSettings.headerAlign;
