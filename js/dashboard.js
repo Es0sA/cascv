@@ -205,7 +205,7 @@ function downloadCV(id) {
     '--cv-letter-spacing':cvSettings.letterSpacing   + 'em',
     '--cv-col-width':     cvSettings.twoColWidth     + '%',
     '--cv-bg':            cvSettings.colorBg,
-    '--cv-sidebar-bg':    cvSettings.colorSidebarBg,
+    '--cv-sidebar-bg':    cvSettings.sidebarBgEnabled ? (cvSettings.colorSidebarBg || '#f0f4f8') : 'transparent',
     '--cv-text':          cvSettings.colorText,
     '--cv-photo-zoom':    cvSettings.photoZoom,
   };

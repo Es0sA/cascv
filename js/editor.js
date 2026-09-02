@@ -1592,6 +1592,27 @@ function setSetting(key, value) {
     if (SIDEBAR_TEMPLATES.includes(value)) cvSettings.columns = '2';
     else if (SIDEBAR_TEMPLATES.includes(prevTemplate)) cvSettings.columns = '1';
   }
+  if (key==='columns' && String(value)==='2') {
+    if (!cvData.columnAssign) cvData.columnAssign = {};
+    const sections = (cvData.parsed && cvData.parsed.sections) || [];
+    const hasSidebar = sections.some((s, i) => cvData.columnAssign[i] === 'sidebar');
+    if (!hasSidebar && sections.length > 1) {
+      const SIDEBAR_TYPES = new Set(['skills', 'languages', 'education', 'certs', 'awards', 'interests']);
+      let assignedCount = 0;
+      sections.forEach((sec, idx) => {
+        const type = sec.type || 'custom';
+        if (SIDEBAR_TYPES.has(type)) {
+          cvData.columnAssign[idx] = 'sidebar';
+          assignedCount++;
+        } else {
+          cvData.columnAssign[idx] = 'main';
+        }
+      });
+      if (assignedCount === 0 && sections.length >= 2) {
+        cvData.columnAssign[sections.length - 1] = 'sidebar';
+      }
+    }
+  }
   renderCustomizePanel();
   if (key==='listStyle'||key==='columns'||key==='dateFormat'||key==='template'||key==='headerPosition'||key==='sidebarPosition'||key==='sidebarBgEnabled'||key==='iconStyle'||key==='workTitleOrder'||key==='eduTitleOrder'||key==='photoShape') {
     renderEditPanel();

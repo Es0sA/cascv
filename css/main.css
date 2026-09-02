@@ -3082,6 +3082,9 @@ input {
 .cv-paper.t-neutral-gray .cvp-header {
   grid-column: 1;
   grid-row: 1 / 200;
+  margin-bottom: 0 !important;
+  height: 100% !important;
+  box-sizing: border-box !important;
   padding: 30px 20px 30px;
   display: flex;
   flex-direction: column;
@@ -3343,22 +3346,26 @@ input {
 }
 
 .cv-paper.cols-2 .cv-sidebar-col {
-  background: transparent;
+  background: transparent !important;
   padding: 0;
   min-height: 0;
-}
-
-.cv-paper.cols-2 .cv-sidebar-col:empty {
-  display: none;
 }
 
 .cv-paper.cols-2 .cv-main-col {
   padding: 0;
 }
 
+/* In-column headers on banner templates must not bleed out with negative margins */
+.cv-paper .cvp-header.cvp-header-incolumn {
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+}
+
 /* Optional shaded sidebar box if enabled */
 .cv-paper.cols-2.sidebar-has-bg .cv-sidebar-col {
-  background: var(--cv-sidebar-bg, #f0f4f8);
+  background: var(--cv-sidebar-bg, #f0f4f8) !important;
   padding: 14px 14px;
   border-radius: 4px;
 }
