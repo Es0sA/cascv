@@ -1931,7 +1931,13 @@ function measureAndPaginate(units, pw, ph, marginLR, marginTB, classString, sect
   document.body.appendChild(probe);
 
   const pxPerMm = probe.clientWidth / pw;
-  const usablePageHeightPx = (ph - marginTB * 2) * pxPerMm + PAGE_FIT_TOLERANCE_MM * pxPerMm;
+  // probe carries classString (cv-paper), which already includes padding-top
+  // and padding-bottom equal to marginTB. probe.getBoundingClientRect().height
+  // therefore measures the full physical sheet height that this candidate
+  // page occupies, so its ceiling is the full page height (ph), not ph minus margins.
+  // Subtracting marginTB again would double-subtract the margins, falsely reporting
+  // an overflow and pushing content to page 2 while ~30mm of space remains on page 1.
+  const usablePageHeightPx = ph * pxPerMm + PAGE_FIT_TOLERANCE_MM * pxPerMm;
 
   // Measure by actually rendering each candidate page through
   // unitsToPageHTML — the exact same .cvp-section/.cvp-sec-heading/
