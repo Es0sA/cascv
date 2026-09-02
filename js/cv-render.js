@@ -48,7 +48,8 @@ const SIDEBAR_TEMPLATES = ['atlantic-blue', 'corporate-panel', 'cobalt-edge', 'o
 // use this same object, so a new setting added here is never missing
 // from one side or the other.
 const DEFAULTS = {
-  template:'classic', columns:1, twoColWidth:32, headerAlign:'left', headerPosition:'top',
+  template:'classic', columns:1, twoColWidth:32, sidebarPosition:'left', sidebarBgEnabled:false,
+  headerAlign:'left', headerPosition:'top',
   subtitleLine:'next', paperFormat:'A4', bodyFont:'Calibri, Arial, sans-serif',
   nameFont:'inherit', baseFontSize:11, nameFontSize:19, titleFontSize:12,
   headingFontSize:10, entryFontSize:11, lineHeight:1.55, letterSpacing:0,
@@ -636,12 +637,14 @@ function escapeAttr(s){ return (s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot
 function computeCvPaperClassString(excludePageNum) {
   const colMode = String(cvSettings.columns);
   const colClass = colMode==='2' ? 'cols-2' : colMode==='mix' ? 'cols-mix' : 'cols-1';
+  const sidebarPosClass = (colMode==='2' && cvSettings.sidebarPosition==='right') ? 'sidebar-pos-right' : 'sidebar-pos-left';
+  const sidebarBgClass  = (colMode==='2' && cvSettings.sidebarBgEnabled) ? 'sidebar-has-bg' : 'sidebar-no-bg';
   const accentClasses = [
     cvSettings.accentName     ?'ac-name':'', cvSettings.accentTitle    ?'ac-title':'',
     cvSettings.accentHeadings ?'ac-headings':'', cvSettings.accentLine  ?'ac-line':'',
     cvSettings.accentDates    ?'ac-dates':'', cvSettings.accentSubtitle ?'ac-subtitle':'',
     cvSettings.accentIcons    ?'ac-icons':'', cvSettings.accentLinkIcons?'ac-linkicons':'',
-    (cvSettings.showPageNums && !excludePageNum) ?'show-pagenum':'', colClass,
+    (cvSettings.showPageNums && !excludePageNum) ?'show-pagenum':'', colClass, sidebarPosClass, sidebarBgClass,
   ].filter(Boolean).join(' ');
   return ['cv-paper',`t-${cvSettings.template}`,`hs-${cvSettings.headingStyle}`,
     `hc-${cvSettings.headingCase}`,`ss-${cvSettings.subtitleStyle}`,`ds-${cvSettings.dateStyle}`,
@@ -702,9 +705,11 @@ function buildCVHTML(parsed) {
     const main    = sections.map((s,i)=>({s,i})).filter(({i})=>(cvData.columnAssign[i]||'main')==='main');
     const sidebar = sections.map((s,i)=>({s,i})).filter(({i})=>cvData.columnAssign[i]==='sidebar');
     const headerBlock = headerInColumn ? `<div class="cvp-header cvp-header-incolumn">${headerInner}</div>` : '';
+    const isSidebarRight = cvSettings.sidebarPosition === 'right';
+    const sidebarHtml = '<div class="cv-sidebar-col">' + (headerPos==='left'?headerBlock:'') + sidebar.map(({s,i})=>renderSectionPreview(s,i)).join('') + '</div>';
+    const mainHtml    = '<div class="cv-main-col">'    + (headerPos==='right'?headerBlock:'') + main.map(({s,i})=>renderSectionPreview(s,i)).join('')    + '</div>';
     html += '<div class="cv-two-col-wrap">';
-    html += '<div class="cv-sidebar-col">' + (headerPos==='left'?headerBlock:'') + sidebar.map(({s,i})=>renderSectionPreview(s,i)).join('') + '</div>';
-    html += '<div class="cv-main-col">'    + (headerPos==='right'?headerBlock:'') + main.map(({s,i})=>renderSectionPreview(s,i)).join('')    + '</div>';
+    html += isSidebarRight ? (mainHtml + sidebarHtml) : (sidebarHtml + mainHtml);
     html += '</div>';
   } else if (isMix) {
     // Walk sections in order; pair up consecutive 'half' width sections into a flex row

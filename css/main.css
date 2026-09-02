@@ -3330,27 +3330,37 @@ input {
 .cvp-skill-bar-row { break-inside: avoid; page-break-inside: avoid; }
 .cvp-skill-dot-row { break-inside: avoid; page-break-inside: avoid; }
 
-/* ---- Two-column layout ---- */
+/* ---- Two-column layout (FlowCV Style) ---- */
 .cv-paper.cols-2 .cv-two-col-wrap {
   display: grid;
   grid-template-columns: var(--cv-col-width, 32%) 1fr;
-  gap: 0;
+  gap: 24px;
   align-items: start;
 }
-.cv-paper.cols-2 .cv-sidebar-col {
-  background: var(--cv-sidebar-bg, #f0f4f8);
-  padding: 16px 14px;
-  min-height: 200px;
+
+.cv-paper.cols-2.sidebar-pos-right .cv-two-col-wrap {
+  grid-template-columns: 1fr var(--cv-col-width, 32%);
 }
-/* No sections assigned to the sidebar yet: don't paint an empty
-   colored box with no content in it, just collapse it away. */
-.cv-paper.cols-2 .cv-sidebar-col:empty {
-  background: none;
+
+.cv-paper.cols-2 .cv-sidebar-col {
+  background: transparent;
   padding: 0;
   min-height: 0;
 }
+
+.cv-paper.cols-2 .cv-sidebar-col:empty {
+  display: none;
+}
+
 .cv-paper.cols-2 .cv-main-col {
-  padding: 0 0 0 18px;
+  padding: 0;
+}
+
+/* Optional shaded sidebar box if enabled */
+.cv-paper.cols-2.sidebar-has-bg .cv-sidebar-col {
+  background: var(--cv-sidebar-bg, #f0f4f8);
+  padding: 14px 14px;
+  border-radius: 4px;
 }
 
 /* ---- Skill bars ---- */
@@ -3623,8 +3633,8 @@ input {
 
 /* ---- Print: hide editor chrome, show only cv-paper ---- */
 @media print {
-  .cv-paper.cols-2 .cv-sidebar-col { background: var(--cv-sidebar-bg, #f0f4f8) !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  .cv-paper.cols-2 .cv-sidebar-col:empty { background: none !important; }
+  .cv-paper.cols-2 .cv-sidebar-col { background: transparent !important; }
+  .cv-paper.cols-2.sidebar-has-bg .cv-sidebar-col { background: var(--cv-sidebar-bg, #f0f4f8) !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .cvp-skill-fill { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .cvp-dot.filled { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 }

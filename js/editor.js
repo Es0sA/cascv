@@ -1165,6 +1165,16 @@ function renderCustomizePanel() {
         ${slider('twoColWidth',20,50,1,'%')}
       </div>
     `) : '') +
+    (isTwoCol && !isSidebarTemplateNow ? custRow('Sidebar Position', toggleGroup([{label:'Left',value:'left'},{label:'Right',value:'right'}],'sidebarPosition')) : '') +
+    (isTwoCol && !isSidebarTemplateNow ? custRow('Sidebar Panel', `
+      <div style="display:flex;flex-direction:column;gap:8px;width:100%;">
+        <div class="toggle-group">
+          <button class="toggle-btn ${!cvSettings.sidebarBgEnabled?'active':''}" type="button" onclick="toggleBool('sidebarBgEnabled',false);renderCustomizePanel();renderRightPanel();">Clean (No Box)</button>
+          <button class="toggle-btn ${cvSettings.sidebarBgEnabled?'active':''}" type="button" onclick="toggleBool('sidebarBgEnabled',true);renderCustomizePanel();renderRightPanel();">Shaded Box</button>
+        </div>
+        ${cvSettings.sidebarBgEnabled ? `<div style="margin-top:4px;">${perColorRow('Panel Color','colorSidebarBg',cvSettings.colorSidebarBg||'#f0f4f8')}</div>` : ''}
+      </div>
+    `) : '') +
     (isTwoCol && !isSidebarTemplateNow ? custRow('Header Position', toggleGroup([{label:'Top',value:'top'},{label:'Left',value:'left'},{label:'Right',value:'right'}],'headerPosition')) : '') +
     custRow('Header',       toggleGroup([{label:'Left',value:'left'},{label:'Center',value:'center'}],'headerAlign')) +
     custRow('Icon Style',   toggleGroup([{label:'None',value:'none'},{label:'Plain',value:'plain'},{label:'Filled',value:'circle-filled'},{label:'Outline',value:'circle-outline'}],'iconStyle')) +
@@ -1583,7 +1593,7 @@ function setSetting(key, value) {
     else if (SIDEBAR_TEMPLATES.includes(prevTemplate)) cvSettings.columns = '1';
   }
   renderCustomizePanel();
-  if (key==='listStyle'||key==='columns'||key==='dateFormat'||key==='template'||key==='headerPosition'||key==='iconStyle'||key==='workTitleOrder'||key==='eduTitleOrder'||key==='photoShape') {
+  if (key==='listStyle'||key==='columns'||key==='dateFormat'||key==='template'||key==='headerPosition'||key==='sidebarPosition'||key==='sidebarBgEnabled'||key==='iconStyle'||key==='workTitleOrder'||key==='eduTitleOrder'||key==='photoShape') {
     renderEditPanel();
     // Template/columns/headerPosition can drastically change page count
     // and height, so those three reset scroll to the top instead of
@@ -1651,7 +1661,7 @@ function stepSlider(key, delta, min, max, step, suffix) {
 }
 function toggleBool(key,val){
   cvSettings[key]=val;
-  if (key==='showDuration' || key==='showSectionIcons') { renderRightPanel(); }
+  if (key==='showDuration' || key==='showSectionIcons' || key==='sidebarBgEnabled') { renderRightPanel(); }
   else if (key==='summaryInHeader') { renderEditPanel(); renderRightPanel(); renderCustomizePanel(); }
   else applySettings();
   scheduleSave();
@@ -1710,7 +1720,7 @@ function applySettings() {
     '--cv-letter-spacing':cvSettings.letterSpacing   +'em',
     '--cv-col-width':     cvSettings.twoColWidth     +'%',
     '--cv-bg':            cvSettings.colorBg,
-    '--cv-sidebar-bg':    cvSettings.colorSidebarBg,
+    '--cv-sidebar-bg':    cvSettings.sidebarBgEnabled ? (cvSettings.colorSidebarBg || '#f0f4f8') : 'transparent',
     '--cv-text':          cvSettings.colorText,
     '--cv-photo-zoom':    cvSettings.photoZoom,
   };
@@ -2265,7 +2275,10 @@ function paginateTwoColumn(parsed) {
     const sidebarHtml = sidebarPages[k] ? unitsToPageHTML(sidebarPages[k], sectionMeta, k) : '';
     const mainHtml    = mainPages[k]    ? unitsToPageHTML(mainPages[k],    sectionMeta, k) : '';
     let html = (k === 0 && topHeaderHtml) ? topHeaderHtml : '';
-    html += `<div class="cv-two-col-wrap"><div class="cv-sidebar-col">${sidebarHtml}</div><div class="cv-main-col">${mainHtml}</div></div>`;
+    const isSidebarRight = cvSettings.sidebarPosition === 'right';
+    const sidebarCol = `<div class="cv-sidebar-col">${sidebarHtml}</div>`;
+    const mainCol    = `<div class="cv-main-col">${mainHtml}</div>`;
+    html += `<div class="cv-two-col-wrap">${isSidebarRight ? (mainCol + sidebarCol) : (sidebarCol + mainCol)}</div>`;
     pageHtmls.push(html);
   }
 
