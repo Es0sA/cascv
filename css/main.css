@@ -1866,6 +1866,91 @@ input {
   margin-bottom: 12px;
 }
 
+/* ---- FlowCV Accordion Cards ---- */
+.cust-accordion-card {
+  border-bottom: 1px solid var(--border-subtle);
+  transition: background 0.15s ease;
+}
+
+.cust-accordion-header {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 13px 16px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  user-select: none;
+  text-align: left;
+  transition: background 0.15s;
+}
+
+.cust-accordion-header:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.cust-accordion-title-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.cust-accordion-icon {
+  font-size: 0.95rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+}
+
+.cust-accordion-title {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  letter-spacing: 0.02em;
+}
+
+.cust-accordion-chevron {
+  color: var(--text-muted);
+  transition: transform 0.2s ease;
+  display: flex;
+  align-items: center;
+}
+
+.cust-accordion-card.open .cust-accordion-chevron {
+  transform: rotate(180deg);
+  color: var(--gold);
+}
+
+.cust-accordion-body {
+  display: none;
+  padding: 4px 16px 18px;
+}
+
+.cust-accordion-card.open .cust-accordion-body {
+  display: block;
+}
+
+/* Preset groups (Density & Scale) */
+.cust-preset-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 14px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.cust-preset-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  flex: 0 0 70px;
+}
+
 /* ---- Label + control rows (FlowCV-style) ---- */
 .cust-row {
   display: flex;

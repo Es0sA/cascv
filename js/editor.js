@@ -1154,11 +1154,20 @@ function renderCustomizePanel() {
 
   const layoutHtml =
     custRow('Paper Format', toggleGroup([{label:'A4',value:'A4'},{label:'Letter (US)',value:'Letter'}],'paperFormat')) +
-    custRow('Columns',      toggleGroup([{label:'⬜ One',value:'1'},{label:'⬛⬛ Two',value:'2'},{label:'▦ Mix',value:'mix'}],'columns')) +
-    (isTwoCol ? custRow('Sidebar Width', slider('twoColWidth',20,50,1,'%')) : '') +
+    custRow('Columns',      toggleGroup([{label:'1 Column',value:'1'},{label:'2 Columns',value:'2'},{label:'Mix',value:'mix'}],'columns')) +
+    (isTwoCol ? custRow('Sidebar Width', `
+      <div style="display:flex;flex-direction:column;gap:8px;width:100%;">
+        <div class="toggle-group" style="margin-bottom:6px;">
+          <button class="toggle-btn ${cvSettings.twoColWidth===28?'active':''}" type="button" onclick="onSlider('twoColWidth',28,'%')">28%</button>
+          <button class="toggle-btn ${cvSettings.twoColWidth===33?'active':''}" type="button" onclick="onSlider('twoColWidth',33,'%')">33%</button>
+          <button class="toggle-btn ${cvSettings.twoColWidth===40?'active':''}" type="button" onclick="onSlider('twoColWidth',40,'%')">40%</button>
+        </div>
+        ${slider('twoColWidth',20,50,1,'%')}
+      </div>
+    `) : '') +
     (isTwoCol && !isSidebarTemplateNow ? custRow('Header Position', toggleGroup([{label:'Top',value:'top'},{label:'Left',value:'left'},{label:'Right',value:'right'}],'headerPosition')) : '') +
-    custRow('Header',       toggleGroup([{label:'← Left',value:'left'},{label:'↔ Center',value:'center'}],'headerAlign')) +
-    custRow('Icon Style',   toggleGroup([{label:'None',value:'none'},{label:'Plain',value:'plain'},{label:'● Filled',value:'circle-filled'},{label:'○ Outline',value:'circle-outline'}],'iconStyle')) +
+    custRow('Header',       toggleGroup([{label:'Left',value:'left'},{label:'Center',value:'center'}],'headerAlign')) +
+    custRow('Icon Style',   toggleGroup([{label:'None',value:'none'},{label:'Plain',value:'plain'},{label:'Filled',value:'circle-filled'},{label:'Outline',value:'circle-outline'}],'iconStyle')) +
     custRow('Subtitle',     toggleGroup([{label:'Next Line',value:'next'},{label:'Same Line',value:'same'}],'subtitleLine')) +
     custRow('Section Layout', renderSectionLayoutPanel(colMode));
 
@@ -1251,7 +1260,7 @@ function renderCustomizePanel() {
   // is explicitly out of scope for this pass (see plan). Hide them rather
   // than leave controls that quietly do nothing.
   const footerHtml = isPaginatedLayout()
-    ? `<p class="footer-zone-hint">Page footer / numbering isn't available yet for real multi-page CVs — coming in a future update.</p>` +
+    ? `<p class="footer-zone-hint">Page footer / numbering is not available yet for real multi-page CVs (coming in a future update).</p>` +
       custRow('Link Style', toggleGroup([{label:'Underline',value:'underline'},{label:'Blue',value:'blue'},{label:'Plain',value:'plain'}],'linkStyle'))
     : custRow('Page Numbers',`<label class="cust-toggle-row"><input type="checkbox" ${cvSettings.showPageNums?'checked':''} onchange="toggleBool('showPageNums',this.checked)"><span class="cust-toggle-slider"></span><span class="cust-toggle-label">Show page numbers</span></label>`) +
       custRow('Custom Footer',`<label class="cust-toggle-row"><input type="checkbox" ${cvSettings.footerCustom?'checked':''} onchange="toggleBool('footerCustom',this.checked);renderCustomizePanel();renderRightPanel()"><span class="cust-toggle-slider"></span><span class="cust-toggle-label">Build a custom 3-zone footer</span></label>${footerCustomFields}`) +
@@ -1271,12 +1280,29 @@ function renderCustomizePanel() {
       custRow('Zoom', slider('photoZoom',1,2,0.05,'x'))
     : '<p class="footer-zone-hint">Upload a photo in the Header section of the Edit tab to see design options here.</p>';
 
+  const spacingPresetsHtml = `
+    <div class="cust-preset-group">
+      <span class="cust-preset-label">Preset</span>
+      <div class="toggle-group">
+        <button class="toggle-btn ${cvSettings.marginTB===10&&cvSettings.sectionSpacing===8?'active':''}" type="button" onclick="applySpacingPreset('compact')">Compact</button>
+        <button class="toggle-btn ${cvSettings.marginTB===15&&cvSettings.sectionSpacing===12?'active':''}" type="button" onclick="applySpacingPreset('standard')">Standard</button>
+        <button class="toggle-btn ${cvSettings.marginTB===20&&cvSettings.sectionSpacing===18?'active':''}" type="button" onclick="applySpacingPreset('relaxed')">Relaxed</button>
+      </div>
+    </div>
+  `;
+  const fullSpacingHtml = spacingPresetsHtml + spacingHtml;
+
   customizePanel.innerHTML =
-    section('Design Templates', templateHtml) + section('Layout', layoutHtml) +
-    section('Font', fontHtml) + section('Font Size', fontSizeHtml) +
-    section('Spacing', spacingHtml) + section('Style', styleHtml) +
-    section('Colours', colorHtml) + section('Photo', photoHtml) +
-    section('Sections', sectionsHtml) + section('Footer & Links', footerHtml);
+    custAccordion('templates', 'Design Templates', templateHtml) +
+    custAccordion('layout',    'Layout & Grid',    layoutHtml) +
+    custAccordion('font',      'Typography',       fontHtml) +
+    custAccordion('fontSize',  'Font Size',        fontSizeHtml) +
+    custAccordion('spacing',   'Spacing & Margins', fullSpacingHtml) +
+    custAccordion('style',     'Style & Details',  styleHtml) +
+    custAccordion('colors',    'Colours & Accents', colorHtml) +
+    custAccordion('photo',     'Photo Options',    photoHtml) +
+    custAccordion('sections',  'Section Ordering', sectionsHtml) +
+    custAccordion('footer',    'Footer & Links',   footerHtml);
 
   if (scrollEl) scrollEl.scrollTop = savedTop;
   const newTplScrollEl = document.querySelector('.template-grid-2col');
@@ -1301,7 +1327,7 @@ function renderSectionLayoutPanel(colMode) {
     const def  = getSectionDef(sections[i], i);
     const width = cvData.sectionWidth[i] || 'full';
     return `<div class="layout-chip" data-section-idx="${i}">
-      <span class="layout-chip-handle">⠿</span>
+      <span class="layout-chip-handle"><svg width="10" height="14" viewBox="0 0 10 16" fill="currentColor"><circle cx="3" cy="3" r="1.5"/><circle cx="7" cy="3" r="1.5"/><circle cx="3" cy="8" r="1.5"/><circle cx="7" cy="8" r="1.5"/><circle cx="3" cy="13" r="1.5"/><circle cx="7" cy="13" r="1.5"/></svg></span>
       <span class="layout-chip-icon">${def.icon || '📄'}</span>
       <input class="layout-chip-label" type="text" value="${escapeAttr(name)}"
              onclick="event.stopPropagation()" onkeydown="event.stopPropagation()"
@@ -1458,6 +1484,77 @@ function updateSegBars(key, min, max) {
   const filled = Math.round(pct * SEG_COUNT);
   Array.from(wrap.children).forEach((el, i) => el.classList.toggle('seg-filled', i < filled));
 }
+
+const _openCustAccordions = new Set(['templates', 'layout', 'spacing']);
+
+function toggleCustAccordion(id) {
+  if (_openCustAccordions.has(id)) {
+    _openCustAccordions.delete(id);
+  } else {
+    _openCustAccordions.add(id);
+  }
+  const card = document.getElementById(`cust-acc-${id}`);
+  if (card) {
+    card.classList.toggle('open', _openCustAccordions.has(id));
+  }
+}
+window.toggleCustAccordion = toggleCustAccordion;
+
+const CUST_ICONS = {
+  templates: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>`,
+  layout:    `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="12" y1="3" x2="12" y2="21"/></svg>`,
+  font:      `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 7 4 4 20 4 20 7"/><line x1="9" y1="20" x2="15" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/></svg>`,
+  fontSize:  `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>`,
+  spacing:   `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="8 3 4 7 8 11"/><polyline points="16 3 20 7 16 11"/><line x1="4" y1="7" x2="20" y2="7"/></svg>`,
+  style:     `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3Z"/></svg>`,
+  colors:    `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="4"/></svg>`,
+  photo:     `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>`,
+  sections:  `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="18" x2="20" y2="18"/></svg>`,
+  footer:    `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>`
+};
+
+function custAccordion(id, title, bodyHtml) {
+  const isOpen = _openCustAccordions.has(id);
+  const iconSvg = CUST_ICONS[id] || '';
+  return `<div class="cust-accordion-card ${isOpen ? 'open' : ''}" id="cust-acc-${id}">
+    <button class="cust-accordion-header" type="button" onclick="toggleCustAccordion('${id}')">
+      <div class="cust-accordion-title-group">
+        <span class="cust-accordion-icon">${iconSvg}</span>
+        <span class="cust-accordion-title">${title}</span>
+      </div>
+      <span class="cust-accordion-chevron">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"></polyline></svg>
+      </span>
+    </button>
+    <div class="cust-accordion-body">
+      ${bodyHtml}
+    </div>
+  </div>`;
+}
+
+function applySpacingPreset(preset) {
+  if (preset === 'compact') {
+    cvSettings.marginTB = 10;
+    cvSettings.marginLR = 12;
+    cvSettings.sectionSpacing = 8;
+    cvSettings.lineHeight = 1.35;
+  } else if (preset === 'standard') {
+    cvSettings.marginTB = 15;
+    cvSettings.marginLR = 15;
+    cvSettings.sectionSpacing = 12;
+    cvSettings.lineHeight = 1.45;
+  } else if (preset === 'relaxed') {
+    cvSettings.marginTB = 20;
+    cvSettings.marginLR = 20;
+    cvSettings.sectionSpacing = 18;
+    cvSettings.lineHeight = 1.6;
+  }
+  renderCustomizePanel();
+  applySettings();
+  if (isPaginatedLayout()) scheduleRepaginate();
+  scheduleSave();
+}
+window.applySpacingPreset = applySpacingPreset;
 
 function section(title, bodyHtml) {
   return `<div class="cust-section"><div class="cust-section-title">${title}</div>${bodyHtml}</div>`;
