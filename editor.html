@@ -91,30 +91,53 @@
         <div class="cv-paper t-classic hs-underline hc-upper" id="cvPaper"></div>
         <div id="pageBreakOverlay" aria-hidden="true"></div>
       </div>
+
+      <!-- Floating Canvas Toolbar (FlowCV Style) -->
+      <div class="canvas-floating-toolbar" id="canvasToolbar">
+        <div class="canvas-toolbar-group">
+          <button class="canvas-tool-btn" id="canvasPagePrevBtn" onclick="cvScrollToPage('prev')" title="Previous page" type="button">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+          </button>
+          <span class="canvas-page-indicator" id="canvasPageIndicator">Page 1 / 1</span>
+          <button class="canvas-tool-btn" id="canvasPageNextBtn" onclick="cvScrollToPage('next')" title="Next page" type="button">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+          </button>
+        </div>
+        <span class="canvas-toolbar-sep"></span>
+        <div class="canvas-toolbar-group">
+          <button class="canvas-tool-btn" id="canvasZoomOutBtn" onclick="cvZoomStep(-0.1)" title="Zoom Out" type="button">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          </button>
+          <button class="canvas-zoom-pill" id="canvasZoomPill" onclick="cvToggleZoomDropdown()" title="Click to choose zoom" type="button">
+            <span id="canvasZoomLabel">Auto</span>
+          </button>
+          <button class="canvas-tool-btn" id="canvasZoomInBtn" onclick="cvZoomStep(0.1)" title="Zoom In" type="button">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          </button>
+          <button class="canvas-tool-btn" id="canvasFitBtn" onclick="cvSetFitZoom()" title="Fit to screen" type="button">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="4 14 10 14 10 20"/><polyline points="20 10 14 10 14 4"/><line x1="14" y1="10" x2="21" y2="3"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
+          </button>
+        </div>
+      </div>
     </div>
 
   </div>
 
-  <!-- Mobile Preview button/modal: on a phone, the edit form and the
-       live preview stack vertically (see the @media(max-width:800px)
-       rules in main.css), so seeing the preview means scrolling past
-       the entire form first. This button jumps straight to a full-
-       screen view of the SAME live #cvPaperWrap node (moved in, not
-       cloned, so it can't drift out of sync — see openMobilePreview in
-       editor.js), matching the pattern FlowCV uses on mobile. Hidden
-       on desktop widths, where the preview is already visible
-       alongside the form. -->
-  <button class="mobile-preview-fab" id="mobilePreviewFab" type="button" title="Preview" aria-label="Preview CV">
-    <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-  </button>
-
-  <div class="mobile-preview-modal" id="mobilePreviewModal">
-    <button class="mobile-preview-close" id="mobilePreviewClose" type="button" aria-label="Close preview">
-      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+  <!-- Mobile Bottom Navigation (FlowCV Style) -->
+  <nav class="mobile-bottom-nav" id="mobileBottomNav">
+    <button class="mobile-nav-btn active" id="mobileNavEdit" onclick="switchMobileTab('edit')" type="button">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+      <span>Content</span>
     </button>
-    <div class="mobile-preview-modal-body" id="mobilePreviewBody"></div>
-    <button class="mobile-preview-download" id="mobilePreviewDownload" type="button">⬇ Download PDF</button>
-  </div>
+    <button class="mobile-nav-btn" id="mobileNavCustomize" onclick="switchMobileTab('customize')" type="button">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      <span>Design</span>
+    </button>
+    <button class="mobile-nav-btn" id="mobileNavPreview" onclick="switchMobileTab('preview')" type="button">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+      <span>Preview</span>
+    </button>
+  </nav>
 
   <!-- Reimport Modal -->
   <div class="modal-overlay" id="reimportOverlay">

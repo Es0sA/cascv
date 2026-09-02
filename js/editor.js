@@ -183,10 +183,22 @@ downloadBtn.addEventListener('click', async () => {
    TABS
    ============================================================ */
 function switchTab(tab) {
-  document.getElementById('tabEdit').classList.toggle('active', tab === 'edit');
-  document.getElementById('tabCustomize').classList.toggle('active', tab === 'customize');
-  document.getElementById('editPanel').style.display      = tab === 'edit'      ? '' : 'none';
-  document.getElementById('customizePanel').style.display = tab === 'customize' ? '' : 'none';
+  const tabEdit = document.getElementById('tabEdit');
+  const tabCust = document.getElementById('tabCustomize');
+  if (tabEdit) tabEdit.classList.toggle('active', tab === 'edit');
+  if (tabCust) tabCust.classList.toggle('active', tab === 'customize');
+
+  const editP = document.getElementById('editPanel');
+  const custP = document.getElementById('customizePanel');
+  if (editP) editP.style.display = tab === 'edit' ? '' : 'none';
+  if (custP) custP.style.display = tab === 'customize' ? '' : 'none';
+
+  const mEdit = document.getElementById('mobileNavEdit');
+  const mCust = document.getElementById('mobileNavCustomize');
+  if (mEdit && tab === 'edit') mEdit.classList.add('active');
+  if (mEdit && tab !== 'edit') mEdit.classList.remove('active');
+  if (mCust && tab === 'customize') mCust.classList.add('active');
+  if (mCust && tab !== 'customize') mCust.classList.remove('active');
 }
 
 /* ============================================================
@@ -1711,10 +1723,27 @@ function renderRightPanel(resetScroll) {
       mode === 'twocol' ? paginateTwoColumn(cvData.parsed) :
       paginateSidebarTemplate(cvData.parsed);
     _paginationMultiPageSections = multiPageSections;
-    cvPaper.innerHTML = pageHtmls.map(h => `<div class="cv-page">${h}</div>`).join('');
+    const totalPages = pageHtmls.length;
+    cvPaper.innerHTML = pageHtmls.map((h, idx) => `
+      <div class="cv-page-card" id="cvPageCard-${idx + 1}" data-page-index="${idx + 1}">
+        <div class="cv-page-card-header">
+          <span class="cv-page-card-badge">Page ${idx + 1} of ${totalPages}</span>
+        </div>
+        <div class="cv-page">${h}</div>
+      </div>
+    `).join('');
+    updateCanvasPageIndicator(1, totalPages);
   } else {
     _paginationMultiPageSections = new Set();
-    cvPaper.innerHTML = buildCVHTML(cvData.parsed);
+    cvPaper.innerHTML = `
+      <div class="cv-page-card" id="cvPageCard-1" data-page-index="1">
+        <div class="cv-page-card-header">
+          <span class="cv-page-card-badge">Page 1 of 1</span>
+        </div>
+        <div class="cv-page">${buildCVHTML(cvData.parsed)}</div>
+      </div>
+    `;
+    updateCanvasPageIndicator(1, 1);
   }
   applySettings();
 
@@ -2614,49 +2643,88 @@ function migrateHeader(){
    justify-content:center then always centers the right amount of
    space, regardless of zoom's reflow behavior in a given browser.
    ============================================================ */
+/* ============================================================
+   CANVAS ZOOM & SCROLL ENGINE (FLOWCV PATTERN)
+   Supports automatic responsive fitting and granular manual zoom.
+   ============================================================ */
+let _canvasManualZoom = null;
+
 function fitPaperZoom() {
   const wrap  = document.getElementById('cvPaperWrap');
-  // Read the actual current parent rather than hardcoding #editorRight —
-  // the mobile Preview modal (see openMobilePreview) moves this same
-  // live #cvPaperWrap node into its own full-screen container instead of
-  // cloning it, so the zoom calculation needs to size against WHICHEVER
-  // container it's currently sitting in, not always the desktop/mobile
-  // split-panel one.
   const right = wrap ? wrap.parentElement : null;
   if (!wrap || !right) return;
 
-  // .cv-paper-wrap's own CSS rule is `width: min(var(--cv-paper-w, 210mm),
-  // 100%)` — that 100% cap exists so the wrap never overflows before this
-  // function has run, but it means clearing the inline width back to ''
-  // does NOT fall back to the true physical page width on a narrow panel
-  // (mobile, or a dragged-narrow desktop panel): 100% of the container
-  // is narrower than 210mm there, so min() picks the 100% branch. That
-  // silently caps naturalW at the container's own width below, so it can
-  // never exceed availW, zoom never engages, and the paper's own content
-  // (width:100% of the wrap) reflows its text to fit that narrow box
-  // instead of being measured/rendered at true size and then uniformly
-  // scaled down — a fundamentally different, narrower layout than
-  // desktop, not just a smaller rendering of the same one. Setting the
-  // true physical width explicitly here (bypassing the 100% cap) makes
-  // the measurement, and therefore the on-screen layout, match the
-  // desktop/PDF layout at every panel width; only the zoom scale changes.
-  wrap.style.zoom  = 1;   // reset first so we measure the true natural width
+  wrap.style.zoom  = 1;
   wrap.style.width = 'var(--cv-paper-w, 210mm)';
-  const availW   = right.clientWidth;   // .editor-right has no horizontal padding
+  const availW   = right.clientWidth - 48; // accounting for canvas padding
   const naturalW = wrap.scrollWidth || wrap.offsetWidth;
 
-  // `zoom` alone already shrinks the wrap's rendered/visual footprint
-  // (the size the parent flex container lays out around) by `scale` —
-  // it's not just a paint-time effect, ancestors see the post-zoom size.
-  // width must stay at the true physical value in both branches; also
-  // setting it to the already-scaled pixel value here (as this used to)
-  // gets shrunk by zoom a second time, rendering at roughly scale^2 of
-  // the intended size instead of scale. This is what made the mobile
-  // preview render far smaller than the desktop layout instead of a
-  // clean proportional miniature of it.
-  wrap.style.zoom = (naturalW > availW && availW > 50)
-    ? Math.max(0.35, Math.min(1, availW / naturalW))
-    : 1;
+  let scale = 1;
+  if (_canvasManualZoom !== null) {
+    scale = _canvasManualZoom;
+    const label = document.getElementById('canvasZoomLabel');
+    if (label) label.textContent = Math.round(scale * 100) + '%';
+  } else {
+    scale = (naturalW > availW && availW > 50)
+      ? Math.max(0.35, Math.min(1.1, availW / naturalW))
+      : 1;
+    const label = document.getElementById('canvasZoomLabel');
+    if (label) label.textContent = 'Auto (' + Math.round(scale * 100) + '%)';
+  }
+
+  wrap.style.zoom = scale;
+}
+
+function cvZoomStep(delta) {
+  const current = _canvasManualZoom !== null ? _canvasManualZoom : (parseFloat(document.getElementById('cvPaperWrap')?.style.zoom) || 1);
+  const next = Math.max(0.3, Math.min(1.8, Math.round((current + delta) * 10) / 10));
+  _canvasManualZoom = next;
+  fitPaperZoom();
+}
+
+function cvSetFitZoom() {
+  _canvasManualZoom = null;
+  fitPaperZoom();
+}
+
+function cvToggleZoomDropdown() {
+  if (_canvasManualZoom === null) {
+    _canvasManualZoom = 1.0;
+  } else if (_canvasManualZoom === 1.0) {
+    _canvasManualZoom = 0.75;
+  } else if (_canvasManualZoom === 0.75) {
+    _canvasManualZoom = 0.5;
+  } else {
+    _canvasManualZoom = null;
+  }
+  fitPaperZoom();
+}
+
+function cvScrollToPage(dir) {
+  const cards = Array.from(document.querySelectorAll('.cv-page-card'));
+  if (!cards.length) return;
+  const rightPanel = document.getElementById('editorRight');
+  if (!rightPanel) return;
+
+  const currentScroll = rightPanel.scrollTop;
+  let currentIdx = 0;
+  for (let i = 0; i < cards.length; i++) {
+    if (cards[i].offsetTop <= currentScroll + 120) {
+      currentIdx = i;
+    }
+  }
+
+  let targetIdx = currentIdx;
+  if (dir === 'next') targetIdx = Math.min(cards.length - 1, currentIdx + 1);
+  else if (dir === 'prev') targetIdx = Math.max(0, currentIdx - 1);
+
+  cards[targetIdx].scrollIntoView({ behavior: 'smooth', block: 'start' });
+  updateCanvasPageIndicator(targetIdx + 1, cards.length);
+}
+
+function updateCanvasPageIndicator(page, total) {
+  const el = document.getElementById('canvasPageIndicator');
+  if (el) el.textContent = `Page ${page} / ${total}`;
 }
 
 let _zoomRaf = null;
@@ -2667,9 +2735,6 @@ function scheduleFitZoom() {
 
 window.addEventListener('resize', scheduleFitZoom);
 
-// Re-fits whenever #editorRight actually settles at its real size (a
-// dragged-narrow desktop panel, mainly), instead of guessing at timing
-// with a fixed delay.
 if (typeof ResizeObserver !== 'undefined') {
   const _paperZoomObserver = new ResizeObserver(() => scheduleFitZoom());
   const editorRightEl = document.getElementById('editorRight');
@@ -2677,65 +2742,31 @@ if (typeof ResizeObserver !== 'undefined') {
 }
 
 /* ============================================================
-   MOBILE PREVIEW MODAL
-
-   Renders and displays the actual PDF (the same file Download PDF
-   produces), rather than a live CSS approximation of it, so this can
-   never visually disagree with what actually gets downloaded. The
-   live #cvPaperWrap panel is hidden entirely on mobile (see the
-   @media(max-width:800px) rule for .editor-right in main.css) — it's
-   no longer even the export source now that PDF generation happens
-   backend-side; buildBackendExportPayload() builds fresh HTML from
-   cvData directly.
+   MOBILE 3-TAB NAVIGATION (FLOWCV PATTERN)
    ============================================================ */
-let _mobilePreviewObjectUrl = null;
+function switchMobileTab(tab) {
+  document.body.classList.remove('mobile-view-edit', 'mobile-view-customize', 'mobile-view-preview');
+  
+  const btnEdit = document.getElementById('mobileNavEdit');
+  const btnCust = document.getElementById('mobileNavCustomize');
+  const btnPrev = document.getElementById('mobileNavPreview');
+  
+  if (btnEdit) btnEdit.classList.toggle('active', tab === 'edit');
+  if (btnCust) btnCust.classList.toggle('active', tab === 'customize');
+  if (btnPrev) btnPrev.classList.toggle('active', tab === 'preview');
 
-async function openMobilePreview() {
-  if (!mobilePreviewBody) return;
-  mobilePreviewModal.classList.add('open');
-  document.body.style.overflow = 'hidden';
-  mobilePreviewBody.innerHTML = '<p class="cv-loading-text">Generating preview…</p>';
-
-  try {
-    // Same staleness guard as the Download PDF handler: force any
-    // pending debounced repagination pass to run now, so the preview
-    // reflects the latest edit rather than whatever layout pass ran
-    // 200ms ago.
-    if (typeof _repaginateTimeout !== 'undefined' && _repaginateTimeout) {
-      clearTimeout(_repaginateTimeout);
-      _repaginateTimeout = null;
-      renderRightPanel();
-    }
-
-    const blob = await casGeneratePdf(buildBackendExportPayload(), 'blob');
-
-    if (_mobilePreviewObjectUrl) URL.revokeObjectURL(_mobilePreviewObjectUrl);
-    _mobilePreviewObjectUrl = URL.createObjectURL(blob);
-    mobilePreviewBody.innerHTML = '';
-    const frame = document.createElement('iframe');
-    frame.className = 'mobile-preview-pdf-frame';
-    frame.title = 'CV preview';
-    frame.src = _mobilePreviewObjectUrl;
-    mobilePreviewBody.appendChild(frame);
-  } catch (err) {
-    console.error('Preview generation failed:', err);
-    mobilePreviewBody.innerHTML = '<p class="cv-loading-text">Could not generate preview. Please try again.</p>';
+  if (tab === 'edit') {
+    document.body.classList.add('mobile-view-edit');
+    switchTab('edit');
+  } else if (tab === 'customize') {
+    document.body.classList.add('mobile-view-customize');
+    switchTab('customize');
+  } else if (tab === 'preview') {
+    document.body.classList.add('mobile-view-preview');
+    renderRightPanel();
+    scheduleFitZoom();
   }
 }
-
-function closeMobilePreview() {
-  mobilePreviewModal.classList.remove('open');
-  document.body.style.overflow = '';
-  mobilePreviewBody.innerHTML = '';
-  if (_mobilePreviewObjectUrl) {
-    URL.revokeObjectURL(_mobilePreviewObjectUrl);
-    _mobilePreviewObjectUrl = null;
-  }
-}
-
-if (mobilePreviewFab) mobilePreviewFab.addEventListener('click', openMobilePreview);
-if (mobilePreviewClose) mobilePreviewClose.addEventListener('click', closeMobilePreview);
-if (mobilePreviewDownload) mobilePreviewDownload.addEventListener('click', () => downloadBtn.click());
 
 /* ============================================================
    RESIZABLE PANEL DIVIDER

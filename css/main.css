@@ -4272,3 +4272,227 @@ body.panel-resizing iframe {
   margin-top: 6px;
   margin-bottom: 2px;
 }
+
+/* ============================================================
+   FLOWCV-STYLE LIVE CANVAS & MULTI-PAGE PRESENTATION
+   ============================================================ */
+
+.editor-right {
+  position: relative;
+  background: #0d1117;
+  background-image: 
+    radial-gradient(circle at 1px 1px, rgba(255,255,255,0.04) 1px, transparent 0);
+  background-size: 24px 24px;
+  padding: 36px 24px 80px 24px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.cv-page-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 32px;
+  width: 100%;
+}
+
+.cv-page-card-header {
+  width: 100%;
+  max-width: var(--cv-paper-w, 210mm);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+  padding: 0 4px;
+}
+
+.cv-page-card-badge {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.08);
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-family: var(--font-body);
+}
+
+.cv-page {
+  box-shadow: 0 12px 36px -4px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(255, 255, 255, 0.08);
+  border-radius: 2px;
+  background: #ffffff;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+/* ---- Floating Canvas Toolbar (Bottom Center / Right) ---- */
+.canvas-floating-toolbar {
+  position: fixed;
+  bottom: 24px;
+  right: 28px;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(22, 27, 34, 0.9);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 30px;
+  padding: 6px 10px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(0,0,0,0.2);
+  transition: opacity 0.2s, transform 0.2s;
+}
+
+.canvas-toolbar-group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.canvas-toolbar-sep {
+  width: 1px;
+  height: 18px;
+  background: rgba(255, 255, 255, 0.12);
+  margin: 0 4px;
+}
+
+.canvas-tool-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.canvas-tool-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+}
+
+.canvas-page-indicator {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  padding: 0 6px;
+  font-family: var(--font-body);
+  user-select: none;
+  white-space: nowrap;
+}
+
+.canvas-zoom-pill {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: var(--text-primary);
+  border-radius: 12px;
+  padding: 4px 10px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: var(--font-body);
+  transition: all 0.15s;
+}
+
+.canvas-zoom-pill:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: var(--gold);
+}
+
+/* ============================================================
+   MOBILE BOTTOM NAVIGATION (FLOWCV PATTERN)
+   ============================================================ */
+
+.mobile-bottom-nav {
+  display: none;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 60px;
+  background: rgba(13, 17, 23, 0.95);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-top: 1px solid var(--border-subtle);
+  z-index: 400;
+  justify-content: space-around;
+  align-items: center;
+  padding: 0 12px;
+}
+
+.mobile-nav-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  cursor: pointer;
+  padding: 6px 16px;
+  border-radius: 8px;
+  font-size: 0.72rem;
+  font-weight: 500;
+  font-family: var(--font-body);
+  transition: all 0.15s;
+}
+
+.mobile-nav-btn svg {
+  stroke: var(--text-secondary);
+  transition: stroke 0.15s, transform 0.15s;
+}
+
+.mobile-nav-btn.active {
+  color: var(--gold);
+  font-weight: 600;
+}
+
+.mobile-nav-btn.active svg {
+  stroke: var(--gold);
+  transform: translateY(-1px);
+}
+
+@media (max-width: 800px) {
+  .mobile-bottom-nav {
+    display: flex;
+  }
+  
+  .canvas-floating-toolbar {
+    bottom: 74px;
+    right: 16px;
+    padding: 4px 8px;
+  }
+
+  body.mobile-view-preview .editor-left {
+    display: none !important;
+  }
+
+  body.mobile-view-preview .editor-right {
+    display: flex !important;
+    width: 100% !important;
+    min-height: calc(100vh - 120px) !important;
+    padding: 16px 8px 90px 8px !important;
+  }
+
+  body.mobile-view-edit .editor-right,
+  body.mobile-view-customize .editor-right {
+    display: none !important;
+  }
+
+  body.mobile-view-edit .editor-left,
+  body.mobile-view-customize .editor-left {
+    display: flex !important;
+    width: 100% !important;
+    padding-bottom: 70px;
+  }
+}
