@@ -4278,55 +4278,69 @@ body.panel-resizing iframe {
    ============================================================ */
 
 .editor-right {
-  position: relative;
-  background: #0d1117;
-  background-image: 
-    radial-gradient(circle at 1px 1px, rgba(255,255,255,0.04) 1px, transparent 0);
-  background-size: 24px 24px;
-  padding: 36px 24px 80px 24px;
-  overflow-y: auto;
+  flex: 1;
+  overflow-y: scroll;
   overflow-x: hidden;
+  background: #e9edf2;
+  padding: 36px 0 100px 0;
   display: flex;
-  flex-direction: column;
-  align-items: center;
+  justify-content: center;
+  align-items: flex-start;
+  position: relative;
 }
 
-.cv-page-card {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  margin-bottom: 32px;
-  width: 100%;
-}
-
-.cv-page-card-header {
+.cv-page {
+  position: relative;
   width: 100%;
   max-width: var(--cv-paper-w, 210mm);
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 8px;
-  padding: 0 4px;
+  min-height: var(--cv-paper-h, 297mm);
+  box-sizing: border-box;
+  padding: var(--cv-margin-tb, 44px) var(--cv-margin-lr, 50px);
+  box-shadow: 0 10px 30px -4px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.08);
+  border-radius: 2px;
+  background: var(--cv-bg, #ffffff);
+  flex-shrink: 0;
 }
 
-.cv-page-card-badge {
-  font-size: 0.72rem;
+/* Page badge indicator floating above each page sheet */
+.cv-page-badge {
+  position: absolute;
+  top: -24px;
+  right: 0;
+  font-size: 0.7rem;
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--text-secondary);
-  background: rgba(255,255,255,0.06);
-  border: 1px solid rgba(255,255,255,0.08);
-  padding: 3px 10px;
-  border-radius: 999px;
+  user-select: none;
+  pointer-events: none;
   font-family: var(--font-body);
 }
 
-.cv-page {
-  box-shadow: 0 12px 36px -4px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(255, 255, 255, 0.08);
-  border-radius: 2px;
-  background: #ffffff;
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
+/* Equalize top spacing: first element inside .cv-page must have NO extra margin-top */
+.cv-page > *:first-child,
+.cv-page > .cvp-header:first-child,
+.cv-page > .cvp-section:first-child,
+.cv-page > .cvp-sec-heading:first-child,
+.cv-page > .cv-two-col-wrap:first-child {
+  margin-top: 0 !important;
+  padding-top: 0 !important;
+}
+
+.cv-page > .cvp-header:first-child > *:first-child,
+.cv-page > .cvp-header:first-child .cvp-name {
+  margin-top: 0 !important;
+  padding-top: 0 !important;
+}
+
+/* Equalize bottom spacing: last element inside .cv-page must have NO extra trailing margin-bottom */
+.cv-page > *:last-child,
+.cv-page > .cvp-section:last-child,
+.cv-page .cvp-section:last-child .cvp-sec-content > *:last-child,
+.cv-page .cvp-section:last-child .entry-list,
+.cv-page .cvp-section:last-child .cvp-entry:last-child {
+  margin-bottom: 0 !important;
+  padding-bottom: 0 !important;
 }
 
 /* ---- Floating Canvas Toolbar (Bottom Center / Right) ---- */
@@ -4468,8 +4482,10 @@ body.panel-resizing iframe {
   }
   
   .canvas-floating-toolbar {
-    bottom: 74px;
-    right: 16px;
+    bottom: 72px;
+    left: 50%;
+    transform: translateX(-50%);
+    right: auto;
     padding: 4px 8px;
   }
 
@@ -4481,18 +4497,19 @@ body.panel-resizing iframe {
     display: flex !important;
     width: 100% !important;
     min-height: calc(100vh - 120px) !important;
-    padding: 16px 8px 90px 8px !important;
+    padding: 16px 0 90px 0 !important;
   }
 
-  body.mobile-view-edit .editor-right,
-  body.mobile-view-customize .editor-right {
+  body:not(.mobile-view-preview) .editor-right {
     display: none !important;
   }
 
   body.mobile-view-edit .editor-left,
-  body.mobile-view-customize .editor-left {
+  body.mobile-view-customize .editor-left,
+  body:not(.mobile-view-preview) .editor-left {
     display: flex !important;
     width: 100% !important;
     padding-bottom: 70px;
   }
 }
+

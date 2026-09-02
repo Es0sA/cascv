@@ -1724,25 +1724,13 @@ function renderRightPanel(resetScroll) {
       paginateSidebarTemplate(cvData.parsed);
     _paginationMultiPageSections = multiPageSections;
     const totalPages = pageHtmls.length;
-    cvPaper.innerHTML = pageHtmls.map((h, idx) => `
-      <div class="cv-page-card" id="cvPageCard-${idx + 1}" data-page-index="${idx + 1}">
-        <div class="cv-page-card-header">
-          <span class="cv-page-card-badge">Page ${idx + 1} of ${totalPages}</span>
-        </div>
-        <div class="cv-page">${h}</div>
-      </div>
-    `).join('');
+    cvPaper.innerHTML = pageHtmls.map((h, idx) =>
+      `<div class="cv-page" id="cvPage-${idx + 1}" data-page="${idx + 1}"><span class="cv-page-badge">Page ${idx + 1} of ${totalPages}</span>${h}</div>`
+    ).join('');
     updateCanvasPageIndicator(1, totalPages);
   } else {
     _paginationMultiPageSections = new Set();
-    cvPaper.innerHTML = `
-      <div class="cv-page-card" id="cvPageCard-1" data-page-index="1">
-        <div class="cv-page-card-header">
-          <span class="cv-page-card-badge">Page 1 of 1</span>
-        </div>
-        <div class="cv-page">${buildCVHTML(cvData.parsed)}</div>
-      </div>
-    `;
+    cvPaper.innerHTML = buildCVHTML(cvData.parsed);
     updateCanvasPageIndicator(1, 1);
   }
   applySettings();
@@ -2701,25 +2689,25 @@ function cvToggleZoomDropdown() {
 }
 
 function cvScrollToPage(dir) {
-  const cards = Array.from(document.querySelectorAll('.cv-page-card'));
-  if (!cards.length) return;
+  const pages = Array.from(document.querySelectorAll('.cv-page'));
+  if (!pages.length) return;
   const rightPanel = document.getElementById('editorRight');
   if (!rightPanel) return;
 
   const currentScroll = rightPanel.scrollTop;
   let currentIdx = 0;
-  for (let i = 0; i < cards.length; i++) {
-    if (cards[i].offsetTop <= currentScroll + 120) {
+  for (let i = 0; i < pages.length; i++) {
+    if (pages[i].offsetTop <= currentScroll + 120) {
       currentIdx = i;
     }
   }
 
   let targetIdx = currentIdx;
-  if (dir === 'next') targetIdx = Math.min(cards.length - 1, currentIdx + 1);
+  if (dir === 'next') targetIdx = Math.min(pages.length - 1, currentIdx + 1);
   else if (dir === 'prev') targetIdx = Math.max(0, currentIdx - 1);
 
-  cards[targetIdx].scrollIntoView({ behavior: 'smooth', block: 'start' });
-  updateCanvasPageIndicator(targetIdx + 1, cards.length);
+  pages[targetIdx].scrollIntoView({ behavior: 'smooth', block: 'start' });
+  updateCanvasPageIndicator(targetIdx + 1, pages.length);
 }
 
 function updateCanvasPageIndicator(page, total) {
