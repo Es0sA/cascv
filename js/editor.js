@@ -1236,7 +1236,7 @@ function renderCustomizePanel() {
     custRow('Subtitle Style', toggleGroup([{label:'Normal',value:'normal'},{label:'Bold',value:'bold'},{label:'Italic',value:'italic'}],'subtitleStyle')) +
     custRow('Date Style',     toggleGroup([{label:'Normal',value:'normal'},{label:'Bold',value:'bold'},{label:'Italic',value:'italic'}],'dateStyle')) +
     custRow('Location Style', toggleGroup([{label:'Normal',value:'normal'},{label:'Bold',value:'bold'},{label:'Italic',value:'italic'}],'locationStyle')) +
-    custRow('List Style',     toggleGroup([{label:'• Bullet',value:'bullet'},{label:'– Hyphen',value:'hyphen'}],'listStyle')) +
+    custRow('List Style',     toggleGroup([{label:'• Bullet',value:'bullet'},{label:'- Hyphen',value:'hyphen'}],'listStyle')) +
     custRow('Date Format',    toggleGroup([{label:'Month YYYY',value:'Month YYYY'},{label:'Mon YYYY',value:'Mon YYYY'},{label:'MM/YYYY',value:'MM/YYYY'},{label:'MM.YYYY',value:'MM.YYYY'},{label:'YYYY',value:'YYYY'}],'dateFormat')) +
     custRow('Duration',`<label class="cust-toggle-row"><input type="checkbox" ${cvSettings.showDuration?'checked':''} onchange="toggleBool('showDuration',this.checked)"><span class="cust-toggle-slider"></span><span class="cust-toggle-label">Show job duration (e.g. 2 yrs 3 mos)</span></label>`) +
     custRow('Section Icons',`<label class="cust-toggle-row"><input type="checkbox" ${cvSettings.showSectionIcons?'checked':''} onchange="toggleBool('showSectionIcons',this.checked)"><span class="cust-toggle-slider"></span><span class="cust-toggle-label">Show an icon next to each section heading (pick each one in the Edit tab)</span></label>`) +
@@ -1463,9 +1463,27 @@ function toggleSectionWidth(i) {
 
 const SEG_COUNT = 14;
 
+function formatSliderBadge(key, val, suffix) {
+  const num = parseFloat(val);
+  if (isNaN(num)) return (val !== undefined && val !== null ? val : '') + (suffix || '');
+  if (key === 'lineHeight') {
+    return num.toFixed(2);
+  }
+  if (key === 'letterSpacing') {
+    return num.toFixed(2) + (suffix || '');
+  }
+  if (key === 'photoZoom') {
+    return num.toFixed(2) + (suffix || '');
+  }
+  if (Number.isInteger(num) || Math.abs(num - Math.round(num)) < 0.001) {
+    return Math.round(num) + (suffix || '');
+  }
+  return num.toFixed(1) + (suffix || '');
+}
+
 function slider(key, min, max, step, suffix) {
   const val   = cvSettings[key];
-  const disp  = step < 1 ? parseFloat(val).toFixed(2) : Math.round(val);
+  const disp  = formatSliderBadge(key, val, suffix);
   const pct   = Math.max(0, Math.min(1, (val - min) / (max - min)));
   const filled = Math.round(pct * SEG_COUNT);
   let bars = '';
@@ -1473,7 +1491,7 @@ function slider(key, min, max, step, suffix) {
     bars += `<span class="seg-bar ${s < filled ? 'seg-filled' : ''}"></span>`;
   }
   return `<div class="seg-slider" data-key="${key}">
-    <div class="seg-value-row"><span class="seg-value-badge" id="val-${key}">${disp}${suffix||''}</span></div>
+    <div class="seg-value-row"><span class="seg-value-badge" id="val-${key}">${disp}</span></div>
     <div class="seg-bar-row">
       <button class="seg-step-btn" type="button" onclick="stepSlider('${key}',${-step},${min},${max},${step},'${suffix||''}')">−</button>
       <div class="seg-track-wrap">
@@ -1635,50 +1653,39 @@ function setSetting(key, value) {
 // longer needs to spill to the next page stays stuck there, leaving
 // blank space behind on the page before it. scheduleRepaginate() is the
 // same debounced reconciliation pass already used for text edits.
-// Base is the anchor (see BASE_RELATIVE_FONT_SLIDERS above): whenever
-// Base itself changes, every other Font Size slider snaps to exactly
-// match Base's new value, clamped to its own range (a no-op clamp in
-// practice, since each range fully contains Base's own 9-14 range).
-// From that point the user can freely nudge any of them away from
-// Base again — this only fires ON A BASE CHANGE, it doesn't re-lock
-// them together permanently. Called from both onSlider (dragging) and
-// stepSlider (the +/- buttons), so both paths behave identically.
-function cascadeBaseFontSize(newBase) {
-  Object.entries(BASE_RELATIVE_FONT_SLIDERS).forEach(([key, cfg]) => {
-    let next = Math.max(cfg.min, Math.min(cfg.max, newBase));
-    next = Math.round(next / cfg.step) * cfg.step;
-    next = Math.round(next * 1000) / 1000; // avoid float drift (e.g. 9.000000002)
-    cvSettings[key] = next;
-    const badgeEl = document.getElementById(`val-${key}`);
-    if (badgeEl) badgeEl.textContent = (cfg.step < 1 ? next.toFixed(2) : Math.round(next)) + 'pt';
-    updateSegBars(key, cfg.min, cfg.max);
-    const rangeEl = document.getElementById(`range-${key}`);
-    if (rangeEl) rangeEl.value = next;
-  });
-}
 function onSlider(key, value, suffix) {
-  cvSettings[key]=value;
-  const el=document.getElementById(`val-${key}`);
-  if(el){ const d=key==='lineHeight'||key==='letterSpacing'?value.toFixed(2):(Number.isInteger(value)?value:value.toFixed(1)); el.textContent=d+(suffix||''); }
-  updateSegBars(key, parseFloat(document.getElementById(`range-${key}`)?.min ?? 0), parseFloat(document.getElementById(`range-${key}`)?.max ?? 100));
-  if (key === 'baseFontSize') cascadeBaseFontSize(value);
-  applySettings(); scheduleSave();
+  cvSettings[key] = value;
+  const el = document.getElementById(`val-${key}`);
+  if (el) {
+    el.textContent = formatSliderBadge(key, value, suffix);
+  }
+  const rangeEl = document.getElementById(`range-${key}`);
+  if (rangeEl && parseFloat(rangeEl.value) !== parseFloat(value)) {
+    rangeEl.value = value;
+  }
+  updateSegBars(key, parseFloat(rangeEl?.min ?? 0), parseFloat(rangeEl?.max ?? 100));
+
+  if (key === 'twoColWidth') {
+    const custPanel = document.getElementById('customizePanel');
+    if (custPanel) {
+      custPanel.querySelectorAll('.toggle-btn').forEach(btn => {
+        if (btn.textContent === '28%') btn.classList.toggle('active', value === 28);
+        if (btn.textContent === '33%') btn.classList.toggle('active', value === 33);
+        if (btn.textContent === '40%') btn.classList.toggle('active', value === 40);
+      });
+    }
+  }
+
+  applySettings();
+  scheduleSave();
   if (isPaginatedLayout()) scheduleRepaginate();
 }
+
 function stepSlider(key, delta, min, max, step, suffix) {
   let next = Math.round((cvSettings[key] + delta) / step) * step;
   next = Math.max(min, Math.min(max, next));
-  // Avoid floating point drift (e.g. 1.2000000003)
   next = Math.round(next * 1000) / 1000;
-  cvSettings[key] = next;
-  const rangeInput = document.getElementById(`range-${key}`);
-  if (rangeInput) rangeInput.value = next;
-  const el = document.getElementById(`val-${key}`);
-  if (el) { const d = step < 1 ? next.toFixed(2) : Math.round(next); el.textContent = d + (suffix||''); }
-  updateSegBars(key, min, max);
-  if (key === 'baseFontSize') cascadeBaseFontSize(next);
-  applySettings(); scheduleSave();
-  if (isPaginatedLayout()) scheduleRepaginate();
+  onSlider(key, next, suffix);
 }
 function toggleBool(key,val){
   cvSettings[key]=val;

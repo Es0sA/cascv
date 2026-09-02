@@ -3810,17 +3810,19 @@ input {
 .modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0,0,0,0.6);
+  background: rgba(0,0,0,0.72);
+  backdrop-filter: blur(5px);
+  -webkit-backdrop-filter: blur(5px);
   z-index: 9000;
-  display: flex;
+  display: none;
   align-items: center;
   justify-content: center;
   padding: 20px;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 200ms;
 }
-.modal-overlay.active { opacity: 1; pointer-events: auto; }
+.modal-overlay.active {
+  display: flex;
+  animation: fadeIn 150ms ease;
+}
 
 .modal-box {
   background: var(--bg-surface);

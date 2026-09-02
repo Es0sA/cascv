@@ -8,8 +8,8 @@
   <link rel="apple-touch-icon" sizes="180x180" href="assets/apple-touch-icon.png">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>CAS CV Builder — Import CV</title>
-  <link rel="stylesheet" href="css/fonts.css">
-  <link rel="stylesheet" href="css/main.css">
+  <link rel="stylesheet" href="css/fonts.css?v=1.4.2">
+  <link rel="stylesheet" href="css/main.css?v=1.4.2">
   <!-- Hidden until auth-guard.js confirms sign-in (prevents a
        flash of import content before the async auth check resolves) -->
   <style>body{visibility:hidden}</style>
@@ -102,13 +102,13 @@
     </div>
   </main>
 
-  <script type="module" src="js/auth-guard.js"></script>
+  <script type="module" src="js/auth-guard.js?v=1.4.2"></script>
   <!-- cv-store.js is a module (deferred) but import.js is a classic
        script that runs immediately, so import.js awaits this promise
        instead of touching window.CVStore directly (see cv-store.js). -->
   <script>window.cvStoreReady = new Promise(r => { window._resolveCVStoreReady = r; });</script>
-  <script type="module" src="js/cv-store.js"></script>
-  <script src="js/parser.js"></script>
-  <script src="js/import.js"></script>
+  <script type="module" src="js/cv-store.js?v=1.4.2"></script>
+  <script src="js/parser.js?v=1.4.2"></script>
+  <script src="js/import.js?v=1.4.2"></script>
 </body>
 </html>
