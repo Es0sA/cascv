@@ -1022,7 +1022,7 @@ function paginateSingleColumn(parsed) {
   return { pageHtmls, classString, multiPageSections };
 }
 
-function measureColumnAndPaginate(units, pw, ph, marginTB, classString, sectionMeta, column) {
+function measureColumnAndPaginate(units, pw, ph, marginTB, classString, sectionMeta, column, topHeaderHtml) {
   const probe = document.createElement('div');
   probe.className = classString;
   probe.style.cssText = 'position:fixed;top:0;left:-99999px;visibility:hidden;box-shadow:none;';
@@ -1033,7 +1033,11 @@ function measureColumnAndPaginate(units, pw, ph, marginTB, classString, sectionM
   document.body.appendChild(probe);
 
   const pxPerMm = probe.clientWidth / pw;
-  const usablePageHeightPx = (ph - marginTB * 2) * pxPerMm + PAGE_FIT_TOLERANCE_MM * pxPerMm;
+  // probe carries classString (cv-paper), which already includes padding-top
+  // and padding-bottom equal to marginTB. probe.getBoundingClientRect().height
+  // measures the full physical sheet height, so the ceiling is ph * pxPerMm,
+  // matching measureAndPaginate.
+  const usablePageHeightPx = ph * pxPerMm + PAGE_FIT_TOLERANCE_MM * pxPerMm;
   const colClass      = column === 'sidebar' ? 'cv-sidebar-col' : 'cv-main-col';
   const otherColClass = column === 'sidebar' ? 'cv-main-col'    : 'cv-sidebar-col';
 
@@ -1041,8 +1045,9 @@ function measureColumnAndPaginate(units, pw, ph, marginTB, classString, sectionM
   units.forEach(u => {
     const pageIdx = pages.length - 1;
     const candidate = pages[pageIdx].concat([u]);
-    probe.innerHTML = `<div class="cv-two-col-wrap"><div class="${colClass}">${unitsToPageHTML(candidate, sectionMeta, pageIdx)}</div><div class="${otherColClass}"></div></div>`;
-    const h = probe.querySelector('.' + colClass).getBoundingClientRect().height;
+    const headerPrefix = (pageIdx === 0 && topHeaderHtml) ? topHeaderHtml : '';
+    probe.innerHTML = `${headerPrefix}<div class="cv-two-col-wrap"><div class="${colClass}">${unitsToPageHTML(candidate, sectionMeta, pageIdx)}</div><div class="${otherColClass}"></div></div>`;
+    const h = probe.getBoundingClientRect().height;
     if (h > usablePageHeightPx && pages[pageIdx].length > 0) {
       pages.push([u]);
     } else {
@@ -1052,8 +1057,9 @@ function measureColumnAndPaginate(units, pw, ph, marginTB, classString, sectionM
 
   for (let i = pages.length - 1; i > 0; i--) {
     const combined = pages[i - 1].concat(pages[i]);
-    probe.innerHTML = `<div class="cv-two-col-wrap"><div class="${colClass}">${unitsToPageHTML(combined, sectionMeta, i - 1)}</div><div class="${otherColClass}"></div></div>`;
-    const combinedHeight = probe.querySelector('.' + colClass).getBoundingClientRect().height;
+    const headerPrefix = (i - 1 === 0 && topHeaderHtml) ? topHeaderHtml : '';
+    probe.innerHTML = `${headerPrefix}<div class="cv-two-col-wrap"><div class="${colClass}">${unitsToPageHTML(combined, sectionMeta, i - 1)}</div><div class="${otherColClass}"></div></div>`;
+    const combinedHeight = probe.getBoundingClientRect().height;
     if (combinedHeight <= usablePageHeightPx) {
       pages[i - 1] = combined;
       pages.splice(i, 1);
@@ -1086,8 +1092,9 @@ function paginateTwoColumn(parsed) {
     buildSectionUnits(sec, i, target, sectionMeta);
   });
 
-  const sidebarPages = measureColumnAndPaginate(sidebarUnits, pw, ph, cvSettings.marginTB, classString, sectionMeta, 'sidebar');
-  const mainPages    = measureColumnAndPaginate(mainUnits,    pw, ph, cvSettings.marginTB, classString, sectionMeta, 'main');
+  const topHeaderHtml = headerInColumn ? '' : buildHeaderUnit(header, sections).html;
+  const sidebarPages = measureColumnAndPaginate(sidebarUnits, pw, ph, cvSettings.marginTB, classString, sectionMeta, 'sidebar', topHeaderHtml);
+  const mainPages    = measureColumnAndPaginate(mainUnits,    pw, ph, cvSettings.marginTB, classString, sectionMeta, 'main',    topHeaderHtml);
 
   const sectionPageCount = {};
   [...sidebarPages, ...mainPages].forEach(pageUnits => {
@@ -1096,7 +1103,6 @@ function paginateTwoColumn(parsed) {
   });
   const multiPageSections = new Set(Object.keys(sectionPageCount).filter(k => sectionPageCount[k] > 1).map(Number));
 
-  const topHeaderHtml = headerInColumn ? '' : buildHeaderUnit(header, sections).html;
   const pageCount = Math.max(sidebarPages.length, mainPages.length, 1);
   const pageHtmls = [];
   for (let k = 0; k < pageCount; k++) {
