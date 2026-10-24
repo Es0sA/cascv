@@ -1001,6 +1001,9 @@ const ALL_TEMPLATES = [
 // SIDEBAR_TEMPLATES now lives in js/cv-render.js (loaded before this
 // file), so both editor.js and dashboard.js share one definition.
 
+let _forcedColumnsBySidebar = false;
+let _savedColumnsBeforeSidebar = null;
+
 // Each template's signature section-heading decoration, expressed as a
 // Heading Style value. Template CSS used to hardcode its own heading
 // borders with higher specificity than the hs-* classes, which is
@@ -1101,7 +1104,7 @@ function renderCustomizePanel() {
   const colMode = String(cvSettings.columns);
   const isTwoCol = colMode === '2';
   const isMix    = colMode === 'mix';
-  const isSidebarTemplateNow = isTwoCol && SIDEBAR_TEMPLATES.includes(cvSettings.template);
+  const isSidebarTemplateNow = SIDEBAR_TEMPLATES.includes(cvSettings.template);
 
   let templateHtml = `<div class="template-grid template-grid-2col">`;
   ALL_TEMPLATES.forEach(t => {
@@ -1110,9 +1113,12 @@ function renderCustomizePanel() {
   });
   templateHtml += `</div>`;
 
+  const columnsControl = toggleGroup([{label:'1 Column',value:'1'},{label:'2 Columns',value:'2'},{label:'Mix',value:'mix'}],'columns', isSidebarTemplateNow) +
+    (isSidebarTemplateNow ? '<div class="cust-row-hint" style="font-size:0.75rem;color:var(--text-muted,#8b93aa);margin-top:4px;">Sidebar templates use 2 columns</div>' : '');
+
   const layoutHtml =
     custRow('Paper Format', toggleGroup([{label:'A4',value:'A4'},{label:'Letter (US)',value:'Letter'}],'paperFormat')) +
-    custRow('Columns',      toggleGroup([{label:'1 Column',value:'1'},{label:'2 Columns',value:'2'},{label:'Mix',value:'mix'}],'columns')) +
+    custRow('Columns',      columnsControl) +
     (isTwoCol ? custRow('Sidebar Width', `
       <div style="display:flex;flex-direction:column;gap:8px;width:100%;">
         <div class="toggle-group" style="margin-bottom:6px;">
@@ -1557,14 +1563,18 @@ window.applySpacingPreset = applySpacingPreset;
 function section(title, bodyHtml) {
   return `<div class="cust-section"><div class="cust-section-title">${title}</div>${bodyHtml}</div>`;
 }
-function toggleGroup(options, settingKey) {
-  return `<div class="toggle-group">${options.map(o=>`<button class="toggle-btn ${String(cvSettings[settingKey])===String(o.value)?'active':''}" onclick="setSetting('${settingKey}','${o.value}')" type="button">${o.label}</button>`).join('')}</div>`;
+function toggleGroup(options, settingKey, disabled = false) {
+  return `<div class="toggle-group">${options.map(o=>`<button class="toggle-btn ${String(cvSettings[settingKey])===String(o.value)?'active':''}" ${disabled ? 'disabled style="opacity:0.55;cursor:not-allowed;"' : `onclick="setSetting('${settingKey}','${o.value}')"`} type="button">${o.label}</button>`).join('')}</div>`;
 }
 function perColorRow(label,key,value) {
   return `<div class="per-color-row"><span class="per-color-label">${label}</span><input type="color" class="per-color-swatch" value="${value}" oninput="onPerColorInput('${key}',this.value)"><span class="per-color-hex">${value}</span></div>`;
 }
 
 function setSetting(key, value) {
+  if (key === 'columns' && SIDEBAR_TEMPLATES.includes(cvSettings.template)) {
+    cvSettings.columns = '2';
+    return;
+  }
   const prevTemplate = cvSettings.template;
   cvSettings[key] = value;
   if (key==='template') {
@@ -1577,8 +1587,24 @@ function setSetting(key, value) {
     // These templates already have a permanent colored side panel baked
     // into their CSS, so force the matching column mode automatically
     // rather than leaving the layout mismatched until the user notices.
-    if (SIDEBAR_TEMPLATES.includes(value)) cvSettings.columns = '2';
-    else if (SIDEBAR_TEMPLATES.includes(prevTemplate)) cvSettings.columns = '1';
+    if (SIDEBAR_TEMPLATES.includes(value)) {
+      if (!SIDEBAR_TEMPLATES.includes(prevTemplate)) {
+        if (String(cvSettings.columns) !== '2') {
+          _savedColumnsBeforeSidebar = cvSettings.columns;
+          _forcedColumnsBySidebar = true;
+        } else {
+          _forcedColumnsBySidebar = false;
+          _savedColumnsBeforeSidebar = null;
+        }
+      }
+      cvSettings.columns = '2';
+    } else if (SIDEBAR_TEMPLATES.includes(prevTemplate)) {
+      if (_forcedColumnsBySidebar && _savedColumnsBeforeSidebar !== null) {
+        cvSettings.columns = _savedColumnsBeforeSidebar;
+      }
+      _forcedColumnsBySidebar = false;
+      _savedColumnsBeforeSidebar = null;
+    }
   }
   if (key==='columns' && String(value)==='2') {
     if (!cvData.columnAssign) cvData.columnAssign = {};
@@ -2365,6 +2391,14 @@ async function initEditor() {
   cvData.customSectionIcon = cvData.customSectionIcon || {};
 
   cvSettings = mergeCvSettings(cvData.settings);
+
+  if (SIDEBAR_TEMPLATES.includes(cvSettings.template)) {
+    if (String(cvSettings.columns) !== '2') {
+      _savedColumnsBeforeSidebar = cvSettings.columns;
+      _forcedColumnsBySidebar = true;
+    }
+    cvSettings.columns = '2';
+  }
 
   // One-time visual-compatibility mapping for CVs saved before heading
   // decoration moved from template CSS into the hs-* classes: every CV
