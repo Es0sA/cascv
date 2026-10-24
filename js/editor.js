@@ -2084,7 +2084,12 @@ reimportConfirm.addEventListener('click',()=>{
 let saveTimeout=null;
 function scheduleSave(){ saveIndicator.textContent='Saving…'; saveIndicator.className='save-indicator saving'; clearTimeout(saveTimeout); saveTimeout=setTimeout(persistSave,800); scheduleHistoryCheckpoint(); }
 async function persistSave(){
-  cvData.settings=cvSettings; cvData.updatedAt=new Date().toISOString();
+  const settingsToSave = Object.assign({}, cvSettings);
+  if (SIDEBAR_TEMPLATES.includes(cvSettings.template) && _forcedColumnsBySidebar && _savedColumnsBeforeSidebar !== null) {
+    settingsToSave.columns = _savedColumnsBeforeSidebar;
+  }
+  cvData.settings = settingsToSave;
+  cvData.updatedAt = new Date().toISOString();
   try{
     const CVStore = await window.cvStoreReady;
     await CVStore.save(cvData);
