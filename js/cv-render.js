@@ -50,6 +50,16 @@ var cvSettings = null;
 // header/sidebar sections into that panel instead of a separate column.
 const SIDEBAR_TEMPLATES = ['atlantic-blue', 'corporate-panel', 'cobalt-edge', 'obsidian-edge', 'neutral-gray'];
 
+function isSidebarTemplate(templateName) {
+  const t = templateName || (cvSettings && cvSettings.template) || '';
+  return SIDEBAR_TEMPLATES.includes(t);
+}
+
+function getEffectiveColumnMode() {
+  if (isSidebarTemplate()) return '2';
+  return String((cvSettings && cvSettings.columns) || 1);
+}
+
 // Single source of truth for every Customize panel setting's default
 // value. Both editor.js (var cvSettings = Object.assign({}, DEFAULTS),
 // then merged with cvData.settings once a CV loads) and dashboard.js
@@ -652,7 +662,7 @@ function escapeAttr(s){ return (s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot
 // meaningful once there are real repeated pages (see plan's footer
 // descope), so it's suppressed rather than shown wrong on every page.
 function computeCvPaperClassString(excludePageNum) {
-  const colMode = String(cvSettings.columns);
+  const colMode = getEffectiveColumnMode();
   const colClass = colMode==='2' ? 'cols-2' : colMode==='mix' ? 'cols-mix' : 'cols-1';
   const sidebarPosClass = (colMode==='2' && cvSettings.sidebarPosition==='right') ? 'sidebar-pos-right' : 'sidebar-pos-left';
   const sidebarBgClass  = (colMode==='2' && cvSettings.sidebarBgEnabled) ? 'sidebar-has-bg' : 'sidebar-no-bg';
@@ -672,10 +682,10 @@ function computeCvPaperClassString(excludePageNum) {
 function buildCVHTML(parsed) {
   const header = (parsed && parsed.header) || {};
   const sections = (parsed && parsed.sections) || [];
-  const colMode  = String((cvSettings && cvSettings.columns) || 1);
+  const colMode  = getEffectiveColumnMode();
   const isTwoCol = colMode === '2';
   const isMix    = colMode === 'mix';
-  const isSidebarTemplate = isTwoCol && SIDEBAR_TEMPLATES.includes((cvSettings && cvSettings.template) || '');
+  const isSidebarTemplate = isSidebarTemplate();
 
   const hf = header;
   const contactHtml = buildContactHtml(hf);
@@ -838,8 +848,8 @@ const PAGE_FIT_TOLERANCE_MM = 1;
 const BANNER_TEMPLATES = ['hunter-green', 'corporate', 'silver-banner', 'blue-steel', 'clear-banner'];
 
 function getPaginationMode() {
-  if (SIDEBAR_TEMPLATES.includes(cvSettings.template)) return 'sidebar';
-  const colMode = String(cvSettings.columns);
+  if (isSidebarTemplate()) return 'sidebar';
+  const colMode = getEffectiveColumnMode();
   if (colMode === '1') return 'single';
   if (colMode === '2') return 'twocol';
   return 'flowing';
