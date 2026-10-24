@@ -32,7 +32,16 @@
    into them for the duration of building one export payload.
    ============================================================ */
 
-var cvData = null;
+var cvData = {
+  parsed: { header: {}, sections: [] },
+  columnAssign: {},
+  hiddenFields: {},
+  sectionNames: {},
+  sectionWidth: {},
+  headerFieldOrder: ['email','phone','location','linkedin'],
+  customSectionType: {},
+  customSectionIcon: {}
+};
 var cvSettings = null;
 
 // Templates whose header IS a permanent colored side panel (see main.css
@@ -76,6 +85,7 @@ const DEFAULTS = {
 function mergeCvSettings(savedSettings) {
   return Object.assign({}, DEFAULTS, savedSettings || {});
 }
+cvSettings = mergeCvSettings(null);
 
 /* ============================================================
    SECTION TYPE DEFINITIONS
