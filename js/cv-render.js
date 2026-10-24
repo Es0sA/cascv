@@ -304,7 +304,8 @@ const CONTACT_FIELD_META = {
 };
 
 function getSummaryHtml(sections) {
-  const profileSec = sections.find(s => (s.type || 'custom') === 'profile');
+  const secs = sections || [];
+  const profileSec = secs.find(s => (s.type || 'custom') === 'profile');
   const text = profileSec?.entries?.[0]?.summary || '';
   return text ? `<div class="cvp-header-summary">${mdLine(text)}</div>` : '';
 }
@@ -314,36 +315,42 @@ function getSummaryHtml(sections) {
 // identically whether the photo lives on #cvPaper (fallback layout) or
 // gets copied per .cv-page (real pagination) — see applyStyleProps.
 function buildPhotoHtml(header) {
-  if (!header.photo || cvData.hiddenFields['photo']) return '';
-  const shape = cvSettings.photoShape || 'circle';
-  return `<div class="cvp-photo-frame cvp-photo-${shape}"><img class="cvp-photo" src="${escapeAttr(header.photo)}" alt=""></div>`;
+  const hf = header || {};
+  const hidden = (cvData && cvData.hiddenFields) || {};
+  if (!hf.photo || hidden['photo']) return '';
+  const shape = (cvSettings && cvSettings.photoShape) || 'circle';
+  return `<div class="cvp-photo-frame cvp-photo-${shape}"><img class="cvp-photo" src="${escapeAttr(hf.photo)}" alt=""></div>`;
 }
 
 function buildContactHtml(header) {
-  const order = cvData.headerFieldOrder.filter(key => !cvData.hiddenFields[key] && header[key]);
+  const hf = header || {};
+  const hidden = (cvData && cvData.hiddenFields) || {};
+  const fieldOrder = (cvData && cvData.headerFieldOrder) || ['email','phone','location','linkedin'];
+  const order = fieldOrder.filter(key => !hidden[key] && hf[key]);
   if (!order.length) {
-    if (header.contact && !cvData.hiddenFields['contact']) return mdLine(header.contact);
+    if (hf.contact && !hidden['contact']) return mdLine(hf.contact);
     return '';
   }
-  if (cvSettings.iconStyle === 'none') {
-    return mdLine(order.map(key => header[key]).join(' | '));
+  if (cvSettings && cvSettings.iconStyle === 'none') {
+    return mdLine(order.map(key => hf[key]).join(' | '));
   }
   return order.map(key => {
     const meta = CONTACT_FIELD_META[key];
     const icon = (meta && meta.icon) || '•';
-    return `<span class="cvp-contact-item"><span class="cvp-contact-icon">${escapeHtml(icon)}</span><span class="cvp-contact-text">${mdLine(header[key])}</span></span>`;
+    return `<span class="cvp-contact-item"><span class="cvp-contact-icon">${escapeHtml(icon)}</span><span class="cvp-contact-text">${mdLine(hf[key])}</span></span>`;
   }).join('');
 }
 
 function buildCustomFooterHTML(header) {
+  const hf = header || {};
   const fill = (text) => escapeHtml(text)
-    .replace(/\{\{name\}\}/gi,  escapeHtml(header.name||''))
-    .replace(/\{\{email\}\}/gi, escapeHtml(header.email||''))
-    .replace(/\{\{phone\}\}/gi, escapeHtml(header.phone||''))
+    .replace(/\{\{name\}\}/gi,  escapeHtml(hf.name||''))
+    .replace(/\{\{email\}\}/gi, escapeHtml(hf.email||''))
+    .replace(/\{\{phone\}\}/gi, escapeHtml(hf.phone||''))
     .replace(/\{\{pages\}\}/gi, '<span class="cvp-footer-pages">1</span>');
-  const left   = fill(cvSettings.footerLeft);
-  const center = fill(cvSettings.footerCenter);
-  const right  = fill(cvSettings.footerRight);
+  const left   = fill((cvSettings && cvSettings.footerLeft) || '');
+  const center = fill((cvSettings && cvSettings.footerCenter) || '');
+  const right  = fill((cvSettings && cvSettings.footerRight) || '');
   if (!left && !center && !right) return '';
   return `<div class="cvp-footer cvp-footer-custom">
     <span class="cvp-footer-zone cvp-footer-left">${left}</span>
@@ -653,11 +660,12 @@ function computeCvPaperClassString(excludePageNum) {
 }
 
 function buildCVHTML(parsed) {
-  const { header, sections } = parsed;
-  const colMode  = String(cvSettings.columns);
+  const header = (parsed && parsed.header) || {};
+  const sections = (parsed && parsed.sections) || [];
+  const colMode  = String((cvSettings && cvSettings.columns) || 1);
   const isTwoCol = colMode === '2';
   const isMix    = colMode === 'mix';
-  const isSidebarTemplate = isTwoCol && SIDEBAR_TEMPLATES.includes(cvSettings.template);
+  const isSidebarTemplate = isTwoCol && SIDEBAR_TEMPLATES.includes((cvSettings && cvSettings.template) || '');
 
   const hf = header;
   const contactHtml = buildContactHtml(hf);
@@ -668,10 +676,11 @@ function buildCVHTML(parsed) {
   const nameStyle = targetNameFont
     ? ` style="font-family:${escapeAttr(targetNameFont)} !important;${isCursive ? 'text-transform:none !important;font-weight:400 !important;' : ''}"`
     : '';
-  if (!cvData.hiddenFields['name'])     headerTextInner += `<div class="cvp-name"${nameStyle}>${mdLine(hf.name||'')}</div>`;
-  if (!cvData.hiddenFields['jobTitle'] && hf.jobTitle) headerTextInner += `<div class="cvp-jobtitle">${mdLine(hf.jobTitle)}</div>`;
+  const hidden = (cvData && cvData.hiddenFields) || {};
+  if (!hidden['name'])     headerTextInner += `<div class="cvp-name"${nameStyle}>${mdLine(hf.name||'')}</div>`;
+  if (!hidden['jobTitle'] && hf.jobTitle) headerTextInner += `<div class="cvp-jobtitle">${mdLine(hf.jobTitle)}</div>`;
   if (contactHtml) headerTextInner += `<div class="cvp-contact">${contactHtml}</div>`;
-  if (cvSettings.summaryInHeader) headerTextInner += getSummaryHtml(sections);
+  if (cvSettings && cvSettings.summaryInHeader) headerTextInner += getSummaryHtml(sections);
   const photoHtml = buildPhotoHtml(hf);
   const headerInner = photoHtml
     ? `<div class="cvp-header-row">${photoHtml}<div class="cvp-header-text">${headerTextInner}</div></div>`
@@ -837,7 +846,9 @@ function htmlToTopLevelNodes(html) {
 }
 
 function buildHeaderUnit(header, sections, variant) {
-  const contactHtml = buildContactHtml(header);
+  const hf = header || {};
+  const secs = sections || [];
+  const contactHtml = buildContactHtml(hf);
 
   let headerTextInner = '';
   const targetNameFont = (cvSettings.nameFont && cvSettings.nameFont !== 'inherit') ? cvSettings.nameFont : (cvSettings.bodyFont || '');
@@ -845,11 +856,12 @@ function buildHeaderUnit(header, sections, variant) {
   const nameStyle = targetNameFont
     ? ` style="font-family:${escapeAttr(targetNameFont)} !important;${isCursive ? 'text-transform:none !important;font-weight:400 !important;' : ''}"`
     : '';
-  if (!cvData.hiddenFields['name'])     headerTextInner += `<div class="cvp-name"${nameStyle}>${mdLine(header.name||'')}</div>`;
-  if (!cvData.hiddenFields['jobTitle'] && header.jobTitle) headerTextInner += `<div class="cvp-jobtitle">${mdLine(header.jobTitle)}</div>`;
+  const hidden = (cvData && cvData.hiddenFields) || {};
+  if (!hidden['name'])     headerTextInner += `<div class="cvp-name"${nameStyle}>${mdLine(hf.name||'')}</div>`;
+  if (!hidden['jobTitle'] && hf.jobTitle) headerTextInner += `<div class="cvp-jobtitle">${mdLine(hf.jobTitle)}</div>`;
   if (contactHtml) headerTextInner += `<div class="cvp-contact">${contactHtml}</div>`;
-  if (cvSettings.summaryInHeader) headerTextInner += getSummaryHtml(sections);
-  const photoHtmlUnits = buildPhotoHtml(header);
+  if (cvSettings && cvSettings.summaryInHeader) headerTextInner += getSummaryHtml(secs);
+  const photoHtmlUnits = buildPhotoHtml(hf);
   const headerInnerUnits = photoHtmlUnits
     ? `<div class="cvp-header-row">${photoHtmlUnits}<div class="cvp-header-text">${headerTextInner}</div></div>`
     : headerTextInner;
@@ -895,14 +907,15 @@ function buildSectionUnits(sec, i, units, sectionMeta) {
 }
 
 function buildLayoutUnits(parsed) {
-  const { header, sections } = parsed;
+  const header = (parsed && parsed.header) || {};
+  const sections = (parsed && parsed.sections) || [];
   const units = [];
   const sectionMeta = [];
 
   units.push(buildHeaderUnit(header, sections));
 
   sections.forEach((sec, i) => {
-    if ((sec.type || 'custom') === 'profile' && cvSettings.summaryInHeader) return;
+    if ((sec.type || 'custom') === 'profile' && cvSettings && cvSettings.summaryInHeader) return;
     buildSectionUnits(sec, i, units, sectionMeta);
   });
 
@@ -1071,7 +1084,8 @@ function measureColumnAndPaginate(units, pw, ph, marginTB, classString, sectionM
 }
 
 function paginateTwoColumn(parsed) {
-  const { header, sections } = parsed;
+  const header = (parsed && parsed.header) || {};
+  const sections = (parsed && parsed.sections) || [];
   const isLetter = cvSettings.paperFormat === 'Letter';
   const [pw, ph] = isLetter ? [215.9, 279.4] : [210, 297];
   const classString = computeCvPaperClassString(true);
@@ -1088,7 +1102,7 @@ function paginateTwoColumn(parsed) {
   }
   sections.forEach((sec, i) => {
     if ((sec.type || 'custom') === 'profile' && cvSettings.summaryInHeader) return;
-    const target = cvData.columnAssign[i] === 'sidebar' ? sidebarUnits : mainUnits;
+    const target = (cvData && cvData.columnAssign && cvData.columnAssign[i]) === 'sidebar' ? sidebarUnits : mainUnits;
     buildSectionUnits(sec, i, target, sectionMeta);
   });
 
@@ -1193,7 +1207,8 @@ function measureSidebarMainAndPaginate(units, pw, ph, classString, sectionMeta) 
 }
 
 function paginateSidebarTemplate(parsed) {
-  const { header, sections } = parsed;
+  const header = (parsed && parsed.header) || {};
+  const sections = (parsed && parsed.sections) || [];
   const isLetter = cvSettings.paperFormat === 'Letter';
   const [pw, ph] = isLetter ? [215.9, 279.4] : [210, 297];
   const classString = computeCvPaperClassString(true);
@@ -1203,7 +1218,7 @@ function paginateSidebarTemplate(parsed) {
   const sectionMeta = [];
   sections.forEach((sec, i) => {
     if ((sec.type || 'custom') === 'profile' && cvSettings.summaryInHeader) return;
-    const target = cvData.columnAssign[i] === 'sidebar' ? panelUnits : mainUnits;
+    const target = (cvData && cvData.columnAssign && cvData.columnAssign[i]) === 'sidebar' ? panelUnits : mainUnits;
     buildSectionUnits(sec, i, target, sectionMeta);
   });
 
