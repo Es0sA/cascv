@@ -1384,6 +1384,8 @@ function commitLayoutOrderFromDOM() {
   cvData.sectionNames = remapByOldIdx(cvData.sectionNames);
   cvData.sectionWidth  = remapByOldIdx(cvData.sectionWidth);
   cvData.columnAssign  = remapByOldIdx(newColumnAssignByOldIdx || cvData.columnAssign);
+  cvData.customSectionType = remapByOldIdx(cvData.customSectionType || {});
+  cvData.customSectionIcon = remapByOldIdx(cvData.customSectionIcon || {});
 
   renderEditPanel(); renderCustomizePanel(); renderRightPanel(); scheduleSave();
 }
@@ -1421,6 +1423,8 @@ function reorderSections(fromIdx, toIdx, targetCol) {
   cvData.columnAssign = remap(cvData.columnAssign);
   cvData.sectionNames = remap(cvData.sectionNames);
   cvData.sectionWidth = remap(cvData.sectionWidth);
+  cvData.customSectionType = remap(cvData.customSectionType || {});
+  cvData.customSectionIcon = remap(cvData.customSectionIcon || {});
   // moved section now lives at toIdx — match whatever column the drop target belonged to
   if (targetCol !== undefined) cvData.columnAssign[toIdx] = targetCol;
   renderEditPanel(); renderCustomizePanel(); renderRightPanel(); scheduleSave();
@@ -1984,6 +1988,8 @@ function deleteSection(index) {
   cvData.columnAssign=remap(cvData.columnAssign);
   cvData.sectionNames=remap(cvData.sectionNames);
   cvData.sectionWidth=remap(cvData.sectionWidth);
+  cvData.customSectionType=remap(cvData.customSectionType || {});
+  cvData.customSectionIcon=remap(cvData.customSectionIcon || {});
   renderEditPanel(); renderRightPanel(); scheduleSave();
 }
 
