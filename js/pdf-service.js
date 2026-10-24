@@ -43,7 +43,7 @@
    hostname; that lives on the VM, not in this repo.
    ============================================================ */
 
-const CAS_PDF_SERVICE_URL = 'https://32-193-201-76.sslip.io/generate-pdf';
+const CAS_PDF_SERVICE_URL = 'https://143-47-253-71.sslip.io/generate-pdf';
 
 // Renders one CV to PDF via the backend. mode 'save' (default)
 // triggers a browser download; mode 'blob' resolves with the raw
