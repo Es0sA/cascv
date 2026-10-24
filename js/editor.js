@@ -80,11 +80,6 @@ const reimportText      = document.getElementById('reimportText');
 const reimportConfirm   = document.getElementById('reimportConfirm');
 const reimportError     = document.getElementById('reimportError');
 const cvPaper           = document.getElementById('cvPaper');
-const mobilePreviewFab      = document.getElementById('mobilePreviewFab');
-const mobilePreviewModal    = document.getElementById('mobilePreviewModal');
-const mobilePreviewClose    = document.getElementById('mobilePreviewClose');
-const mobilePreviewBody     = document.getElementById('mobilePreviewBody');
-const mobilePreviewDownload = document.getElementById('mobilePreviewDownload');
 
 // document.title and cvNameDisplay get the real CV name once
 // initEditor() has fetched it; both already show sensible
