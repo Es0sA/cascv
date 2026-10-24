@@ -26,6 +26,10 @@ auth.authStateReady().then(() => {
   } else {
     window.location.replace("login.html");
   }
+}).catch((err) => {
+  console.error("Auth initialization failed:", err);
+  document.body.style.visibility = "visible";
+  window.location.replace("login.html");
 });
 
 onAuthStateChanged(auth, (user) => {
@@ -37,6 +41,10 @@ onAuthStateChanged(auth, (user) => {
       if (!auth.currentUser) {
         window.location.replace("login.html");
       }
+    }).catch((err) => {
+      console.error("Auth state check failed:", err);
+      document.body.style.visibility = "visible";
+      window.location.replace("login.html");
     });
   }
 });
