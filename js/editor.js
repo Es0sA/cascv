@@ -1218,8 +1218,7 @@ function renderCustomizePanel() {
     custRow('List Style',     toggleGroup([{label:'• Bullet',value:'bullet'},{label:'- Hyphen',value:'hyphen'}],'listStyle')) +
     custRow('Date Format',    toggleGroup([{label:'Month YYYY',value:'Month YYYY'},{label:'Mon YYYY',value:'Mon YYYY'},{label:'MM/YYYY',value:'MM/YYYY'},{label:'MM.YYYY',value:'MM.YYYY'},{label:'YYYY',value:'YYYY'}],'dateFormat')) +
     custRow('Duration',`<label class="cust-toggle-row"><input type="checkbox" ${cvSettings.showDuration?'checked':''} onchange="toggleBool('showDuration',this.checked)"><span class="cust-toggle-slider"></span><span class="cust-toggle-label">Show job duration (e.g. 2 yrs 3 mos)</span></label>`) +
-    custRow('Section Icons',`<label class="cust-toggle-row"><input type="checkbox" ${cvSettings.showSectionIcons?'checked':''} onchange="toggleBool('showSectionIcons',this.checked)"><span class="cust-toggle-slider"></span><span class="cust-toggle-label">Show an icon next to each section heading (pick each one in the Edit tab)</span></label>`) +
-    custRow('Skill Display',  toggleGroup([{label:'Text',value:'text'},{label:'Bars',value:'bars'},{label:'Dots',value:'dots'}],'skillStyle'));
+    custRow('Section Icons',`<label class="cust-toggle-row"><input type="checkbox" ${cvSettings.showSectionIcons?'checked':''} onchange="toggleBool('showSectionIcons',this.checked)"><span class="cust-toggle-slider"></span><span class="cust-toggle-label">Show an icon next to each section heading (pick each one in the Edit tab)</span></label>`);
 
   let colorGrid=`<div class="color-grid">`;
   ACCENT_COLORS.forEach(c=>{
@@ -2019,25 +2018,6 @@ function deleteSection(index) {
   cvData.customSectionType=remap(cvData.customSectionType || {});
   cvData.customSectionIcon=remap(cvData.customSectionIcon || {});
   renderEditPanel(); renderRightPanel(); scheduleSave();
-}
-
-function markPresent(sectionIdx) {
-  const section=cvData.parsed.sections[sectionIdx];
-  if (section.entries && section.entries.length) {
-    const last = section.entries[section.entries.length-1];
-    if (last.endDate !== undefined) last.endDate='Present';
-    else if (last.end !== undefined) last.end='Present';
-    renderEditPanel(); renderRightPanel(); scheduleSave();
-    return;
-  }
-  const ta=document.getElementById(`section-ta-${sectionIdx}`);
-  if(!ta) return;
-  const re=/(\w{3,9}\s+\d{4}|\d{4})\s*[–—-]\s*(?!Present)(\w{3,9}\s+\d{4}|\d{4})/gi;
-  let lastMatch=null,lastIdx=-1,m;
-  const re2=new RegExp(re.source,'gi');
-  while((m=re2.exec(ta.value))!==null){lastMatch=m;lastIdx=m.index;}
-  if(lastMatch){ ta.value=ta.value.slice(0,lastIdx)+lastMatch[1]+' – Present'+ta.value.slice(lastIdx+lastMatch[0].length); updateSection(sectionIdx,ta.value); }
-  else alert('No date range found to mark as Present.');
 }
 
 /* ============================================================

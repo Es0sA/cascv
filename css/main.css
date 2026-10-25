@@ -1604,95 +1604,6 @@ input {
 }
 
 /* ============================================================
-   MOBILE PREVIEW BUTTON/MODAL — see the comment above the markup in
-   editor.html for why this exists. The floating button only shows up
-   under the same 800px breakpoint the rest of this file switches the
-   editor to a stacked (edit form above preview) mobile layout at;
-   above that width the live preview already sits beside the form, so
-   there's nothing this button would usefully jump to.
-   ============================================================ */
-.mobile-preview-fab {
-  display: none;
-  position: fixed;
-  left: 18px;
-  bottom: 18px;
-  width: 52px;
-  height: 52px;
-  border-radius: 50%;
-  background: var(--bg-surface);
-  border: 1px solid var(--border-input);
-  color: var(--text-primary);
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 4px 18px rgba(0,0,0,0.28);
-  z-index: 200;
-}
-.mobile-preview-fab:active { background: var(--bg-hover); }
-
-.mobile-preview-modal {
-  display: none;
-  position: fixed;
-  inset: 0;
-  z-index: 300;
-  background: var(--bg-base, #0D1117);
-  flex-direction: column;
-}
-.mobile-preview-modal.open { display: flex; }
-
-.mobile-preview-modal-body {
-  flex: 1;
-  overflow: auto;
-  display: flex;
-  justify-content: center;
-  padding: 56px 12px 84px;
-}
-/* The actual generated PDF gets shown here as an iframe (see
-   openMobilePreview in editor.js), not a live CSS re-creation of it. */
-.mobile-preview-pdf-frame {
-  width: 100%;
-  height: 100%;
-  border: none;
-  background: #fff;
-  border-radius: 4px;
-}
-
-.mobile-preview-close {
-  position: fixed;
-  top: 14px;
-  right: 14px;
-  z-index: 310;
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  background: var(--bg-surface);
-  border: 1px solid var(--border-input);
-  color: var(--text-primary);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.mobile-preview-download {
-  position: fixed;
-  left: 50%;
-  bottom: 18px;
-  transform: translateX(-50%);
-  z-index: 310;
-  background: var(--gold);
-  color: #0D1117;
-  font-size: 0.85rem;
-  font-weight: 600;
-  padding: 11px 20px;
-  border-radius: 999px;
-  box-shadow: 0 4px 18px rgba(0,0,0,0.3);
-  white-space: nowrap;
-}
-
-@media (max-width: 800px) {
-  .mobile-preview-fab { display: flex; }
-}
-
-/* ============================================================
    EDITOR RESPONSIVE
    ============================================================ */
 
@@ -2152,33 +2063,6 @@ input {
   pointer-events: none;
 }
 
-.tt-name   { height: 5px; border-radius: 2px; background: #111; width: 70%; }
-.tt-title  { height: 3px; border-radius: 2px; background: #aaa; width: 50%; }
-.tt-line   { height: 2px; border-radius: 1px; background: #ddd; width: 100%; margin: 2px 0; }
-.tt-block  { height: 2px; border-radius: 1px; background: #e0e0e0; width: 85%; }
-.tt-block2 { height: 2px; border-radius: 1px; background: #e0e0e0; width: 75%; }
-.tt-block3 { height: 2px; border-radius: 1px; background: #e0e0e0; width: 80%; }
-.tt-section-label { height: 3px; border-radius: 1px; background: #ccc; width: 40%; margin-top: 4px; }
-
-/* Modern thumb: coloured top bar + accent name */
-.tt-modern .tt-name  { background: var(--tt-accent, #1B3A6B); }
-.tt-modern .tt-title { background: var(--tt-accent, #1B3A6B); opacity: 0.7; }
-.tt-modern::before {
-  content: '';
-  display: block;
-  height: 4px;
-  background: var(--tt-accent, #1B3A6B);
-  border-radius: 2px 2px 0 0;
-  width: calc(100% + 8px);
-  margin: -5px -4px 3px;
-}
-
-/* Minimal thumb: light grey tones */
-.tt-minimal .tt-name  { background: #333; font-weight: 300; width: 80%; height: 4px; }
-.tt-minimal .tt-title { background: #bbb; width: 55%; }
-.tt-minimal .tt-line  { background: #f0f0f0; }
-.tt-minimal .tt-block { background: #ebebeb; }
-
 .template-card-label {
   font-size: 0.7rem;
   font-weight: 600;
@@ -2481,25 +2365,6 @@ input {
   color: var(--text-primary);
   line-height: 1.4;
   min-height: 34px;
-}
-
-/* ---- Row for "legacy" stepper (keep for backward compat) ---- */
-.stepper { display: flex; align-items: center; gap: 10px; }
-.stepper-btn {
-  width: 30px; height: 30px;
-  background: var(--bg-elevated);
-  border: 1px solid var(--border-input);
-  border-radius: var(--radius-sm);
-  color: var(--text-primary);
-  font-size: 1.1rem;
-  display: flex; align-items: center; justify-content: center;
-  transition: background var(--transition);
-  font-family: var(--font-body);
-}
-.stepper-btn:hover { background: var(--bg-hover); }
-.stepper-value {
-  font-size: 0.875rem; font-weight: 600;
-  color: var(--text-primary); min-width: 46px; text-align: center;
 }
 
 /* ---- Swatches (legacy – kept for other callers) ---- */
@@ -3338,8 +3203,6 @@ input {
 .cvp-entry-row1    { break-inside: avoid; page-break-inside: avoid; }
 .cvp-entry-row2    { break-inside: avoid; page-break-inside: avoid; }
 .cvp-bullet        { break-inside: avoid; page-break-inside: avoid; }
-.cvp-skill-bar-row { break-inside: avoid; page-break-inside: avoid; }
-.cvp-skill-dot-row { break-inside: avoid; page-break-inside: avoid; }
 
 /* ---- Two-column layout (FlowCV Style) ---- */
 .cv-paper.cols-2 .cv-two-col-wrap {
@@ -3376,62 +3239,6 @@ input {
   background: var(--cv-sidebar-bg, #f0f4f8) !important;
   padding: 14px 14px;
   border-radius: 4px;
-}
-
-/* ---- Skill bars ---- */
-.cvp-skill-bar-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 4px;
-  font-size: var(--cv-base, 11px);
-}
-.cvp-skill-name {
-  flex: 0 0 140px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.cvp-skill-track {
-  flex: 1;
-  height: 5px;
-  background: rgba(0,0,0,0.12);
-  border-radius: 3px;
-  overflow: hidden;
-}
-.cvp-skill-fill {
-  height: 100%;
-  background: var(--cv-accent, #1a1a1a);
-  border-radius: 3px;
-  transition: width 0.3s ease;
-}
-.cvp-skill-pct {
-  font-size: 0.78em;
-  opacity: 0.65;
-  min-width: 30px;
-  text-align: right;
-}
-
-/* ---- Skill dots ---- */
-.cvp-skill-dot-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 4px;
-}
-.cvp-dots {
-  display: flex;
-  gap: 3px;
-}
-.cvp-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: rgba(0,0,0,0.15);
-  display: inline-block;
-}
-.cvp-dot.filled {
-  background: var(--cv-accent, #1a1a1a);
 }
 
 /* ---- Drag handles & reorder ---- */
@@ -3650,8 +3457,6 @@ input {
 @media print {
   .cv-paper.cols-2 .cv-sidebar-col { background: transparent !important; }
   .cv-paper.cols-2.sidebar-has-bg .cv-sidebar-col { background: var(--cv-sidebar-bg, #f0f4f8) !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  .cvp-skill-fill { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  .cvp-dot.filled { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 }
 
 /* ============================================================

@@ -172,30 +172,6 @@ function sectionPreview(lines, maxChars = 120) {
   return text.length > maxChars ? text.slice(0, maxChars).trimEnd() + '…' : text;
 }
 
-/**
- * Convert parsed CV back to a flat text format (for reimport reference).
- * Used when saving raw text alongside parsed data.
- */
-function cvToText(parsed) {
-  const lines = [];
-
-  if (parsed.header) {
-    const h = parsed.header;
-    if (h.name)     lines.push(h.name);
-    if (h.jobTitle) lines.push(h.jobTitle);
-    if (h.contact)  lines.push(h.contact);
-    lines.push('');
-  }
-
-  for (const section of parsed.sections) {
-    lines.push(section.title);
-    lines.push(...section.lines);
-    lines.push('');
-  }
-
-  return lines.join('\n').trim();
-}
-
 /* ============================================================
    SMART SECTION MIGRATION
    After parsing raw text into sections, detect the type of each

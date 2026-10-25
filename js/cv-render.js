@@ -74,7 +74,7 @@ const DEFAULTS = {
   headingFontSize:10, entryFontSize:11, lineHeight:1.55, letterSpacing:0,
   sectionSpacing:11, marginLR:13, marginTB:11, headingStyle:'line',
   headingCase:'upper', subtitleStyle:'normal', dateStyle:'normal', locationStyle:'normal', listStyle:'bullet',
-  dateFormat:'Month YYYY', showDuration:false, skillStyle:'text', showSectionIcons:false,
+  dateFormat:'Month YYYY', showDuration:false, showSectionIcons:false,
   accentColor:'#1a1a1a', colorBg:'#ffffff',
   colorSidebarBg:'#f0f4f8', colorText:'#1a1a1a', accentName:false,
   accentTitle:false, accentHeadings:true, accentLine:true, accentDates:false,
@@ -132,9 +132,7 @@ const SECTION_TYPES = {
     label: 'Core Skills', icon: '🧠',
     fields: [
       { key:'skill', label:'Skill / Category',  type:'text' },
-      { key:'info',  label:'Sub-skills / Info', type:'textarea', placeholder:'Specific skills, tools, methods...' },
-      { key:'level', label:'Skill Level', type:'select',
-        options: ['', 'Beginner', 'Intermediate', 'Advanced', 'Expert'] }
+      { key:'info',  label:'Sub-skills / Info', type:'textarea', placeholder:'Specific skills, tools, methods...' }
     ]
   },
   certifications: {
@@ -250,8 +248,7 @@ const CUSTOM_NORMAL_FIELDS = [
 ];
 const CUSTOM_SKILL_FIELDS = [
   { key:'skill', label:'Skill / Category',  type:'text' },
-  { key:'info',  label:'Sub-skills / Info', type:'textarea', placeholder:'Specific skills, tools, methods...' },
-  { key:'level', label:'Skill Level', type:'select', options: ['', 'Beginner', 'Intermediate', 'Advanced', 'Expert'] }
+  { key:'info',  label:'Sub-skills / Info', type:'textarea', placeholder:'Specific skills, tools, methods...' }
 ];
 // Every standard section type's own default icon (👤💼🎓 etc, see
 // SECTION_TYPES above) plus a set of extras for Custom Section /
@@ -507,9 +504,8 @@ function renderEntryHTML(entry, stype) {
   if (stype==='skills'||stype==='custom-skill') {
     const skill = entry.skill||'';
     const info  = entry.info||'';
-    const level = entry.level||'';
     if (skill&&info) html += `<p class="cvp-line"><strong class="cvp-cat">${escapeHtml(skill)}:</strong> ${mdLine(info)}</p>`;
-    else if (skill)  html += `<p class="cvp-line"><strong class="cvp-cat">${escapeHtml(skill)}</strong>${level?' — '+level:''}</p>`;
+    else if (skill)  html += `<p class="cvp-line"><strong class="cvp-cat">${escapeHtml(skill)}</strong></p>`;
     return html;
   }
 
@@ -757,9 +753,12 @@ function buildCVHTML(parsed) {
   const headerPos = cvSettings.headerPosition || 'top';
   const headerInColumn = isTwoCol && !isSidebarTemplate && (headerPos === 'left' || headerPos === 'right');
 
+  const hdrAlign = (cvSettings && cvSettings.headerAlign && cvSettings.headerAlign !== 'left')
+    ? ` style="text-align:${escapeAttr(cvSettings.headerAlign)}"` : '';
+
   let html = '';
   if (!headerInColumn) {
-    html += '<div class="cvp-header">' + headerInner;
+    html += `<div class="cvp-header"${hdrAlign}>` + headerInner;
     if (isSidebarTemplate) {
       // These templates' header IS the colored side panel (see main.css
       // "Shared sidebar base"), so sections assigned to the sidebar render
@@ -777,7 +776,7 @@ function buildCVHTML(parsed) {
   } else if (isTwoCol) {
     const main    = sections.map((s,i)=>({s,i})).filter(({i})=>(cvData.columnAssign[i]||'main')==='main');
     const sidebar = sections.map((s,i)=>({s,i})).filter(({i})=>cvData.columnAssign[i]==='sidebar');
-    const headerBlock = headerInColumn ? `<div class="cvp-header cvp-header-incolumn">${headerInner}</div>` : '';
+    const headerBlock = headerInColumn ? `<div class="cvp-header cvp-header-incolumn"${hdrAlign}>${headerInner}</div>` : '';
     const isSidebarRight = cvSettings.sidebarPosition === 'right';
     const sidebarHtml = '<div class="cv-sidebar-col">' + (headerPos==='left'?headerBlock:'') + sidebar.map(({s,i})=>renderSectionPreview(s,i)).join('') + '</div>';
     const mainHtml    = '<div class="cv-main-col">'    + (headerPos==='right'?headerBlock:'') + main.map(({s,i})=>renderSectionPreview(s,i)).join('')    + '</div>';
@@ -930,11 +929,14 @@ function buildHeaderUnit(header, sections, variant) {
     ? `<div class="cvp-header-row">${photoHtmlUnits}<div class="cvp-header-text">${headerTextInner}</div></div>`
     : headerTextInner;
 
+  const hdrAlign = (cvSettings && cvSettings.headerAlign && cvSettings.headerAlign !== 'left')
+    ? ` style="text-align:${escapeAttr(cvSettings.headerAlign)}"` : '';
+
   const headerHtml = variant === 'incolumn'
-    ? `<div class="cvp-header cvp-header-incolumn">${headerInnerUnits}</div>`
+    ? `<div class="cvp-header cvp-header-incolumn"${hdrAlign}>${headerInnerUnits}</div>`
     : variant === 'bare'
     ? headerInnerUnits
-    : '<div class="cvp-header">' + headerInnerUnits + '</div><hr class="cvp-divider">';
+    : `<div class="cvp-header"${hdrAlign}>` + headerInnerUnits + '</div><hr class="cvp-divider">';
   return { html: headerHtml, sectionIndex: null, isHeading: false, isHeader: true };
 }
 
@@ -942,8 +944,7 @@ function buildSectionUnits(sec, i, units, sectionMeta) {
   const name = cvData.sectionNames[i] !== undefined ? cvData.sectionNames[i] : sec.title;
   const def   = getSectionDef(sec, i);
   const renderStype = getEffectiveStype(sec, i);
-  const skillClass = (renderStype === 'skills' || renderStype === 'custom-skill')
-    ? ` cvp-section-skill-${cvSettings.skillStyle || 'text'}` : '';
+  const skillClass = '';
   sectionMeta[i] = { name, skillClass };
   units.push({ html: `<div class="cvp-sec-heading">${sectionHeadingInnerHTML(name, def.icon)}</div>`, sectionIndex: i, isHeading: true });
 
@@ -1209,7 +1210,9 @@ function sidebarPanelPageHTML(pageUnits, sectionMeta, pageIdx, header) {
     : '';
   const continuationStrip = (!hasHeaderUnit && !cvData.hiddenFields['name'])
     ? `<div class="cvp-name cvp-header-continuation"${nameStyle}>${mdLine(header.name || '')}</div>` : '';
-  return `<div class="cvp-header">${headerHtml}${continuationStrip}<div class="cvp-header-sections">${sectionsHtml}</div></div>`;
+  const hdrAlign = (cvSettings && cvSettings.headerAlign && cvSettings.headerAlign !== 'left')
+    ? ` style="text-align:${escapeAttr(cvSettings.headerAlign)}"` : '';
+  return `<div class="cvp-header"${hdrAlign}>${headerHtml}${continuationStrip}<div class="cvp-header-sections">${sectionsHtml}</div></div>`;
 }
 
 function measureSidebarPanelAndPaginate(units, pw, ph, classString, sectionMeta, header) {
