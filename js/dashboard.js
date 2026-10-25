@@ -93,7 +93,8 @@ optionScratch.addEventListener('click', async () => {
     const CVStore = await window.cvStoreReady;
     await CVStore.save(blankCV);
     window.location.href = `editor.html?id=${id}`;
-  } catch {
+  } catch (err) {
+    console.error('dashboard.newCV failed:', err);
     alert('Could not create a new CV. Please try again.');
   }
 });
@@ -208,7 +209,8 @@ async function deleteCV(id) {
     await CVStore.remove(id);
     cachedCVs = cachedCVs.filter(cv => cv.id !== id);
     renderGallery();
-  } catch {
+  } catch (err) {
+    console.error('dashboard.deleteCV failed:', err);
     alert('Could not delete this CV. Please try again.');
   }
 }
@@ -254,7 +256,8 @@ async function boot() {
     const CVStore = await window.cvStoreReady;
     await CVStore.migrateIfNeeded();
     cachedCVs = await CVStore.getAll();
-  } catch {
+  } catch (err) {
+    console.error('dashboard.boot failed:', err);
     cvCountEl.textContent = '';
     cvGrid.innerHTML = '<p class="cv-loading-text">Could not load your CVs. Please refresh the page.</p>';
     return;

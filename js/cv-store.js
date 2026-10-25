@@ -88,7 +88,8 @@ async function migrateIfNeeded() {
   let localCVs = [];
   try {
     localCVs = JSON.parse(localStorage.getItem(LOCAL_KEY)) || [];
-  } catch {
+  } catch (err) {
+    console.error('cvStore.migrateIfNeeded parse failed:', err);
     localCVs = [];
   }
 

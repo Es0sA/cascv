@@ -416,7 +416,8 @@ async function handlePhotoUpload(input) {
     renderRightPanel();
     renderCustomizePanel();
     scheduleSave();
-  } catch {
+  } catch (err) {
+    console.error('editor.handlePhotoUpload failed:', err);
     alert('Could not process that image. Please try a different file.');
   }
 }
@@ -2094,7 +2095,10 @@ async function persistSave(){
     const CVStore = await window.cvStoreReady;
     await CVStore.save(cvData);
     saveIndicator.textContent='Saved'; saveIndicator.className='save-indicator saved';
-  }catch{ saveIndicator.textContent='Save failed'; saveIndicator.className='save-indicator error'; }
+  } catch (err) {
+    console.error('editor.persistSave failed:', err);
+    saveIndicator.textContent='Save failed'; saveIndicator.className='save-indicator error';
+  }
 }
 
 /* ============================================================
@@ -2377,7 +2381,8 @@ async function initEditor() {
     const CVStore = await window.cvStoreReady;
     await CVStore.migrateIfNeeded();
     cvData = await CVStore.getById(cvId);
-  } catch {
+  } catch (err) {
+    console.error('editor.initEditor failed:', err);
     cvData = null;
   }
 
