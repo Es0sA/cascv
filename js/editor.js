@@ -409,6 +409,12 @@ function resizeImageToDataUrl(file, maxSize, quality) {
 async function handlePhotoUpload(input) {
   const file = input.files && input.files[0];
   if (!file) return;
+  const MAX_PHOTO_BYTES = 10 * 1024 * 1024; // 10 MB
+  if (file.size > MAX_PHOTO_BYTES) {
+    alert('That image is larger than 10 MB. Please choose a smaller file.');
+    input.value = '';
+    return;
+  }
   try {
     const dataUrl = await resizeImageToDataUrl(file, 320, 0.82);
     cvData.parsed.header.photo = dataUrl;

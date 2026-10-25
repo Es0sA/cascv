@@ -342,6 +342,17 @@ function buildPhotoHtml(header) {
   return `<div class="cvp-photo-frame cvp-photo-${shape}"><img class="cvp-photo" src="${escapeAttr(hf.photo)}" alt=""></div>`;
 }
 
+function renderContactItem(field, value) {
+  const rendered = mdLine(value);
+  if (['email','phone','linkedin','website','portfolio','github'].includes(field)) {
+    if (/<a\s/.test(rendered)) return rendered;
+    const href = contactHref(field, value);
+    if (!href) return rendered;
+    return `<a class="cvp-contact-link" href="${escapeAttr(href)}">${rendered}</a>`;
+  }
+  return rendered;
+}
+
 function buildContactHtml(header) {
   const hf = header || {};
   const hidden = (cvData && cvData.hiddenFields) || {};
@@ -352,12 +363,12 @@ function buildContactHtml(header) {
     return '';
   }
   if (cvSettings && cvSettings.iconStyle === 'none') {
-    return mdLine(order.map(key => hf[key]).join(' | '));
+    return order.map(key => renderContactItem(key, hf[key])).join(' | ');
   }
   return order.map(key => {
     const meta = CONTACT_FIELD_META[key];
     const icon = (meta && meta.icon) || '•';
-    return `<span class="cvp-contact-item"><span class="cvp-contact-icon">${escapeHtml(icon)}</span><span class="cvp-contact-text">${mdLine(hf[key])}</span></span>`;
+    return `<span class="cvp-contact-item"><span class="cvp-contact-icon">${escapeHtml(icon)}</span><span class="cvp-contact-text">${renderContactItem(key, hf[key])}</span></span>`;
   }).join('');
 }
 
@@ -437,7 +448,7 @@ function renderEntryHTML(entry, stype) {
         dateStr += ' ' + calcDuration(entry.startDate||entry.start||'', entry.endDate||entry.end||'');
       }
     }
-    const subHtml   = subLink ? `<a href="${escapeAttr(subLink)}" target="_blank" rel="noopener">${escapeHtml(sub)}</a>` : escapeHtml(sub);
+    const subHtml   = subLink ? `<a href="${escapeAttr(ensureProtocol(subLink))}" target="_blank" rel="noopener">${escapeHtml(sub)}</a>` : escapeHtml(sub);
     // Title/Subtitle Order: which field (job title vs employer/school)
     // leads in row 1. The CSS class stays tied to the field's MEANING
     // (title keeps .cvp-entry-title, subtitle keeps .cvp-entry-employer)
@@ -505,7 +516,7 @@ function renderEntryHTML(entry, stype) {
   if (stype==='certifications') {
     const name = entry.name||'';
     const nameLink = entry.nameLink||'';
-    const nameHtml = nameLink ? `<a href="${escapeAttr(nameLink)}" target="_blank" rel="noopener">${escapeHtml(name)}</a>` : escapeHtml(name);
+    const nameHtml = nameLink ? `<a href="${escapeAttr(ensureProtocol(nameLink))}" target="_blank" rel="noopener">${escapeHtml(name)}</a>` : escapeHtml(name);
     const date = formatDate(entry.date||'');
     const info = entry.info||'';
     html += `<p class="cvp-line"><strong>${nameHtml}</strong>${date?' — Date: '+escapeHtml(date):''}${info?'\n'+info:''}</p>`;
@@ -520,7 +531,7 @@ function renderEntryHTML(entry, stype) {
   if (stype==='awards'||stype==='publications'||stype==='interests') {
     const title = entry.title||entry.interest||'';
     const titleLink = entry.titleLink||entry.interestLink||'';
-    const titleHtml = titleLink ? `<a href="${escapeAttr(titleLink)}" target="_blank" rel="noopener">${mdLine(title)}</a>` : mdLine(title);
+    const titleHtml = titleLink ? `<a href="${escapeAttr(ensureProtocol(titleLink))}" target="_blank" rel="noopener">${mdLine(title)}</a>` : mdLine(title);
     const sub   = [entry.issuer||entry.publisher, entry.date ? formatDate(entry.date) : ''].filter(Boolean).join(' — ');
     const desc  = entry.desc||'';
     const descAlign = entry.descAlign && entry.descAlign!=='left' ? ` style="text-align:${entry.descAlign}"` : '';
@@ -542,7 +553,7 @@ function renderEntryHTML(entry, stype) {
 
   if (stype==='references') {
     const nameLink = entry.nameLink||'';
-    const nameHtml = nameLink ? `<a href="${escapeAttr(nameLink)}" target="_blank" rel="noopener">${escapeHtml(entry.name||'')}</a>` : escapeHtml(entry.name||'');
+    const nameHtml = nameLink ? `<a href="${escapeAttr(ensureProtocol(nameLink))}" target="_blank" rel="noopener">${escapeHtml(entry.name||'')}</a>` : escapeHtml(entry.name||'');
     html += `<p class="cvp-entry-title">${nameHtml}</p>`;
     if (entry.position||entry.company) html += `<p class="cvp-entry-meta">${escapeHtml([entry.position,entry.company].filter(Boolean).join(', '))}</p>`;
     if (entry.email||entry.phone) html += `<p class="cvp-line">${escapeHtml([entry.email,entry.phone].filter(Boolean).join(' | '))}</p>`;
@@ -643,7 +654,7 @@ function formatLines(lines) {
 function mdLine(text) {
   return (text||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
     .replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, (m, label, url) => {
-      const safeUrl = url.replace(/"/g, '&quot;');
+      const safeUrl = escapeAttr(ensureProtocol(url));
       return `<a href="${safeUrl}" target="_blank" rel="noopener">${label}</a>`;
     })
     .replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>').replace(/__(.+?)__/g,'<u>$1</u>')
@@ -652,6 +663,39 @@ function mdLine(text) {
 
 function escapeHtml(s){ const d=document.createElement('div'); d.appendChild(document.createTextNode(s||'')); return d.innerHTML; }
 function escapeAttr(s){ return (s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,'&#39;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+/**
+ * Ensure a URL has an explicit scheme so Chromium's printToPDF preserves it
+ * as a clickable URI annotation. Protocol-relative (//...) gets https:.
+ * Existing schemes (http, https, mailto, tel, ftp, etc.) are preserved.
+ * Internal anchors (#...) are preserved.
+ */
+function ensureProtocol(url) {
+  if (url == null) return '';
+  const s = String(url).trim();
+  if (!s) return '';
+  if (/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(s)) return s;
+  if (s.startsWith('//')) return 'https:' + s;
+  if (s.startsWith('#')) return s;
+  return 'https://' + s;
+}
+
+/**
+ * Build the href for a header contact field based on the field's semantic.
+ * email -> mailto:, phone -> tel:, everything else -> ensureProtocol().
+ */
+function contactHref(field, value) {
+  if (value == null) return '';
+  const v = String(value).trim();
+  if (!v) return '';
+  if (field === 'email') return v.startsWith('mailto:') ? v : 'mailto:' + v;
+  if (field === 'phone') {
+    if (v.startsWith('tel:')) return v;
+    const digits = v.replace(/[^\d+]/g, '');
+    return digits ? 'tel:' + digits : '';
+  }
+  return ensureProtocol(v);
+}
 
 // Single source of truth for the class string that carries every
 // template/accent/style modifier — used both by applySettings() (for
