@@ -18,34 +18,14 @@ import {
   signOut
 } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-auth.js";
 
-// Wait for initial auth state to be fully resolved from storage
-auth.authStateReady().then(() => {
-  if (auth.currentUser) {
-    window.casUser = auth.currentUser;
-    document.body.style.visibility = "visible";
-  } else {
-    window.location.replace("login.html");
-  }
-}).catch((err) => {
-  console.error("Auth initialization failed:", err);
-  document.body.style.visibility = "visible";
-  window.location.replace("login.html");
-});
-
+// Single source of truth: onAuthStateChanged. Fires once immediately with the
+// current persisted user, so no separate authStateReady race is needed.
 onAuthStateChanged(auth, (user) => {
   if (user) {
     window.casUser = user;
     document.body.style.visibility = "visible";
-  } else {
-    auth.authStateReady().then(() => {
-      if (!auth.currentUser) {
-        window.location.replace("login.html");
-      }
-    }).catch((err) => {
-      console.error("Auth state check failed:", err);
-      document.body.style.visibility = "visible";
-      window.location.replace("login.html");
-    });
+  } else if (!window.__casSigningOut) {
+    window.location.replace("login.html");
   }
 });
 
@@ -53,6 +33,7 @@ onAuthStateChanged(auth, (user) => {
 // it from the existing "Sign Out" button without needing to
 // import Firebase itself.
 window.casSignOut = function () {
+  window.__casSigningOut = true;
   return signOut(auth).then(() => {
     window.location.href = "index.html";
   });

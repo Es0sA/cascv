@@ -6,6 +6,7 @@
 import { auth } from "./firebase-init.js";
 import {
   signInWithEmailAndPassword,
+  onAuthStateChanged,
   setPersistence,
   browserLocalPersistence,
   browserSessionPersistence,
@@ -30,13 +31,17 @@ async function configurePersistence() {
 }
 
 // Ensure initial persistence setup
-configurePersistence().catch(() => {});
+configurePersistence().catch((err) => {
+  console.error("configurePersistence failed:", err);
+});
 
 // If already signed in, wait until auth state is confirmed before redirecting
 auth.authStateReady().then(() => {
   if (auth.currentUser) {
     window.location.replace("dashboard.html");
   }
+}).catch((err) => {
+  console.error("authStateReady failed:", err);
 });
 
 // Elements
@@ -80,6 +85,15 @@ async function handleSignIn(e) {
   try {
     await configurePersistence();
     await signInWithEmailAndPassword(auth, email, password);
+    // Wait for auth state to settle before navigating: prevents auth-guard on
+    // dashboard.html from seeing null currentUser due to IndexedDB sync lag.
+    if (!auth.currentUser) {
+      await new Promise((resolve) => {
+        const unsub = onAuthStateChanged(auth, (user) => {
+          if (user) { unsub(); resolve(); }
+        });
+      });
+    }
     window.location.replace('dashboard.html');
   } catch (err) {
     console.error('Login error:', err);
