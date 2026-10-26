@@ -63,3 +63,9 @@ node_modules/
 # Local dev server artifacts
 *.pid
 nohup.out
+
+# Security and keys
+*.pem
+*.key
+*service-account*.json
+*credentials*.json
