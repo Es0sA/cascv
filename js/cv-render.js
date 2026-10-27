@@ -887,7 +887,7 @@ async function ensureFontsReady() {
   } catch { /* best-effort */ }
 }
 
-const PAGE_FIT_TOLERANCE_MM = 1;
+const PAGE_FIT_TOLERANCE_MM = 0;
 const BANNER_TEMPLATES = ['hunter-green', 'corporate', 'silver-banner', 'blue-steel', 'clear-banner'];
 
 function getPaginationMode() {
