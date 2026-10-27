@@ -4246,13 +4246,17 @@ body.panel-resizing iframe {
 .cv-page > .cvp-sec-heading:first-child,
 .cv-page > .cv-two-col-wrap:first-child {
   margin-top: 0 !important;
+}
+
+/* Only reset padding-top on sections/headings, NOT on headers (banner templates rely on header padding-top) */
+.cv-page > .cvp-section:first-child,
+.cv-page > .cvp-sec-heading:first-child {
   padding-top: 0 !important;
 }
 
 .cv-page > .cvp-header:first-child > *:first-child,
 .cv-page > .cvp-header:first-child .cvp-name {
   margin-top: 0 !important;
-  padding-top: 0 !important;
 }
 
 /* Equalize bottom spacing: last element inside .cv-page must have NO extra trailing margin-bottom */
