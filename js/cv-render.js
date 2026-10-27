@@ -491,8 +491,8 @@ function renderEntryHTML(entry, stype) {
       desc.split('\n').forEach(line => {
         const t = line.trim();
         if (!t) return;
-        if (/^[•–-]\s/.test(t)) {
-          html += `<p class="cvp-bullet"${descAlign} style="break-inside:avoid">${bullet} ${mdLine(t.replace(/^[•–-]\s+/,''))}</p>`;
+        if (/^[•–\-\*]\s/.test(t)) {
+          html += `<p class="cvp-bullet"${descAlign} style="break-inside:avoid">${bullet} ${mdLine(t.replace(/^[•–\-\*]\s+/,''))}</p>`;
         } else {
           html += `<p class="cvp-line"${descAlign}>${mdLine(t)}</p>`;
         }
@@ -636,7 +636,7 @@ function formatLines(lines) {
   for(let i=0;i<lines.length;i++){
     const t=lines[i].trim();
     if(!t){result.push('<div class="cvp-gap"></div>');continue;}
-    if(/^[•–]\s/.test(t)||/^-\s/.test(t)){ result.push(`<p class="cvp-bullet" style="break-inside:avoid">${bullet} ${mdLine(t.replace(/^[•–-]\s+/,''))}</p>`); continue; }
+    if (/^[•–\-\*]\s/.test(t)) { result.push(`<p class="cvp-bullet" style="break-inside:avoid">${bullet} ${mdLine(t.replace(/^[•–\-\*]\s+/,''))}</p>`); continue; }
     if(t.includes(' | ')&&/(Present|\d{4})/i.test(t)){ result.push(`<p class="cvp-entry-meta">${escapeHtml(t)}</p>`); continue; }
     const next=(lines[i+1]||'').trim();
     if(next.includes(' | ')&&/(Present|\d{4})/i.test(next)){ result.push(`<p class="cvp-entry-title">${mdLine(t)}</p>`); continue; }

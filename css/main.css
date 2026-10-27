@@ -2589,7 +2589,7 @@ input {
     overflow: visible !important;
   }
 
-  .cv-paper {
+  .cv-paper:not(.cv-page) {
     box-shadow: none !important;
     max-width: 100% !important;
     width: 100% !important;
@@ -3137,6 +3137,8 @@ input {
   font-weight: 700;
   color: #0a0a0a;
   line-height: 1.3;
+  min-width: 0;
+  flex: 1 1 auto;
 }
 
 /* Row 1 (title + date) and row 2 (employer + location): title/employer
