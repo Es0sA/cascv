@@ -208,6 +208,15 @@ async function deleteCV(id) {
     const CVStore = await window.cvStoreReady;
     await CVStore.remove(id);
     cachedCVs = cachedCVs.filter(cv => cv.id !== id);
+    const uid = (window.casUser && window.casUser.uid) || localStorage.getItem('cas_last_uid') || 'anon';
+    const slimCVs = cachedCVs.map(cv => ({
+      id: cv.id,
+      name: cv.name,
+      updatedAt: cv.updatedAt,
+      createdAt: cv.createdAt,
+      parsed: { header: { jobTitle: cv.parsed && cv.parsed.header ? cv.parsed.header.jobTitle : '' } }
+    }));
+    localStorage.setItem(`cas_cv_meta_cache_${uid}`, JSON.stringify(slimCVs));
     renderGallery();
   } catch (err) {
     console.error('dashboard.deleteCV failed:', err);
@@ -247,22 +256,59 @@ function escapeCardText(str) {
 
 /* ---- Init ---- */
 async function boot() {
-  cvCountEl.textContent = 'Loading…';
-  emptyState.style.display = 'none';
-  cvGrid.style.display     = 'block';
-  cvGrid.innerHTML = '<p class="cv-loading-text">Loading your CVs…</p>';
-
   try {
     const CVStore = await window.cvStoreReady;
+    const uid = (window.casUser && window.casUser.uid) || localStorage.getItem('cas_last_uid') || 'anon';
+    const cacheKey = `cas_cv_meta_cache_${uid}`;
+
+    // 1. Optimistic paint from localStorage
+    const cachedString = localStorage.getItem(cacheKey);
+    if (cachedString) {
+      try {
+        cachedCVs = JSON.parse(cachedString);
+        if (cachedCVs.length > 0) {
+          renderGallery();
+        }
+      } catch (e) {
+        console.warn('Failed to parse dashboard cache', e);
+      }
+    } else {
+      cvCountEl.textContent = 'Loading…';
+      emptyState.style.display = 'none';
+      cvGrid.style.display     = 'block';
+      cvGrid.innerHTML = '<p class="cv-loading-text">Loading your CVs…</p>';
+    }
+
+    // 2. Fetch fresh data from Firestore
     await CVStore.migrateIfNeeded();
     cachedCVs = await CVStore.getAll();
+
+    // 3. Save slim version to cache for next time
+    const currentUid = (window.casUser && window.casUser.uid) || uid;
+    if (currentUid && currentUid !== 'anon') {
+      localStorage.setItem('cas_last_uid', currentUid);
+    }
+    const finalCacheKey = `cas_cv_meta_cache_${currentUid}`;
+    const slimCVs = cachedCVs.map(cv => ({
+      id: cv.id,
+      name: cv.name,
+      updatedAt: cv.updatedAt,
+      createdAt: cv.createdAt,
+      parsed: { header: { jobTitle: cv.parsed && cv.parsed.header ? cv.parsed.header.jobTitle : '' } }
+    }));
+    localStorage.setItem(finalCacheKey, JSON.stringify(slimCVs));
+
   } catch (err) {
     console.error('dashboard.boot failed:', err);
-    cvCountEl.textContent = '';
-    cvGrid.innerHTML = '<p class="cv-loading-text">Could not load your CVs. Please refresh the page.</p>';
+    // Only show error if we don't have cached data to display
+    if (!cachedCVs || cachedCVs.length === 0) {
+      cvCountEl.textContent = '';
+      cvGrid.innerHTML = '<p class="cv-loading-text">Could not load your CVs. Please refresh the page.</p>';
+    }
     return;
   }
 
+  // Fresh data rendered
   renderGallery();
 }
 
