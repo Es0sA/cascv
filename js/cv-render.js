@@ -1317,7 +1317,8 @@ async function buildBackendExportPayload() {
   if (paginated) {
     if (typeof cvPaper !== 'undefined' && cvPaper && cvPaper.querySelector('.cv-page')) {
       const clone = cvPaper.cloneNode(true);
-      clone.querySelectorAll('.cv-page-badge').forEach(b => b.remove());
+      // Strip page badges and any rogue elements injected by browser extensions or libraries
+      clone.querySelectorAll('.cv-page-badge, ol, ul, li, textarea, input, select, iframe').forEach(el => el.remove());
       exportHTML = clone.innerHTML;
     } else {
       const mode = getPaginationMode();
