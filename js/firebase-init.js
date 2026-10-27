@@ -6,7 +6,7 @@
    ============================================================ */
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-app.js";
 import { getAuth } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-auth.js";
-import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-firestore.js";
+import { initializeFirestore, persistentLocalCache, persistentSingleTabManager } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-firestore.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyAh49ffWEnRg1PmlaCj3blcEM5xP1Mas24",
@@ -20,5 +20,5 @@ const firebaseConfig = {
 export const app  = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db   = initializeFirestore(app, {
-  localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() })
+  localCache: persistentLocalCache({ tabManager: persistentSingleTabManager() })
 });

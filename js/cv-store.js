@@ -66,12 +66,13 @@ async function getById(id) {
   const user = await whenSignedIn();
   const ref = cvDocRef(user.uid, id);
   try {
-    // Bypass persistent cache to avoid Web Locks deadlocks during navigation
-    const snap = await getDocFromServer(ref);
+    // Standard getDoc is cache-first. With single-tab manager, this resolves
+    // instantly from IndexedDB if present, avoiding Web Locks deadlocks.
+    const snap = await getDoc(ref);
     return snap.exists() ? snap.data() : null;
   } catch (err) {
-    console.warn('cvStore.getById: server fetch failed, falling back to local cache:', err);
-    const snap = await getDoc(ref);
+    console.warn('cvStore.getById: cache fetch failed, trying network:', err);
+    const snap = await getDocFromServer(ref);
     return snap.exists() ? snap.data() : null;
   }
 }

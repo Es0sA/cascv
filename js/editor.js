@@ -2367,10 +2367,10 @@ async function initEditor() {
     const CVStore = await window.cvStoreReady;
     await CVStore.migrateIfNeeded();
     
-    // Wrap the fetch in a 10-second timeout so we never hang indefinitely
+    // Wrap the fetch in a 20-second timeout so we never hang indefinitely
     const fetchPromise = CVStore.getById(cvId);
     const timeoutPromise = new Promise((_, reject) => 
-      setTimeout(() => reject(new Error('Timeout loading CV from Firestore')), 10000)
+      setTimeout(() => reject(new Error('Timeout loading CV from Firestore')), 20000)
     );
     
     cvData = await Promise.race([fetchPromise, timeoutPromise]);
